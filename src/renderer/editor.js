@@ -101,6 +101,7 @@ async function openEditor() {
   const cur = panel.cur();
   if (!cur || cur.up || cur.isDir) return;
   const fname = cur.name;
+  if (panel.arc && panel.arc.remote) return remoteArcMsg(); // a downloaded copy: saving would not reach the server
 
   // ---- resolve the real file (files inside an archive are edited as a temp copy and written back)
   let file;

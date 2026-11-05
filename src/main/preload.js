@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   zipTemp: inv('zip:temp'),
   viewRead: inv('view:read'),
   writeFile: inv('file:write'),
+  mkTemp: inv('fs:mktemp'),
   del: inv('op:delete'),
   mkdir: inv('op:mkdir'),
   open: inv('shell:open'),

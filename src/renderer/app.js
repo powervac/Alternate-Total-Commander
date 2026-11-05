@@ -248,20 +248,20 @@ class Panel {
   uploadDir() { return this.consoleOn && typeof sshCwd === 'function' ? sshCwd(this) : this.rem.path; }
 
   /** real folder on disk: the panel's folder, or the folder that holds the open archive */
-  realDir() { return this.arc ? P.dirname(this.arc.file) : this.rem ? this.lastLocal || api.home : this.dir; }
+  realDir() { return this.arc ? (this.arc.remote ? this.lastLocal || api.home : P.dirname(this.arc.file)) : this.rem ? this.lastLocal || api.home : this.dir; }
 
   /** location snapshot: {dir}, {arc:{file,inner}} or {rem:{id,name,path}} */
   snap() { return this.arc ? { arc: { ...this.arc } } : this.rem ? { rem: { ...this.rem } } : { dir: this.dir }; }
   go(nav, opts) {
     if (nav.rem) return this.loadRem(nav.rem, nav.rem.path, opts);
-    return nav.arc ? this.loadArc(nav.arc.file, nav.arc.inner, opts) : this.load(nav.dir, opts);
+    return nav.arc ? this.loadArc(nav.arc.file, nav.arc.inner, { ...opts, remote: nav.arc.remote }) : this.load(nav.dir, opts);
   }
 
   _commit(res, dir, arc, nav, opts, rem = null) {
     const keepSel = opts.keepSel ? new Set(this.sel) : null;
     this.arc = arc;
     this.rem = rem;
-    if (!rem) this.lastLocal = arc ? P.dirname(arc.file) : dir;
+    if (!rem && !(arc && arc.remote)) this.lastLocal = arc ? P.dirname(arc.file) : dir;
     // leaving the SSH server (another disk, a favourite folder ...): the console must not stay on top of the new list
     if (this.consoleOn && !(rem && rem.type === 'sftp')) sshShowList(this);
     this.dir = dir;
@@ -357,8 +357,11 @@ class Panel {
   async loadArc(file, inner, opts = {}) {
     const res = await api.zipList({ archive: file, inner });
     if (res.error) { await msg('Error', res.error); return false; }
-    const shown = inner ? P.join(file, ...inner.split('/')) : file;
-    return this._commit(res, shown, { file, inner }, { arc: { file, inner } }, opts);
+    // an archive that was downloaded from a NAS / SSH server keeps a pointer to its origin (read-only, shown with the remote path)
+    const remote = opts.remote || (this.arc && this.arc.file === file ? this.arc.remote : undefined);
+    const arc = remote ? { file, inner, remote } : { file, inner };
+    const shown = remote ? `${remote.name}:${remote.path}${inner ? '/' + inner : ''}` : inner ? P.join(file, ...inner.split('/')) : file;
+    return this._commit(res, shown, arc, { arc }, opts);
   }
 
   /** browse a Synology NAS (File Station) or an SSH server (SFTP). conn = {id, name, type: 'nas'|'sftp'}; rpath '/' or '/dir/sub' */
@@ -524,6 +527,7 @@ class Panel {
     if (this.rem) {
       const full = remJoin(this.rem.path, it.name);
       if (it.isDir) return this.loadRem(this.rem, full);
+      if (isZip(it.name)) return openRemoteArchive(this, it); // a zip on the NAS / SSH server opens like a folder
       if (isAudioFile(it.name)) return playerStart(this, it);
       const t = await api.nasTemp({ id: this.rem.id, path: full });
       if (t.error) return msg('NAS', t.error);
@@ -555,10 +559,15 @@ class Panel {
       return this.loadRem(this.rem, i <= 0 ? '/' : path.slice(0, i), { focusName: path.slice(i + 1) });
     }
     if (this.arc) {
-      const { file, inner } = this.arc;
+      const { file, inner, remote } = this.arc;
       if (inner) {
         const i = inner.lastIndexOf('/');
         return this.loadArc(file, i < 0 ? '' : inner.slice(0, i), { focusName: inner.slice(i + 1) });
+      }
+      if (remote) {
+        // out of an archive that came from the NAS / SSH server: back into its folder there
+        const i = remote.path.lastIndexOf('/');
+        return this.loadRem({ id: remote.id, name: remote.name, type: remote.type }, i <= 0 ? '/' : remote.path.slice(0, i), { focusName: remote.path.slice(i + 1) });
       }
       return this.load(P.dirname(file), { focusName: P.basename(file) });
     }
@@ -709,6 +718,30 @@ function openDrivePicker(p) {
 // ------------------------------------------------------------------ file operations
 const arcPrefix = (p) => (p.arc.inner ? p.arc.inner + '/' : '');
 
+/** a zip from a NAS / SSH server is a downloaded copy: it can be browsed and extracted from, not changed */
+const remoteArcMsg = () => msg('Archive', 'This archive was downloaded from the NAS / SSH server, so it is read-only here.\nUse F5 to copy files out of it, or copy the archive to a local folder to change it.');
+const remoteArchives = new Map(); // "id|path|size|mtime" -> downloaded temp file (kept until the program exits)
+
+/** Enter on a .zip in a NAS / SSH panel: download it (with progress) and show it as a folder */
+async function openRemoteArchive(p, it) {
+  const rem = p.rem;
+  const rpath = remJoin(rem.path, it.name);
+  const key = `${rem.id}|${rpath}|${it.size}|${it.mtime}`;
+  let file = remoteArchives.get(key);
+  if (!file || !(await api.stat(file)).exists) {
+    const dir = await api.mkTemp();
+    const res = await withProgress('Downloading archive', (jobId) =>
+      api.nasDownload({ id: rem.id, jobId, base: rem.path, destDir: dir, overwrite: 'all', items: [{ name: it.name, isDir: false, size: it.size, mtime: it.mtime }] })
+    );
+    if (res.error) return msg('Archive', res.error);
+    if (res.cancelled) return;
+    if (res.errors && res.errors.length) return showErrors(res.errors);
+    file = P.join(dir, it.name);
+    remoteArchives.set(key, file);
+  }
+  return p.loadArc(file, '', { remote: { id: rem.id, name: rem.name, type: rem.type, path: rpath } });
+}
+
 /** rewrite an archive (add / remove / rename / mkdir) with progress, then refresh both panels */
 async function arcModify(title, archive, payload) {
   const res = await withProgress(title, (id) => api.zipModify({ id, archive, ...payload }));
@@ -720,6 +753,7 @@ const okRes = (r) => !r.errors.length && !r.cancelled;
 
 async function addToArchive(kind) {
   const src = A(), dst = O();
+  if (dst.arc.remote) return remoteArcMsg();
   const items = src.targets();
   if (!items.length) return;
   const label = kind === 'copy' ? 'Copy' : 'Move';
@@ -757,6 +791,7 @@ async function addToArchive(kind) {
 
 async function renameInArc() {
   const p = A();
+  if (p.arc.remote) return remoteArcMsg();
   const it = p.cur();
   if (!it || it.up) return;
   const r = await dialog({ title: 'Rename', text: `Rename "${it.name}" to:`, input: it.name, buttons: OKCANCEL });
@@ -770,6 +805,7 @@ async function renameInArc() {
 
 async function deleteFromArc() {
   const p = A();
+  if (p.arc.remote) return remoteArcMsg();
   const items = p.targets();
   if (!items.length) return;
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} selected item(s)`;
@@ -785,6 +821,7 @@ async function deleteFromArc() {
 
 async function mkdirInArc() {
   const p = A();
+  if (p.arc.remote) return remoteArcMsg();
   const r = await dialog({ title: 'New folder', text: 'Enter new directory name:', input: '', buttons: OKCANCEL });
   const name = r.input && r.input.trim();
   if (r.value !== 'ok' || !name) return;
@@ -907,6 +944,7 @@ async function copyMove(kind, opts = {}) {
   const items = src.targets();
   if (!items.length) return;
   if (src.consoleOn) return;
+  if (kind === 'move' && src.arc && src.arc.remote) return remoteArcMsg(); // "move" would delete from the archive
   if (opts.renameOnly && src.rem) return renameRemote();
   if (opts.renameOnly && src.arc) return renameInArc();
   if (src.rem && dst.rem) return msg('NAS', 'Copying between two NAS panels is not supported yet.\nCopy through a local folder.');

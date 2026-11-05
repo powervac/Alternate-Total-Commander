@@ -11,7 +11,7 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 - **Two panels**, tabs per panel, history, drive list with network drives and standard folders (Alt+F1 / Alt+F2), directory hotlist, quick view panel, toolbar.
 - **File operations** with progress and cancel: copy, move, rename, new folder, delete (to the Recycle Bin / Trash), multi-rename tool, compare and synchronize folders, search (names, text in files, names inside zip).
-- **Archives:** pack and unpack zip; open a zip like a folder and edit it in place (add, delete, rename, new folder).
+- **Archives:** pack and unpack zip; open a zip like a folder and edit it in place (add, delete, rename, new folder). A zip on a NAS / SSH server opens as a read-only folder (it is downloaded to a temporary copy; files can be copied out of it).
 - **Synology NAS** (File Station API, works through **QuickConnect**): browse, copy both ways, create, rename, delete, view/edit, stream video and music.
 - **SSH servers** (password or key file): the panel shows an interactive **console** (xterm.js); files copied (F5) or dropped into the console are uploaded to the console's current folder. Ctrl+O switches to an SFTP file list.
 - **Viewer (F3):** text with automatic encoding detection (UTF-8/16, Windows-1251, CP866...), hex, images, PDF, video and audio. Formats Chromium cannot play (HEVC, AVI, WMV, AC3 sound, APE, WavPack, ALAC, AIFF...) are converted on the fly by a bundled **ffmpeg**.

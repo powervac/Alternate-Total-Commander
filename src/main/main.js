@@ -881,6 +881,9 @@ ipcMain.handle('zip:temp', async (_e, { archive, inner, name }) => {
   }
 });
 
+/** a fresh empty temp folder (removed when the program quits): used to hold archives downloaded from a NAS / SSH server */
+ipcMain.handle('fs:mktemp', async () => fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-')));
+
 /** write a whole file (editor): to a temp file first, then moved over the original */
 ipcMain.handle('file:write', async (_e, { file, data }) => {
   let target = file;

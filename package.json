@@ -1,0 +1,83 @@
+{
+  "name": "commander",
+  "version": "0.1.0",
+  "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "icon": "node tools/make-icon.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "ffmpeg-static": "^5.3.0",
+    "ssh2": "^1.17.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^2.5.1"
+  },
+  "productName": "Commander",
+  "author": "powervac",
+  "build": {
+    "appId": "local.commander.filemanager",
+    "productName": "Commander",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "extendInfo": {
+        "NSDesktopFolderUsageDescription": "Commander shows the files in your Desktop folder.",
+        "NSDocumentsFolderUsageDescription": "Commander shows the files in your Documents folder.",
+        "NSDownloadsFolderUsageDescription": "Commander shows the files in your Downloads folder.",
+        "NSRemovableVolumesUsageDescription": "Commander shows the files on external drives.",
+        "NSNetworkVolumesUsageDescription": "Commander shows the files on network volumes."
+      }
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

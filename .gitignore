@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+pack.log
+.DS_Store
+Thumbs.db
+# local scratch / test output
+scratch/
+*.tmp

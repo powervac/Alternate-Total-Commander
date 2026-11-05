@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; frame-src blob:; object-src blob:; media-src file: blob: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'">
+  <title>Commander</title>
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="menubar"></div>
+  <div id="toolbar"></div>
+  <div id="panels">
+    <div class="panel" id="p0"></div>
+    <div class="panel" id="p1"></div>
+  </div>
+  <div id="cmdline"><span id="cmdprompt"></span><input id="cmd" spellcheck="false" autocomplete="off"></div>
+  <div id="player"></div>
+  <div id="fkeys"></div>
+  <div id="modal-root"></div>
+  <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="app.js"></script>
+  <script src="search.js"></script>
+  <script src="multirename.js"></script>
+  <script src="hotlist.js"></script>
+  <script src="viewer.js"></script>
+  <script src="quickview.js"></script>
+  <script src="sync.js"></script>
+  <script src="editor.js"></script>
+  <script src="nas.js"></script>
+  <script src="ssh.js"></script>
+  <script src="player.js"></script>
+  <script src="toolbar.js"></script>
+</body>
+</html>

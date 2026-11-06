@@ -51,9 +51,10 @@ let thumbBusy = 0;
 function thumbLoad(panel, cell) {
   const it = panel.view[+cell.dataset.i];
   if (!it) return;
-  const file = P.join(panel.dir, it.name);
-  const key = `${file}|${it.mtime}|${it.size}`;
-  thumbQueue.push({ panel, cell, it, file, key });
+  const rem = panel.rem;
+  const file = rem ? remJoin(rem.path, it.name) : P.join(panel.dir, it.name);
+  const key = `${rem ? 'rem:' + rem.id + '|' : ''}${file}|${it.mtime}|${it.size}`;
+  thumbQueue.push({ panel, cell, it, file, key, remId: rem ? rem.id : null });
   thumbPump();
 }
 function thumbPump() {
@@ -71,6 +72,7 @@ function thumbPump() {
       thumbPump();
     };
     if (thumbCache.has(job.key)) done(thumbCache.get(job.key));
+    else if (job.remId) api.thumbRemote({ id: job.remId, path: job.file, size: 192, key: job.key, fsize: job.it.size }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
     else api.thumb({ file: job.file, size: 192, key: job.key }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
   }
 }
@@ -568,7 +570,7 @@ class Panel {
     });
     this.$list.innerHTML = cells.join('');
     if (this._io) this._io.disconnect();
-    if (this.arc || this.rem) return; // thumbnails need real files
+    if (this.arc) return; // (pictures inside an archive are not previewed; folders of Dropbox, Google Drive, a NAS and SSH servers are)
     this._io = new IntersectionObserver((entries) => {
       for (const en of entries) if (en.isIntersecting) { this._io.unobserve(en.target); thumbLoad(this, en.target); }
     }, { root: this.$list, rootMargin: '240px' });
@@ -869,12 +871,12 @@ function openDrivePicker(p) {
     const live = typeof liveConns !== 'undefined' ? [...liveConns.values()] : [];
     if (live.length) {
       sep();
-      for (const l of live) add('', `${REM_ICON[l.type] || '\u2601'}  ${l.name}   (connected)`, { live: l });
+      for (const l of live) add('', `${REM_ICON[l.type] || '\u2601'}  ${l.name}${l.who ? '   ' + l.who : ''}   (connected)`, { live: l }); // with the account / user it signed in as
     }
     const conns = (typeof nasLoad === 'function' ? nasLoad() : []).filter((c) => !(typeof liveConns !== 'undefined' && liveConns.has(c.id)));
     if (conns.length) {
       sep();
-      for (const c of conns) add('', `${REC_ICON[c.type] || REC_ICON.nas}  ${c.name || c.url}   ${c.url ? nasDefaultName(c.url) : remTitle(RECORD_REM[c.type] || 'nas')}`, { conn: c });
+      for (const c of conns) add('', `${REC_ICON[c.type] || REC_ICON.nas}  ${c.name || c.url}   ${c.account || c.user || (c.url ? nasDefaultName(c.url) : remTitle(RECORD_REM[c.type] || 'nas'))}`, { conn: c });
     }
     const cur = driveFor(p.realDir());
     let i = keepPath ? rows.findIndex((x) => x.drive && x.drive.path === keepPath) : rows.findIndex((x) => x.drive === cur);

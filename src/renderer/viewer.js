@@ -87,7 +87,7 @@ function openViewer() {
     '<label>Encoding <select class="v-enc">' + V_ENCS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('') + '</select></label>' +
     '<button class="v-ext" title="Open with the default application (O)">Open externally</button><button class="v-x" title="Close (Esc)">Close</button></div>' +
     '<div class="v-body"></div>' +
-    '<div class="v-foot"><input class="v-find" placeholder="Find (F7)" spellcheck="false"><span class="v-hint">Esc close &nbsp; n/p next/prev file &nbsp; 1 text &nbsp; 3 hex &nbsp; e encoding &nbsp; F7 find, F3 next &nbsp; z image fit &nbsp; o open externally &nbsp; video: Space play, ←/→ seek, ↑/↓ volume, f fullscreen, t native/ffmpeg player</span><span class="v-sp"></span><span class="v-pos"></span></div>';
+    '<div class="v-foot"><input class="v-find" placeholder="Find (F7)" spellcheck="false"><span class="v-hint">Esc close &nbsp; n/p next/prev file &nbsp; Left/Right next/prev picture &nbsp; 1 text &nbsp; 3 hex &nbsp; e encoding &nbsp; F7 find, F3 next &nbsp; z image fit &nbsp; o open externally &nbsp; video: Space play, ←/→ seek, ↑/↓ volume, f fullscreen, t native/ffmpeg player</span><span class="v-sp"></span><span class="v-pos"></span></div>';
   const q = (s) => box.querySelector(s);
   const $name = q('.v-name'), $info = q('.v-info'), $mode = q('.v-mode'), $enc = q('.v-enc');
   const $body = q('.v-body'), $find = q('.v-find'), $pos = q('.v-pos');
@@ -516,6 +516,13 @@ function openViewer() {
     panel.focus();
   }
 
+  /** the next (d = 1) or previous (d = -1) picture of the folder: other files are skipped; Shift+arrows still scroll a big picture */
+  function stepImage(d) {
+    for (let j = idx + d; j >= 0 && j < files.length; j += d) {
+      if (V_IMG[splitExt(files[j].name)[1].toLowerCase()]) { idx = j; loadFile(); return; }
+    }
+  }
+
   function onKey(e) {
     e.stopPropagation();
     const k = e.key;
@@ -536,6 +543,7 @@ function openViewer() {
     else if (k === 'PageUp' || k === 'Backspace') $body.scrollTop -= page;
     else if (k === 'Home') { $body.scrollTop = 0; $body.scrollLeft = 0; }
     else if (k === 'End') $body.scrollTop = $body.scrollHeight;
+    else if ((k === 'ArrowRight' || k === 'ArrowLeft') && mode === 'image' && !e.shiftKey) stepImage(k === 'ArrowRight' ? 1 : -1); // left / right: the next / previous picture of the folder
     else if (k === 'ArrowRight') $body.scrollLeft += 60;
     else if (k === 'ArrowLeft') $body.scrollLeft -= 60;
     else if (lower === 'n') { if (idx < files.length - 1) { idx++; loadFile(); } }

@@ -134,7 +134,7 @@ class Dropbox {
     } else throw new Error('Sign in first.');
     const me = await this.rpc('users/get_current_account');
     this.base = 'Dropbox';
-    return { refreshToken: this.refreshToken, account: (me.name && me.name.display_name) || me.email || '' };
+    return { refreshToken: this.refreshToken, account: me.email || (me.name && me.name.display_name) || '' };
   }
 
   async token() {
@@ -202,6 +202,24 @@ class Dropbox {
       return r;
     });
     await saveTo(res, dest, onData);
+  }
+
+  /** a small JPEG made by Dropbox (images, and other types that Dropbox can preview) -> Buffer, or null when there is none */
+  async thumbnail(remotePath) {
+    const res = await this.authed(async (t) => {
+      const r = await request(`${DBX.content}/2/files/get_thumbnail_v2`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${t}`, 'Dropbox-API-Arg': headerArg({ resource: { '.tag': 'path', path: remotePath }, format: 'jpeg', size: 'w256h256', mode: 'fitone_bestfit' }) },
+        timeout: 30000,
+      });
+      if (r.statusCode === 409 || r.statusCode === 400) { await readAll(r); return null; } // no preview for this kind of file
+      if (r.statusCode !== 200) {
+        const buf = await readAll(r);
+        throw ioError(dropboxMessage({ status: r.statusCode, data: tryJson(buf) }), r.statusCode);
+      }
+      return r;
+    });
+    return res ? readAll(res, 8 * 1024 * 1024) : null;
   }
 
   async upload(localFile, destFolder, name, overwrite, { onData, onReq } = {}) {
@@ -369,7 +387,7 @@ class GDrive {
     let pageToken = '';
     do {
       const q = encodeURIComponent(`'${parentId}' in parents and trashed=false`);
-      const f = encodeURIComponent('nextPageToken,files(id,name,mimeType,size,modifiedTime,shortcutDetails)');
+      const f = encodeURIComponent('nextPageToken,files(id,name,mimeType,size,modifiedTime,shortcutDetails,thumbnailLink)');
       const r = await this.api('GET', `${GGL.api}/drive/v3/files?q=${q}&fields=${f}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`);
       for (const f of r.files || []) out.push(f);
       pageToken = r.nextPageToken || '';
@@ -385,7 +403,7 @@ class GDrive {
       if (exp && !display.toLowerCase().endsWith('.' + exp[0])) display += '.' + exp[0];
       if (seen.has(display)) display = `${display} (${f.id.slice(0, 4)})`;
       seen.add(display);
-      return { id, display, isDir: mime === GFOLDER, mime, exportMime: exp ? exp[1] : '', size: f.size ? +f.size : 0, mtime: Date.parse(f.modifiedTime || '') || 0 };
+      return { id, display, isDir: mime === GFOLDER, mime, exportMime: exp ? exp[1] : '', size: f.size ? +f.size : 0, mtime: Date.parse(f.modifiedTime || '') || 0, thumb: f.thumbnailLink || '' };
     });
   }
 
@@ -464,6 +482,19 @@ class GDrive {
       return r;
     });
     await saveTo(res, dest, onData);
+  }
+
+  /** the preview that Google keeps for the file (thumbnailLink of the listing) -> Buffer, or null */
+  async thumbnail(remotePath) {
+    const e = await this.resolve(remotePath);
+    if (!e || !e.thumb) return null;
+    const url = e.thumb.replace(/=s\d+$/, '=s256');
+    const res = await this.authed(async (t) => {
+      const r = await request(url, { headers: { Authorization: `Bearer ${t}` }, timeout: 30000 });
+      if (r.statusCode !== 200) { await readAll(r); if (r.statusCode === 401) throw ioError('Unauthorized', 401); return null; }
+      return r;
+    });
+    return res ? readAll(res, 8 * 1024 * 1024) : null;
   }
 
   async upload(localFile, destFolder, name, overwrite, { onData, onReq } = {}) {

@@ -1867,6 +1867,41 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
   return url;
 });
 
+// thumbnails of the files of a remote panel (Dropbox, Google Drive, Synology NAS, SSH): the service's own preview when it has one,
+// else a small picture is downloaded and scaled. Nothing is stored on disk (the temp copy is removed at once).
+const REMOTE_IMG = /\.(jpe?g|png|gif|bmp|webp|tiff?|ico)$/i;
+const REMOTE_PREVIEW = /\.(jpe?g|png|gif|bmp|webp|tiff?|heic|pdf|docx?|xlsx?|pptx?|mp4|mov|mkv|avi|m4v|webm|psd|svg)$/i; // what the services preview
+ipcMain.handle('thumb:remote', async (_e, { id, path: rpath, size, key, fsize }) => {
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  let url = null;
+  try {
+    const c = nasGet(id);
+    const ne = require('electron').nativeImage;
+    const toUrl = (buf) => {
+      if (!buf || !buf.length) return null;
+      const img = ne.createFromBuffer(buf);
+      if (!img || img.isEmpty()) return null;
+      const sz = img.getSize();
+      const big = Math.max(sz.width, sz.height);
+      return (big > size ? img.resize(sz.width >= sz.height ? { width: size } : { height: size }) : img).toDataURL();
+    };
+    if (c && typeof c.thumbnail === 'function' && REMOTE_PREVIEW.test(rpath)) {
+      try { url = toUrl(await c.thumbnail(rpath)); } catch { /* fall through to the download */ }
+    }
+    if (!url && c && REMOTE_IMG.test(rpath) && (!fsize || fsize <= 6 * 1024 * 1024)) {
+      // no preview from the service: a small picture is fetched and scaled here
+      const tmp = path.join(os.tmpdir(), `commander-thumb-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${path.extname(rpath)}`);
+      try {
+        await c.download(rpath, tmp, {});
+        url = toUrl(await fsp.readFile(tmp));
+      } finally { fsp.rm(tmp, { force: true }).catch(() => {}); }
+    }
+  } catch { /* the session is gone, the file is not readable: no picture */ }
+  if (thumbCache.size > 4000) thumbCache.clear();
+  thumbCache.set(key, url);
+  return url;
+});
+
 ipcMain.handle('winscp:list', async (_e, { iniPath }) => { try { return await require('./winscp').list(iniPath); } catch (err) { return { error: err.message }; } });
 ipcMain.handle('emu:open', async (_e, { file }) => { try { return await emulator.open(file, BrowserWindow); } catch (err) { return { error: err.message }; } });
 ipcMain.handle('emu:available', () => emulator.available());
@@ -1880,6 +1915,8 @@ const verNum = (v) => String(v || '0').split('.').map((x) => parseInt(x, 10) || 
 const isNewer = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 
 const ownVersion = (info) => (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
+
+ipcMain.handle('app:version', () => app.getVersion());
 
 ipcMain.handle('update:check', async () => {
   try {

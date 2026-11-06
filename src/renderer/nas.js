@@ -358,11 +358,12 @@ async function openConnections(selectId, kind) {
       else if (!cloud && (res.code === 400 || res.code === 404)) $pass.select();
       return;
     }
+    if (cloud && res.account) conn.account = res.account; // the account this connection signed in with (shown in the drive list)
     await persist(conn, secret);
     closed = true;
     closeModal();
     const type = RECORD_REM[kind];
-    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/', openAs: conn.openAs });
+    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/', openAs: conn.openAs, who: cloud ? res.account || conn.account || '' : conn.user || '' });
     const p = A();
     p.focus();
     const want = nasPendingPath && nasPendingPath.id === conn.id ? nasPendingPath.path : null;

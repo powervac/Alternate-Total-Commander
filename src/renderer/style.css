@@ -518,3 +518,13 @@ body.no-toolbar #toolbar { display: none; }
 .ab-links span { width: 96px; color: #666; flex: none; }
 .ab-links a { color: #0a5ab0; cursor: pointer; }
 .ab-credit { margin-top: 10px; color: #777; font-size: 12px; }
+
+.ab-status { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 4px; min-height: 22px; }
+.ab-spin { flex: none; width: 16px; height: 16px; margin-top: 1px; border: 2px solid #b9cde8; border-top-color: #0078d7; border-radius: 50%; animation: ab-rot .8s linear infinite; }
+.ab-spin[hidden] { display: none; }
+@keyframes ab-rot { to { transform: rotate(360deg); } }
+.ab-state.ok { color: #0a6a2a; }
+.ab-state.bad { color: #b00020; }
+.ab-bar { margin: 4px 0 8px; }
+.ab-bar[hidden], .ab-notes[hidden] { display: none; }
+.dlg.about .dlg-btns button[hidden] { display: none; }

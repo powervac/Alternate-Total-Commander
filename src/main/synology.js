@@ -337,6 +337,28 @@ class Syno {
     return run(true);
   }
 
+  /** the thumbnail that File Station makes (images, videos, documents) -> Buffer, or null */
+  async thumbnail(remotePath, retry = true) {
+    const info = this.apis['SYNO.FileStation.Thumb'];
+    if (!info) return null;
+    const body = form({ api: 'SYNO.FileStation.Thumb', version: Math.min(2, info.maxVersion || 1), method: 'get', path: remotePath, size: 'medium' });
+    const res = await open(`${this.base}/webapi/${info.path || 'entry.cgi'}?_sid=${encodeURIComponent(this.sid)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
+      body,
+      insecure: this.insecure,
+      timeout: 30000,
+    });
+    if (res.statusCode !== 200) { res.resume(); return null; }
+    if (/json/i.test(res.headers['content-type'] || '')) {
+      const j = JSON.parse((await readBody(res)).toString('utf8'));
+      const c = j.error && j.error.code;
+      if (retry && [106, 107, 119].includes(c) && this.creds) { await this.login(); return this.thumbnail(remotePath, false); }
+      return null; // no thumbnail for this file
+    }
+    return readBody(res, 8 * 1024 * 1024);
+  }
+
   /** open a remote file for streaming (video player): returns the response, honours an HTTP Range header */
   async openDownload(remotePath, range, retry = true) {
     const info = this.apis['SYNO.FileStation.Download'] || {};

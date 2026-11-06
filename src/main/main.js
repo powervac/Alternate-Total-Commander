@@ -1712,6 +1712,65 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
   return url;
 });
 
+// ---------------------------------------------------------------- updates
+// latest.json on the download site: { version, notes, win: { url, sha256 }, mac: { command } }. COMMANDER_UPDATE_URL overrides the address (tests).
+const UPDATE_URL = process.env.COMMANDER_UPDATE_URL || 'https://total.gieldowa.keenetic.link/latest.json';
+const verNum = (v) => String(v || '0').split('.').map((x) => parseInt(x, 10) || 0);
+const isNewer = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+
+ipcMain.handle('update:check', async () => {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 12000);
+    const r = await fetch(UPDATE_URL, { signal: ctl.signal, headers: { 'User-Agent': 'Commander-updater' } });
+    clearTimeout(t);
+    if (!r.ok) return { error: `HTTP ${r.status}` };
+    const info = await r.json();
+    return { current: app.getVersion(), latest: info.version, newer: isNewer(info.version, app.getVersion()), info, platform: process.platform };
+  } catch (err) {
+    return { error: err.name === 'AbortError' ? 'The update server did not answer' : err.message };
+  }
+});
+
+ipcMain.handle('update:install', async (e, { info }) => {
+  try {
+    if (process.platform === 'win32') {
+      const w = info && info.win;
+      const urlOk = w && (/^https:\/\//.test(w.url) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(w.url))); // http only for a local test server
+      if (!urlOk) return { error: 'No Windows installer in the update information' };
+      const file = path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
+      const r = await fetch(w.url, { headers: { 'User-Agent': 'Commander-updater' } });
+      if (!r.ok) return { error: `Download failed: HTTP ${r.status}` };
+      const total = +r.headers.get('content-length') || w.size || 0;
+      const hash = require('crypto').createHash('sha256');
+      const ws = fs.createWriteStream(file);
+      let done = 0, last = 0;
+      for await (const chunk of r.body) {
+        hash.update(chunk);
+        if (!ws.write(chunk)) await new Promise((res) => ws.once('drain', res));
+        done += chunk.length;
+        if (Date.now() - last > 250) { last = Date.now(); e.sender.send('update:progress', { done, total }); }
+      }
+      await new Promise((res) => ws.end(res));
+      if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); return { error: 'The downloaded installer is damaged (checksum mismatch)' }; }
+      // silent install over the current one; the new version starts itself
+      if (process.env.COMMANDER_UPDATE_DRYRUN) return { ok: true, dry: true, file };
+      spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 400);
+      return { ok: true };
+    }
+    if (process.platform === 'darwin') {
+      const cmd = (info && info.mac && info.mac.command) || 'curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash';
+      if (!/^curl -fsSL https:\/\/[\w.\/-]+ \| bash$/.test(cmd)) return { error: 'Unexpected update command' };
+      spawn('osascript', ['-e', 'tell application "Terminal" to activate', '-e', `tell application "Terminal" to do script "${cmd.replace(/"/g, '\\"')}"`], { detached: true, stdio: 'ignore' }).unref();
+      return { ok: true, terminal: true };
+    }
+    return { error: 'Updating from the program is available on Windows and macOS only' };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 require('./filetools').register(ipcMain, jobs); // Files menu tools: attributes, properties, checksums, split / combine, compare ...
 
 ipcMain.handle('clip:read', () => clipboard.readText());

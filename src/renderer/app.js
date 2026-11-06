@@ -197,6 +197,7 @@ class Panel {
     this.sortKey = store.get(`sortKey${idx}`, 'name');
     this.sortRev = store.get(`sortRev${idx}`, false);
     this.thumbs = store.get(`thumbs${idx}`, false);
+    this.dirSizes = new Map(); // full path of a folder -> total size of its files (calculated with Space), cleared by a reread
     this.hist = [];
     this.hi = -1;
     this.lastDirOnDrive = new Map();
@@ -420,7 +421,32 @@ class Panel {
     return this._commit(res, `${conn.name}:${rpath}`, null, { rem }, opts, rem);
   }
 
+  /**
+   * Space: select / unselect the item under the cursor and STAY on it (Insert selects and moves down).
+   * A folder also gets the total size of all its files, subfolders included, shown in the Size column.
+   */
+  async spaceSelect() {
+    const it = this.cur();
+    if (!it || it.up) return;
+    const wasSel = this.sel.has(it.name);
+    this.toggleSel(this.cursor, false);
+    if (!it.isDir || wasSel || this.arc || this.rem || this.thumbs) return;
+    const dir = this.dir;
+    const full = P.join(dir, it.name);
+    if (this.dirSizes.has(full)) return;
+    const cell = () => { const i = this.view.findIndex((v) => v.name === it.name); const r = this.dir === dir && i >= 0 ? this.rowEl(i) : null; return r && r.children[2]; };
+    const c0 = cell();
+    if (c0) c0.textContent = '...';
+    const r = await api.ftSpace({ paths: [full], id: Date.now() + Math.floor(Math.random() * 1000) });
+    if (r.error) { const c = cell(); if (c) c.innerHTML = '&lt;DIR&gt;'; return; }
+    this.dirSizes.set(full, r.bytes);
+    const c1 = cell();
+    if (c1) c1.textContent = fmtNum(r.bytes);
+    this.updateStatus();
+  }
+
   refresh() {
+    this.dirSizes.clear();
     const c = this.cur();
     return this.go(this.snap(), { push: false, focusName: c && c.name, keepSel: true });
   }
@@ -532,7 +558,7 @@ class Panel {
         `<div class="row${this.sel.has(it.name) ? ' sel' : ''}${i === this.cursor ? ' cur' : ''}" data-i="${i}">` +
         `<div class="c-name"><img class="ic" data-ik="${esc(ik)}" src="${src}"><span>${esc(base)}</span></div>` +
         `<div>${esc(ext)}</div>` +
-        `<div class="r">${it.isDir ? '&lt;DIR&gt;' : fmtNum(it.size)}</div>` +
+        `<div class="r">${it.isDir ? (this.dirSizes.has(P.join(this.dir, it.name)) ? fmtNum(this.dirSizes.get(P.join(this.dir, it.name))) : '&lt;DIR&gt;') : fmtNum(it.size)}</div>` +
         `<div>${it.up ? '' : fmtDate(it.mtime)}</div>` +
         `<div>${this.attrOf(it)}</div></div>`
       );
@@ -602,7 +628,8 @@ class Panel {
     const sf = files.filter((i) => this.sel.has(i.name));
     const sd = dirs.filter((i) => this.sel.has(i.name));
     const sum = (a) => a.reduce((s, i) => s + i.size, 0);
-    let t = `${fmtK(sum(sf))} k / ${fmtK(sum(files))} k in ${sf.length} / ${files.length} file(s)`;
+    const dsum = (a) => a.reduce((s, i) => s + (this.dirSizes.get(P.join(this.dir, i.name)) || 0), 0); // folders whose size was calculated with Space
+    let t = `${fmtK(sum(sf) + dsum(sd))} k / ${fmtK(sum(files) + dsum(dirs))} k in ${sf.length} / ${files.length} file(s)`;
     if (dirs.length) t += `, ${sd.length} / ${dirs.length} dir(s)`;
     this.$status.textContent = t;
   }
@@ -1431,6 +1458,7 @@ const MENUS = [
   ['Configuration', [
     { l: () => (document.body.classList.contains('no-toolbar') ? '    Show toolbar' : '✓  Show toolbar'), f: () => toggleToolbar() },
     '-',
+    { l: 'Check for Updates...', f: () => checkForUpdates(false) },
     { l: 'Options...', f: soon, dis: true },
   ]],
   ['Start', [{ l: 'Open Home Folder', f: () => A().load(api.home) }]],
@@ -1615,7 +1643,7 @@ document.addEventListener('keydown', async (e) => {
     case 'Backspace': if (!typing) { e.preventDefault(); p.goUp(); } return;
     case 'Delete': if (!typing) { e.preventDefault(); deleteSel(e.shiftKey); } return;
     case 'Insert': e.preventDefault(); p.toggleSel(p.cursor); return;
-    case ' ': if (!typing) { e.preventDefault(); p.toggleSel(p.cursor); } return;
+    case ' ': if (!typing) { e.preventDefault(); p.spaceSelect(); } return; // select in place (+ folder size); Insert selects and goes down
   }
   if (e.code === 'NumpadAdd') { e.preventDefault(); e.altKey ? selectSameExt() : mod ? p.selectWhere(() => true, true) : selectGroup(true); return; }
   if (e.code === 'NumpadSubtract') { e.preventDefault(); mod ? p.selectWhere(() => true, false) : selectGroup(false); return; }
@@ -1667,4 +1695,6 @@ document.addEventListener('keydown', async (e) => {
   }
   panels[0].focus();
   window.__commander = { panels, A, O };
+  // a quiet check for a newer version a few seconds after start (not while a test script drives the window)
+  if (typeof checkForUpdates === 'function') setTimeout(() => checkForUpdates(true), 6000);
 })();

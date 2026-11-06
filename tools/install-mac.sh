@@ -1,4 +1,5 @@
 #!/bin/bash
+# NOTE: @MACKEY@ is replaced by the access key of the download site when the script is deployed (see tools/site-serve.py).
 # Installs Alternate Total Commander on macOS in one go:
 #   curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash
 # Files downloaded by curl are not "quarantined", so macOS does not say "Commander is damaged". The script picks the build for your
@@ -19,7 +20,7 @@ cleanup() { hdiutil detach "$MNT" -quiet >/dev/null 2>&1 || true; rm -rf "$TMP";
 trap cleanup EXIT
 
 echo "Downloading $FILE ..."
-curl -fL --progress-bar -o "$TMP/app.dmg" "$BASE/$FILE"
+curl -fL --progress-bar -o "$TMP/app.dmg" "$BASE/$FILE?k=@MACKEY@"
 
 echo "Installing into /Applications ..."
 hdiutil attach -nobrowse -readonly -noverify -mountpoint "$MNT" "$TMP/app.dmg" >/dev/null

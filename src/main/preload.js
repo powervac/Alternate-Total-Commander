@@ -34,6 +34,13 @@ contextBridge.exposeInMainWorld('api', {
   viewRead: inv('view:read'),
   docRender: inv('doc:render'),
   thumb: inv('thumb:get'),
+  updateCheck: inv('update:check'),
+  updateInstall: inv('update:install'),
+  onUpdateProgress: (cb) => {
+    const h = (_e, p) => cb(p);
+    ipcRenderer.on('update:progress', h);
+    return () => ipcRenderer.removeListener('update:progress', h);
+  },
   ftAttrsGet: inv('ft:attrsGet'),
   ftAttrsSet: inv('ft:attrsSet'),
   ftProps: inv('ft:props'),

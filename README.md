@@ -15,6 +15,11 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 - **Files menu tools** (like Total Commander): Change Attributes (read-only, hidden, archive, system, date and time, optionally inside subfolders), Properties (Alt+Enter), Calculate Occupied Space (Ctrl+L), Edit Comment (Ctrl+Z, stored in descript.ion), Compare By Content (two files: identical / differences in a side-by-side view, F7 next difference), Test Archive(s) (zip CRC check, Alt+Shift+F9), Split File / Combine Files (name.001, name.002 ...), Encode / Decode File (MIME Base64 and UUE), Create Checksum File(s) (MD5, SHA-1, SHA-256, CRC32) and Verify Checksums. **Multi-Rename Tool** (Ctrl+M) has the Total Commander layout: mask buttons, extension mask, search and replace (1x, [E], RegEx), counter, case, Undo, result list and saved settings.
 
+- **SSH as a disk or a console**: in the SSH connection window "Open as" chooses what opens first, the file list of the server (a disk) or the console. Ctrl+O switches between them at any time.
+
+- **Updates**: the program looks for a newer version a few seconds after start and offers to install it (Configuration > Check for Updates... does it on demand). On Windows the installer is downloaded, verified by its SHA-256 and started silently; on a Mac the one-line installer runs in Terminal.
+- **Space and Insert**: Space selects the file or folder under the cursor and stays on it (a folder also gets the total size of its contents in the Size column); Insert selects and moves one line down.
+
 ## Features
 
 - **Two panels**, tabs per panel, history, drive list with network drives and standard folders (Alt+F1 / Alt+F2), directory hotlist, quick view panel, toolbar.

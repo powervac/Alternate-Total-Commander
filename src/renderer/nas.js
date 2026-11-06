@@ -31,7 +31,7 @@ async function openLive(p, l) {
   p.focus();
   const ok = await p.loadRem({ id: l.id, name: l.name, type: l.type }, l.home || '/');
   if (!ok) { liveConns.delete(l.id); return; } // the session is gone
-  if (l.type === 'sftp') await sshShowConsole(p);
+  if (l.type === 'sftp' && l.openAs === 'console') await sshShowConsole(p);
 }
 
 /** leave the remote server in the panels that show it (after a disconnect) */
@@ -98,6 +98,7 @@ async function openConnections(selectId, kind) {
     row('nas ssh dropbox gdrive', '<label>Name:</label><input class="n-name" spellcheck="false">') +
     row('nas ssh', `<label>${ssh ? 'Host:' : 'Address:'}</label><input class="n-url" spellcheck="false" placeholder="${ssh ? 'server name or IP address' : 'https://id.region.quickconnect.to  or  nas.local:5001'}">`) +
     row('ssh', '<label>Port:</label><input class="n-port" spellcheck="false" placeholder="22">') +
+    row('ssh', '<label>Open as:</label><select class="n-openas"><option value="files">Disk (file list) - Ctrl+O shows the console</option><option value="console">Console - Ctrl+O shows the file list</option></select>') +
     row('nas ssh', '<label>User:</label><input class="n-user" spellcheck="false" autocomplete="off">') +
     row('ssh', '<label>Key file:</label><span class="n-keyrow"><input class="n-key" spellcheck="false" placeholder="optional: private key (OpenSSH / PEM)"><button class="n-browse" type="button">Browse...</button></span>') +
     row('nas ssh', '<label class="n-pass-label">Password:</label><input class="n-pass" type="password" autocomplete="off">') +
@@ -117,6 +118,7 @@ async function openConnections(selectId, kind) {
   const q = (s) => box.querySelector(s);
   const $list = q('.nas-list'), $status = q('.nas-status');
   const $name = q('.n-name'), $url = q('.n-url'), $port = q('.n-port'), $user = q('.n-user');
+  const $openas = q('.n-openas');
   const $key = q('.n-key'), $pass = q('.n-pass'), $otp = q('.n-otp'), $insecure = q('.n-insecure'), $remember = q('.n-remember');
   const $appkey = q('.n-appkey'), $clientid = q('.n-clientid'), $secret = q('.n-secret');
   const buttons = box.querySelectorAll('.dlg-btns button');
@@ -170,6 +172,7 @@ async function openConnections(selectId, kind) {
     if ($port) $port.value = c.port || '';
     if ($user) $user.value = c.user || '';
     if ($key) $key.value = c.keyPath || '';
+    if ($openas) $openas.value = c.openAs === 'console' ? 'console' : 'files';
     if ($pass) { $pass.value = ''; $pass.placeholder = c.pw ? '(saved)' : ''; }
     if ($otp) $otp.value = '';
     if ($insecure) $insecure.checked = !!c.insecure;
@@ -193,6 +196,7 @@ async function openConnections(selectId, kind) {
       port: $port ? $port.value.trim() : '',
       user: $user ? $user.value.trim() : '',
       keyPath: $key ? $key.value.trim() : '',
+      openAs: $openas ? $openas.value : 'files',
       insecure: $insecure ? $insecure.checked : false,
       appKey: $appkey ? $appkey.value.trim() : '',
       clientId: $clientid ? $clientid.value.trim() : '',
@@ -321,12 +325,12 @@ async function openConnections(selectId, kind) {
     closed = true;
     closeModal();
     const type = RECORD_REM[kind];
-    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/' });
+    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/', openAs: conn.openAs });
     const p = A();
     p.focus();
     if (ssh) {
-      // an SSH server opens as a console; Ctrl+O switches to the file list
-      if (await p.loadRem({ id: conn.id, name: conn.name, type }, res.home || '/')) await sshShowConsole(p);
+      // "Disk": the file list of the server; "Console": the console first. Ctrl+O switches between them either way
+      if (await p.loadRem({ id: conn.id, name: conn.name, type }, res.home || '/') && conn.openAs === 'console') await sshShowConsole(p);
     } else await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
   }
 

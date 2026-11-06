@@ -310,3 +310,35 @@ async function ftTestArchives() {
   }
   await dialog({ title: 'Test Archive(s)', text: (problems ? `${problems} archive(s) have problems.` : 'All archives are fine.') + '\n\n' + lines.join('\n'), buttons: [{ label: 'OK', value: 'ok', primary: true, cancel: true }] });
 }
+
+// ---------------------------------------------------------------- updates
+/** silent = the check made at start-up: say nothing unless a newer version exists */
+async function checkForUpdates(silent) {
+  if (modalCount > 0) return;
+  const r = await api.updateCheck();
+  if (r.error) { if (!silent) msg('Check for Updates', 'Could not check for updates: ' + r.error); return; }
+  if (!r.newer) { if (!silent) msg('Check for Updates', `You have the latest version (${r.current}).`); return; }
+  if (silent && store.get('updateSkip', '') === r.latest) return; // "Skip this version" was chosen
+  const notes = r.info && r.info.notes ? '\n\n' + r.info.notes : '';
+  const how = r.platform === 'darwin' ? 'A Terminal window will open and install the new version.' : 'The installer is downloaded and started; the program restarts by itself.';
+  const d = await dialog({
+    title: 'Update available',
+    text: `Version ${r.latest} is available (you have ${r.current}).${notes}\n\n${how}`,
+    buttons: [{ label: 'Update now', value: 'go', primary: true }, { label: 'Later', value: 'later', cancel: true }, { label: 'Skip this version', value: 'skip' }],
+  });
+  if (d.value === 'skip') { store.set('updateSkip', r.latest); return; }
+  if (d.value !== 'go') return;
+  const box = document.createElement('div');
+  box.className = 'dlg';
+  box.innerHTML = '<div class="dlg-title">Updating</div><div class="dlg-body"><div class="dlg-text up-text">Downloading ...</div></div>';
+  const close = openModal(box);
+  const off = api.onUpdateProgress((p) => {
+    const t = box.querySelector('.up-text');
+    if (t && p.total) t.textContent = `Downloading ... ${Math.floor((p.done / p.total) * 100)} %  (${ftBytes(p.done)} of ${ftBytes(p.total)})`;
+  });
+  const res = await api.updateInstall({ info: r.info });
+  off();
+  if (res.error) { close(); msg('Update', res.error); return; }
+  box.querySelector('.up-text').textContent = res.terminal ? 'Follow the Terminal window ...' : 'Installing the new version, the program restarts ...';
+  if (res.terminal) setTimeout(close, 2500);
+}

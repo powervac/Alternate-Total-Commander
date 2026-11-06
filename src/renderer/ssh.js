@@ -187,6 +187,7 @@ async function sshShowConsole(panel) {
   panel.focus();
   await new Promise((r) => requestAnimationFrame(r));
   try { t.fit.fit(); } catch { /* not visible yet */ }
+  if (!panel.rem) return; // disconnected while the console was opening
   t.startPath = panel.rem.path;
   sshRefreshFiles(t);
   if (!t.started) {

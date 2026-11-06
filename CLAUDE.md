@@ -31,6 +31,10 @@ It was built in one long Claude Code session on Windows 11; **it has never been 
 The test runs open a visible window and share the real app's `localStorage`: clean up anything a test saved (saved connections, tabs, hotlist).
 The Synology and SSH code was developed against small local mock servers (a fake File Station API and an `ssh2` server); the owner then confirmed it works with a real Synology NAS (QuickConnect) and a real SSH server on Windows.
 
+## Release (download site total.gieldowa.keenetic.link)
+
+1. Bump the version in package.json, commit and push. 2. Windows: `npx electron-builder --win -c.directories.output=<other folder>` (not into dist if a copy from dist/win-unpacked is running). 3. Mac: run the "Build macOS" workflow (Actions tab) and download its artifact. 4. Upload the exe and both dmg files to ~/total-site/downloads on the server (scp, key H:/boosty/web/.deploy/id_gieldowa, port 2022) under the stable names Alternate-Total-Commander-Setup.exe / ...-macOS-AppleSilicon.dmg / ...-macOS-Intel.dmg. 5. Write ~/total-site/latest.json: {version, notes, win:{url, sha256}} - the program checks it at start (Configuration > Check for Updates; COMMANDER_UPDATE_URL overrides the address in tests). The dmg files are served only to curl with the key in tools/install-mac.sh (see tools/site-serve.py); the key itself lives only on the server.
+
 ## macOS checklist (nothing here is verified yet)
 
 1. `npm install && npm start` - does the window open, do the toolbar icons and fonts look right?

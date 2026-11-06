@@ -1,5 +1,5 @@
 'use strict';
-// Settings kept in Dropbox: /Commander/settings.zip. The zip holds
+// Settings kept in one zip: Dropbox or Google Drive (/Commander/settings.zip) or a folder on this computer (settings.zip). The zip holds
 //   settings.json   connections without passwords, favourites, presets, language ... (the renderer decides what goes in and how copies merge)
 //   secrets.json    passwords and logins (optional)
 //   keys/<id>__<name>  the SSH private key files (optional)
@@ -10,16 +10,41 @@ const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
-const { Dropbox } = require('./cloud');
+const { Dropbox, GDrive } = require('./cloud');
 const { run } = require('./sevenzip');
 
 const FOLDER = 'Commander';
 const ZIP = 'settings.zip';
 const OLD = 'settings.json';
 
-async function client(appKey, token) {
+/** a plain folder on this computer (or on a USB stick / a synced folder): the same few calls as the cloud clients */
+class LocalStore {
+  constructor(dir) { this.dir = dir; }
+  async download(remote, dest) {
+    try { await fsp.copyFile(path.join(this.dir, path.basename(remote)), dest); } catch (e) { if (e.code === 'ENOENT') throw new Error('not found'); throw e; }
+  }
+  async mkdir() { await fsp.mkdir(this.dir, { recursive: true }); }
+  async upload(local, _folder, name) {
+    await fsp.mkdir(this.dir, { recursive: true });
+    const tmp = path.join(this.dir, name + '.part');
+    await fsp.copyFile(local, tmp);
+    await fsp.rename(tmp, path.join(this.dir, name));
+  }
+}
+
+/** st: { kind: 'dropbox', appKey, token } | { kind: 'gdrive', clientId, clientSecret, token } | { kind: 'local', dir } */
+async function client(st) {
+  if (st.kind === 'local') {
+    if (!st.dir || !path.isAbsolute(st.dir)) throw new Error('Choose the folder for the settings file.');
+    return new LocalStore(st.dir);
+  }
+  if (st.kind === 'gdrive') {
+    const g = new GDrive();
+    await g.connect({ clientId: st.clientId, clientSecret: st.clientSecret, refreshToken: st.token });
+    return g;
+  }
   const d = new Dropbox();
-  await d.connect({ appKey, refreshToken: token });
+  await d.connect({ appKey: st.appKey, refreshToken: st.token });
   return d;
 }
 const tmpDir = () => fsp.mkdtemp(path.join(os.tmpdir(), 'commander-settings-'));
@@ -31,9 +56,9 @@ const checkPw = (p) => { if (p && (!PW_OK.test(p) || /["\\]/.test(p))) throw new
 const safe = (n) => String(n || 'key').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 100);
 
 /** -> { text, secrets } | { empty: true } | { needPassword: true } | { wrongPassword: true } */
-async function pull(appKey, token, password) {
+async function pull(st, password) {
   checkPw(password);
-  const d = await client(appKey, token);
+  const d = await client(st);
   const dir = await tmpDir();
   try {
     const zip = path.join(dir, ZIP);
@@ -77,9 +102,9 @@ async function pull(appKey, token, password) {
 }
 
 /** text = settings.json; secrets = object or null; password '' = plain zip */
-async function push(appKey, token, text, secrets, password) {
+async function push(st, text, secrets, password) {
   checkPw(password);
-  const d = await client(appKey, token);
+  const d = await client(st);
   const dir = await tmpDir();
   try {
     const src = path.join(dir, 'src');

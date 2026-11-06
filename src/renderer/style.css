@@ -448,3 +448,4 @@ body.no-toolbar #toolbar { display: none; }
 .nas-folder { padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; font-weight: 600; color: #333; }
 .nas-folder:hover { background: #e8f1fb; }
 .nas-tw { display: inline-block; width: 12px; color: #666; }
+.ft-line[hidden] { display: none !important; }

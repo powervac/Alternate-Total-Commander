@@ -1,9 +1,10 @@
 {
   "name": "commander",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
   "main": "src/main/main.js",
   "scripts": {
+    "release": "node tools/release.js",
     "start": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",

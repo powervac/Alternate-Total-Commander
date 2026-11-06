@@ -1574,7 +1574,7 @@ const MENUS = [
     { l: 'Check for Updates...', f: () => checkForUpdates(false) },
     { l: 'File index (fast search)...', f: () => openIndexDialog() },
     { l: 'Language...', f: () => openLanguageDialog() },
-    { l: 'Settings in Dropbox...', f: () => openSyncDialog() },
+    { l: 'Settings sync (Dropbox, Google Drive, folder)...', f: () => openSyncDialog() },
     { l: 'Options...', f: soon, dis: true },
   ]],
   ['Start', [{ l: 'Open Home Folder', f: () => A().load(api.home) }]],

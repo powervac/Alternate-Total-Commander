@@ -1414,8 +1414,8 @@ ipcMain.handle('ssh:resize', (_e, { id, cols, rows }) => {
   const c = nasSessions.get(id);
   if (c && c.resizeShell) c.resizeShell(cols, rows);
 });
-ipcMain.handle('dialog:openFile', async (_e, { title, defaultPath }) => {
-  const r = await dialog.showOpenDialog(win, { title, defaultPath, properties: ['openFile', 'showHiddenFiles'] });
+ipcMain.handle('dialog:openFile', async (_e, { title, defaultPath, folder }) => {
+  const r = await dialog.showOpenDialog(win, { title, defaultPath, properties: folder ? ['openDirectory', 'createDirectory'] : ['openFile', 'showHiddenFiles'] });
   return r.canceled ? null : r.filePaths[0];
 });
 
@@ -1488,12 +1488,16 @@ ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {
 }));
 
 // settings kept in Dropbox (/Commander/settings.json); the saved Dropbox login is decrypted here, in the main process only
-ipcMain.handle('settings:cloud', async (_e, { action, appKey, enc, text, secrets, password }) => {
+ipcMain.handle('settings:cloud', async (_e, { action, kind, appKey, clientId, encSecret, clientSecret, enc, dir, text, secrets, password }) => {
   try {
-    if (!safeStorage.isEncryptionAvailable()) return { error: 'The system cannot decrypt the saved login here.' };
-    const token = safeStorage.decryptString(Buffer.from(enc, 'base64'));
+    const st = { kind: kind || 'dropbox', appKey, clientId, clientSecret, dir };
+    if (st.kind !== 'local') {
+      if (!safeStorage.isEncryptionAvailable()) return { error: 'The system cannot decrypt the saved login here.' };
+      st.token = safeStorage.decryptString(Buffer.from(enc, 'base64'));
+      if (encSecret) st.clientSecret = safeStorage.decryptString(Buffer.from(encSecret, 'base64'));
+    }
     const ss = require('./settingsync');
-    return action === 'pull' ? await ss.pull(appKey, token, password) : await ss.push(appKey, token, text, secrets, password);
+    return action === 'pull' ? await ss.pull(st, password) : await ss.push(st, text, secrets, password);
   } catch (err) {
     return { error: err.message };
   }

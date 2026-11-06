@@ -8,3 +8,4 @@ Thumbs.db
 scratch/
 *.tmp
 oauth-defaults.json
+dist-release/

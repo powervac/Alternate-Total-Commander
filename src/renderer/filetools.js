@@ -342,3 +342,38 @@ async function checkForUpdates(silent) {
   box.querySelector('.up-text').textContent = res.terminal ? 'Follow the Terminal window ...' : 'Installing the new version, the program restarts ...';
   if (res.terminal) setTimeout(close, 2500);
 }
+
+// ---------------------------------------------------------------- ZX Spectrum emulator (Unreal Speccy Portable)
+const SPECCY_EXT = new Set(['trd', 'scl', 'tap', 'tzx', 'z80', 'sna', 'szx', 'fdi', 'td0', 'udi', 'csw', 'hob']);
+const isSpeccyFile = (n) => SPECCY_EXT.has(splitExt(n)[1].toLowerCase());
+async function openEmulator(file) {
+  const r = await api.emuOpen({ file });
+  if (r && r.error) msg('ZX Spectrum emulator', r.error);
+}
+
+// ---------------------------------------------------------------- import of WinSCP sessions (Net > Import from WinSCP...)
+async function openWinscpImport(iniPath) {
+  if (modalCount > 0) return;
+  const r = await api.winscpList({ iniPath });
+  if (r.error) return msg('Import from WinSCP', r.error);
+  if (!r.sessions.length) {
+    const d = await dialog({ title: 'Import from WinSCP', text: 'No WinSCP sessions were found (registry and WinSCP.ini).\nIf you use a portable WinSCP, choose its WinSCP.ini file.', buttons: [{ label: 'Choose WinSCP.ini...', value: 'pick', primary: true }, { label: 'Cancel', value: 'no', cancel: true }] });
+    if (d.value !== 'pick') return;
+    const f = await api.openFileDialog({ title: 'Select WinSCP.ini', defaultPath: api.home });
+    return f ? openWinscpImport(f) : undefined;
+  }
+  const have = (nasLoad() || []).filter((c) => connType(c) === 'ssh');
+  const exists = (s) => have.some((c) => (c.url || '').toLowerCase() === s.host.toLowerCase() && (c.user || '') === s.user && String(c.port || 22) === String(s.port));
+  const rows = r.sessions.map((s, i) => {
+    const dup = exists(s);
+    return `<label class="ft-chk wsc-row"><input type="checkbox" data-i="${i}"${s.importable && !dup ? ' checked' : ''}${s.importable ? '' : ' disabled'}> <b>${esc(s.name)}</b> <span class="s-hint">${esc(s.user)}@${esc(s.host)}:${s.port} - ${esc(s.protocol)}${dup ? ' (already added)' : ''}${s.importable ? '' : ' (not supported)'}</span></label>`;
+  }).join('');
+  const box = await ftForm('Import from WinSCP', `<div class="dlg-text">${r.sessions.length} session(s) found (${esc(r.source === 'registry' ? 'registry' : r.source)}). Passwords are not imported: enter them at the first connection.</div><div class="wsc-list">${rows}</div>`, 'Import');
+  if (!box) return;
+  const chosen = [...box.querySelectorAll('input[type=checkbox]:checked')].map((c) => r.sessions[+c.dataset.i]);
+  if (!chosen.length) return;
+  const list = nasLoad();
+  for (const s of chosen) list.push({ id: nasNewId(), type: 'ssh', name: s.name, url: s.host, port: String(s.port), user: s.user, keyPath: s.keyFile, openAs: 'files', insecure: false, appKey: '', clientId: '', sec: '', remember: false, pw: '' });
+  nasSave(list);
+  msg('Import from WinSCP', `${chosen.length} connection(s) added to Net > SSH server... (the key files are used as they are, passwords are asked at the first connection).`);
+}

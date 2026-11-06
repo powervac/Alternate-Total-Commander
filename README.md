@@ -20,6 +20,15 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 - **Updates**: the program looks for a newer version a few seconds after start and offers to install it (Configuration > Check for Updates... does it on demand). On Windows the installer is downloaded, verified by its SHA-256 and started silently; on a Mac the one-line installer runs in Terminal.
 - **Space and Insert**: Space selects the file or folder under the cursor and stays on it (a folder also gets the total size of its contents in the Size column); Insert selects and moves one line down.
 
+- **ZX Spectrum emulator**: Enter on a .trd, .scl, .tap, .tzx, .z80, .sna, .szx, .fdi, .td0, .udi, .csw or .hob file starts it in the built-in emulator (Unreal Speccy Portable compiled to WebAssembly). Also Files > Run in ZX Spectrum Emulator.
+- **Interface languages**: English, Russian, Polish, Portuguese, Spanish, German, Belarusian, Ukrainian (Configuration > Language...). Menus, dialogs, buttons and tooltips are translated; file names and some error messages with variable text stay as they are.
+- **WSL as a disk**: the installed Linux distributions and their home folders appear in the drive list (Alt+F1 / Alt+F2) as WSL: <name>; any \wsl$<name>... path works like a normal folder.
+- **Favourites on remote disks**: Ctrl+D also adds the current folder of Dropbox, Google Drive, NAS and SSH; choosing it reconnects (if needed) and goes straight there.
+- **One font everywhere**: the interface uses the bundled Inter font, so text looks the same on Windows and macOS.
+
+- **Settings in Dropbox** (Configuration > Settings in Dropbox...): connections (without passwords), favourites, search and rename presets, language and view settings are kept in /Commander/settings.json in your Dropbox and merged on every computer (the newer change of each setting wins; synced at start and after changes). Passwords and logins can be kept there too, encrypted on your computer with a passphrase (AES-256-GCM, PBKDF2) so that Dropbox only holds an unreadable block; without the option they stay on each computer. The Dropbox login itself is never synced: sign in to Dropbox once per computer.
+- **Import from WinSCP** (Net > Import from WinSCP...): the SSH/SFTP/SCP sessions of WinSCP (registry or WinSCP.ini) become SSH connections; passwords are not imported.
+
 ## Features
 
 - **Two panels**, tabs per panel, history, drive list with network drives and standard folders (Alt+F1 / Alt+F2), directory hotlist, quick view panel, toolbar.
@@ -106,3 +115,8 @@ Notes: only a refresh token is stored (encrypted with the system keychain, optio
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Third-party components
+
+- **Unreal Speccy Portable** (GPL-3.0, https://github.com/djdron/UnrealSpeccyP) compiled to WebAssembly in src/renderer/emu/ (license and source note there). It runs in its own window as a separate component. The workflow .github/workflows/build-emulator.yml rebuilds it.
+- **Inter** font (SIL Open Font License 1.1) in src/renderer/fonts/.

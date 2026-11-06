@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ZX Spectrum</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; outline: 0; background: #000; }
+  #msg { position: fixed; left: 0; right: 0; bottom: 6px; text-align: center; color: #8a8; font: 12px/1.4 system-ui, sans-serif; opacity: .9; transition: opacity 1.2s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="msg">Unreal Speccy Portable &nbsp;|&nbsp; F1 help &nbsp; F2 menu &nbsp; F12 reset &nbsp; Esc / F11 fullscreen</div>
+<script>
+// Host page for Unreal Speccy Portable compiled to WebAssembly (GPL-3.0, see LICENSE-UnrealSpeccyP.txt / SOURCE.txt).
+// The program calls Module.onInit() when it starts and Module.onReady() when the emulator is running.
+var Module = {
+  canvas: document.getElementById('canvas'),
+  print: function (t) { console.log(t); },
+  printErr: function (t) { console.warn(t); },
+  onInit: function () { window.__emuInit = true; },
+  onReady: function () {
+    window.__emuReady = true;
+    document.getElementById('canvas').focus();
+    setTimeout(function () { document.getElementById('msg').style.opacity = 0; }, 6000);
+  }
+};
+// the main process calls this to start a .trd / .scl / .tap / .tzx / .z80 / .sna ... file
+window.openInEmulator = function (url) { Module.ccall('OpenFile', null, ['string'], [url]); };
+document.getElementById('canvas').addEventListener('mousedown', function () { this.focus(); });
+</script>
+<script src="unreal_speccy_portable.js"></script>
+</body>
+</html>

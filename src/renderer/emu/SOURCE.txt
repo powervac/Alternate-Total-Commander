@@ -1,0 +1,1 @@
+Unreal Speccy Portable, source: https://github.com/djdron/UnrealSpeccyP, commit c68f1d3e23aa4f59df660e0db4fda7f055a2e4dd

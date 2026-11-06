@@ -29,7 +29,7 @@ function openHotlist(sel = 0) {
             .map(
               (h, i) =>
                 `<div class="it${i === cur ? ' on' : ''}" data-i="${i}" title="${esc(h.path)}"><span class="hk">${i < 9 ? i + 1 : ''}</span>` +
-                `<span class="nm">${esc(h.name)}</span>${edit ? `<span class="pth">${esc(h.path)}</span>` : ''}</div>`
+                `<span class="nm">${esc(h.name)}</span>${h.conn ? `<span class="pth">${esc(h.conn.name)}</span>` : ''}${edit ? `<span class="pth">${esc(h.path)}</span>` : ''}</div>`
             )
             .join('')
         : '<div class="empty">No favourite folders yet.</div>') +
@@ -44,12 +44,20 @@ function openHotlist(sel = 0) {
     if (on) on.scrollIntoView({ block: 'nearest' });
   }
 
+  /** a favourite on a remote disk (Dropbox, Google Drive, NAS, SSH) remembers which saved connection it belongs to */
+  const sameEntry = (h, e) => (h.conn || e.conn ? !!h.conn && !!e.conn && h.conn.id === e.conn.id && h.path === e.path : hotSame(h.path, e.path));
   function addCurrent() {
-    const path = panel.realDir();
-    const i = list.findIndex((h) => hotSame(h.path, path));
+    let entry;
+    if (panel.rem) {
+      const r = panel.rem;
+      const base = r.path === '/' ? '' : r.path.split('/').filter(Boolean).pop() || '';
+      entry = { name: `${r.name}${base ? ': ' + base : ''}`, path: r.path, conn: { id: r.id, type: r.type, name: r.name } };
+    } else if (panel.arc) return msg('Directory Hotlist', 'A folder inside an archive cannot be added.');
+    else { const path = panel.realDir(); entry = { name: P.basename(path) || path, path }; }
+    const i = list.findIndex((h) => sameEntry(h, entry));
     if (i >= 0) cur = i;
     else {
-      list.push({ name: P.basename(path) || path, path });
+      list.push(entry);
       hotlistSave(list);
       cur = list.length - 1;
     }
@@ -59,7 +67,7 @@ function openHotlist(sel = 0) {
   /** favourites of Total Commander (wincmd.ini [DirMenu]); only entries that are not in the list yet are added */
   async function importTC(quiet) {
     const r = await api.hotlistImportTC();
-    const fresh = (r.items || []).filter((x) => !list.some((h) => hotSame(h.path, x.path)));
+    const fresh = (r.items || []).filter((x) => !list.some((h) => !h.conn && hotSame(h.path, x.path)));
     list.push(...fresh);
     if (fresh.length) hotlistSave(list);
     render();
@@ -79,6 +87,14 @@ function openHotlist(sel = 0) {
     if (!h) return;
     close();
     panel.focus();
+    if (h.conn) {
+      // remote favourite: straight into the open connection, or open the saved connection and land in this folder after it is connected
+      const live = liveConns.get(h.conn.id);
+      if (live && (await panel.loadRem({ id: live.id, name: live.name, type: live.type }, h.path))) return;
+      nasPendingPath = { id: h.conn.id, path: h.path };
+      await openConnections(h.conn.id, h.conn.type);
+      return;
+    }
     const st = await api.stat(h.path);
     if (!st.exists || !st.isDir) {
       await msg('Directory Hotlist', `Folder not found:\n${h.path}`);

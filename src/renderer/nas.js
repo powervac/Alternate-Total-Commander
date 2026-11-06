@@ -25,6 +25,8 @@ function nasDefaultName(url) {
 
 /** connections that are open right now (id -> {id, name, type: panel type, home}); the drive list offers them to come back to */
 const liveConns = new Map();
+/** set by a remote favourite (Ctrl+D) whose connection was not open: after it connects, go to this folder instead of the root */
+let nasPendingPath = null;
 
 /** show an open connection in panel p again (SSH: the same console with its history) */
 async function openLive(p, l) {
@@ -131,6 +133,7 @@ async function openConnections(selectId, kind) {
   const closeWindow = () => {
     if (closed) return;
     closed = true;
+    nasPendingPath = null; // a remote favourite that was not connected after all
     if (cloud) api.cloudCancelSignIn();
     closeModal();
   };
@@ -328,10 +331,13 @@ async function openConnections(selectId, kind) {
     liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/', openAs: conn.openAs });
     const p = A();
     p.focus();
+    const want = nasPendingPath && nasPendingPath.id === conn.id ? nasPendingPath.path : null;
+    nasPendingPath = null;
     if (ssh) {
       // "Disk": the file list of the server; "Console": the console first. Ctrl+O switches between them either way
-      if (await p.loadRem({ id: conn.id, name: conn.name, type }, res.home || '/') && conn.openAs === 'console') await sshShowConsole(p);
-    } else await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
+      const home = want || res.home || '/';
+      if (await p.loadRem({ id: conn.id, name: conn.name, type }, home) && conn.openAs === 'console') await sshShowConsole(p);
+    } else if (!(want && want !== '/' && (await p.loadRem({ id: conn.id, name: conn.name, type }, want)))) await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
   }
 
   $list.addEventListener('mousedown', (e) => {

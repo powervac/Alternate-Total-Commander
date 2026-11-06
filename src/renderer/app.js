@@ -17,7 +17,7 @@ function splitExt(name) {
 }
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (typeof onStoreSet === 'function') onStoreSet(k); }, // onStoreSet: settings sync (settingsync.js)
 };
 
 // ------------------------------------------------------------------ icons
@@ -180,7 +180,7 @@ let drives = [];
 let places = []; // Home, Desktop, Documents, Downloads... (shown in the Alt+F1 / Alt+F2 list)
 const A = () => panels[active];
 const O = () => panels[1 - active];
-const ROW_H = 18;
+const ROW_H = 20;
 
 class Panel {
   constructor(idx, el) {
@@ -667,6 +667,7 @@ class Panel {
       if (isDocFile(it.name)) return openViewer(); // our own document viewer
       const t = await api.nasTemp({ id: this.rem.id, path: full });
       if (t.error) return msg('NAS', t.error);
+      if (isSpeccyFile(it.name)) return openEmulator(t.file);
       const err = await api.open(t.file);
       if (err) msg('Error', err);
       return;
@@ -676,6 +677,7 @@ class Panel {
       if (it.isDir) return this.loadArc(file, inner ? inner + '/' + it.name : it.name);
       if (isAudioFile(it.name)) return playerStart(this, it);
       if (isDocFile(it.name)) return openViewer();
+      if (isSpeccyFile(it.name)) { const t = await api.zipTemp({ archive: file, inner, name: it.name }); return t.error ? msg('Archive', t.error) : openEmulator(t.file); }
       const err = await api.zipOpen({ archive: file, inner, name: it.name });
       if (err) msg('Error', err);
       return;
@@ -684,6 +686,7 @@ class Panel {
     if (it.isDir) return this.load(full);
     if (isArc(it.name)) return this.loadArc(full, '');
     if (isAudioFile(it.name)) return playerStart(this, it); // music: our player (F3 = viewer, Alt+Enter-like: "Open With Default Application" in Files menu)
+    if (isSpeccyFile(it.name)) return openEmulator(full); // .trd .scl .tap ...: the built-in ZX Spectrum emulator
     if (isDocFile(it.name)) return openViewer(); // docx / xlsx / pptx / odf: built-in viewer, no Office required (Files > Open With Default Application for the system one)
     const err = await api.open(full);
     if (err) msg('Error', err);
@@ -1379,6 +1382,7 @@ const MENUS = [
     { l: 'Edit', k: 'F4', f: () => openEditor() },
     { l: 'Edit New File...', k: 'Shift+F4', f: () => newFileEdit() },
     { l: 'Open With Default Application', f: () => openCurrent() },
+    { l: 'Run in ZX Spectrum Emulator', f: () => { const p = A(), it = p.cur(); if (it && !it.isDir && !it.up && !p.arc && !p.rem) openEmulator(P.join(p.dir, it.name)); } },
     { l: 'Change Attributes...', f: () => ftAttributes() },
     { l: 'Pack...', k: 'Alt+F5', f: () => packSel() },
     { l: 'Unpack Specific Files...', k: 'Alt+F9', f: () => unpackSel() },
@@ -1431,6 +1435,7 @@ const MENUS = [
   ['Net', [
     { l: 'Synology NAS...', k: M + '+F', f: () => openConnections(undefined, 'nas') },
     { l: 'SSH server...', k: M + '+Shift+F', f: () => openConnections(undefined, 'ssh') },
+    { l: 'Import from WinSCP...', f: () => openWinscpImport() },
     { l: 'Dropbox...', f: () => openConnections(undefined, 'dropbox') },
     { l: 'Google Drive...', f: () => openConnections(undefined, 'gdrive') },
     { l: 'SSH: Console / File List', k: M + '+O', f: () => sshToggleConsole(A()) },
@@ -1459,6 +1464,8 @@ const MENUS = [
     { l: () => (document.body.classList.contains('no-toolbar') ? '    Show toolbar' : '✓  Show toolbar'), f: () => toggleToolbar() },
     '-',
     { l: 'Check for Updates...', f: () => checkForUpdates(false) },
+    { l: 'Language...', f: () => openLanguageDialog() },
+    { l: 'Settings in Dropbox...', f: () => openSyncDialog() },
     { l: 'Options...', f: soon, dis: true },
   ]],
   ['Start', [{ l: 'Open Home Folder', f: () => A().load(api.home) }]],

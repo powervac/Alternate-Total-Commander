@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('api', {
   viewRead: inv('view:read'),
   docRender: inv('doc:render'),
   thumb: inv('thumb:get'),
+  emuOpen: inv('emu:open'),
+  winscpList: inv('winscp:list'),
+  settingsCloud: inv('settings:cloud'),
+  emuAvailable: inv('emu:available'),
   updateCheck: inv('update:check'),
   updateInstall: inv('update:install'),
   onUpdateProgress: (cb) => {

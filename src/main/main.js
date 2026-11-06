@@ -1,4 +1,6 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, dialog, clipboard, protocol } = require('electron');
+const emulator = require('./emulator');
+emulator.registerScheme(protocol); // emu:// for the ZX Spectrum emulator (before the app is ready)
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -86,6 +88,7 @@ process.on('uncaughtException', (err) => {
 });
 
 app.whenReady().then(() => {
+  emulator.handleProtocol(protocol);
   // running from source on a Mac: show our icon in the Dock instead of the Electron one
   if (isMac && app.dock && !app.isPackaged) {
     try { app.dock.setIcon(path.join(__dirname, '..', '..', 'build', 'icon.png')); } catch { /* no icon: fine */ }
@@ -195,7 +198,29 @@ ipcMain.handle('fs:stat', async (_e, p) => {
 });
 
 /** standard user folders for the drive list (Alt+F1 / Alt+F2) */
+// WSL (Windows): every installed Linux distribution is a network-like folder \\wsl$\<name>; its users' home folders are listed too.
+// Filled in the background (`wsl -l -q` can take a moment, it may even start the WSL service), shown by the next drive list.
+let wslPlaces = [];
+function refreshWsl() {
+  if (!isWin) return;
+  require('child_process').execFile('wsl.exe', ['-l', '-q'], { timeout: 6000, windowsHide: true, encoding: 'buffer' }, async (err, stdout) => {
+    if (err || !stdout) return;
+    const names = Buffer.from(stdout).toString('utf16le').replace(/^\uFEFF/, '').split(/\r?\n/).map((s) => s.replace(/\u0000/g, '').trim()).filter((s) => s && !/^docker-desktop/i.test(s));
+    const list = [];
+    for (const n of names) {
+      const root = `\\\\wsl$\\${n}`;
+      try {
+        for (const d of await fsp.readdir(`${root}\\home`, { withFileTypes: true })) if (d.isDirectory()) list.push({ label: `WSL: ${n} (${d.name})`, path: `${root}\\home\\${d.name}` });
+      } catch { /* no /home or the distribution is not reachable now */ }
+      list.push({ label: `WSL: ${n}`, path: root });
+    }
+    wslPlaces = list;
+  });
+}
+app.whenReady().then(refreshWsl);
+
 ipcMain.handle('places:list', async () => {
+  refreshWsl();
   const out = [];
   const add = (label, p) => {
     try {
@@ -228,6 +253,7 @@ ipcMain.handle('places:list', async () => {
     }
   } catch {}
   add('Google Drive', path.join(os.homedir(), 'Google Drive'));
+  for (const w of wslPlaces) out.push(w);
   return out;
 });
 
@@ -1387,6 +1413,18 @@ ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {
   return { text: safeStorage.encryptString(text).toString('base64') };
 }));
 
+// settings kept in Dropbox (/Commander/settings.json); the saved Dropbox login is decrypted here, in the main process only
+ipcMain.handle('settings:cloud', async (_e, { action, appKey, enc, text }) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return { error: 'The system cannot decrypt the saved login here.' };
+    const token = safeStorage.decryptString(Buffer.from(enc, 'base64'));
+    const ss = require('./settingsync');
+    return action === 'pull' ? await ss.pull(appKey, token) : await ss.push(appKey, token, text);
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 // ---------------------------------------------------------------- compare / synchronize folders
 
 const SYNC_TOL = 2000; // ms: FAT/zip timestamps are only accurate to 2 seconds
@@ -1711,6 +1749,10 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
   thumbCache.set(key, url);
   return url;
 });
+
+ipcMain.handle('winscp:list', async (_e, { iniPath }) => { try { return await require('./winscp').list(iniPath); } catch (err) { return { error: err.message }; } });
+ipcMain.handle('emu:open', async (_e, { file }) => { try { return await emulator.open(file, BrowserWindow); } catch (err) { return { error: err.message }; } });
+ipcMain.handle('emu:available', () => emulator.available());
 
 // ---------------------------------------------------------------- updates
 // latest.json on the download site: { version, notes, win: { url, sha256 }, mac: { command } }. COMMANDER_UPDATE_URL overrides the address (tests).

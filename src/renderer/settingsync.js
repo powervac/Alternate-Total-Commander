@@ -12,7 +12,7 @@ const syncRaw = (k, d) => { try { const v = localStorage.getItem(k); return v ==
 const syncWrite = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } };
 let syncApplying = false;
 let syncTimer = null;
-let syncBusy = false;
+let syncBusy = 0; // the time a sync started (0: none is running); a sync that has been "running" for 2 minutes is considered hung
 let syncWarned = false;
 
 const syncCfg = () => syncRaw('syncCfg', { on: false, connId: '', last: 0, secrets: true, encrypt: true });
@@ -166,10 +166,10 @@ const SYNC_T = 'Settings sync';
  * mode 'push': Save settings - write what this computer has
  */
 async function syncNow(quiet, mode = 'sync') {
-  if (syncBusy) return;
+  if (syncBusy && Date.now() - syncBusy < 120000) { if (!quiet) msg(SYNC_T, 'A synchronisation is still running (started automatically). Wait a minute and try again.'); return; }
   const c = await syncConn();
   if (!c || (c.kind === 'dropbox' && !c.appKey) || (c.kind === 'gdrive' && !c.clientId)) { if (!quiet) msg(SYNC_T, 'Choose where the settings go: open Configuration > Settings sync..., pick Dropbox / Google Drive (signed in under Net) or a folder.'); return; }
-  syncBusy = true;
+  syncBusy = Date.now();
   try {
     const cfg0 = syncCfg();
     const withSecrets = !!cfg0.secrets;
@@ -221,7 +221,9 @@ async function syncNow(quiet, mode = 'sync') {
     if (mode === 'push') msg(SYNC_T, `Saved to ${syncWhere()}: ${syncFile()} (${how}).`);
     else if (mode === 'pull') msg(SYNC_T, `Retrieved from ${syncWhere()}: ${result.applied.length ? result.applied.join(', ') : 'nothing new'}.` + note);
     else msg(SYNC_T, (result.applied.length ? `Updated from ${syncWhere()}: ${result.applied.join(', ')}.${mustPush ? '\nYour newer settings were uploaded too.' : ''}` : mustPush ? `Your settings were uploaded to ${syncWhere()} (${syncFile()}, ${how}).` : 'Everything is up to date.') + note);
-  } finally { syncBusy = false; }
+  } catch (err) {
+    if (!quiet) msg(SYNC_T, 'Synchronisation failed: ' + ((err && err.message) || err));
+  } finally { syncBusy = 0; }
 }
 
 async function openSyncDialog() {

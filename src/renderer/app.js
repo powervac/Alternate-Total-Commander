@@ -367,7 +367,7 @@ class Panel {
   /** browse a Synology NAS (File Station) or an SSH server (SFTP). conn = {id, name, type: 'nas'|'sftp'}; rpath '/' or '/dir/sub' */
   async loadRem(conn, rpath = '/', opts = {}) {
     const res = await api.nasList({ id: conn.id, path: rpath });
-    if (res.error) { await msg(conn.type === 'sftp' ? 'SSH' : 'NAS', res.error); return false; }
+    if (res.error) { await msg(remTitle(conn.type), res.error); return false; }
     const rem = { id: conn.id, name: conn.name, type: conn.type || 'nas', path: rpath };
     return this._commit(res, `${conn.name}:${rpath}`, null, { rem }, opts, rem);
   }
@@ -502,11 +502,11 @@ class Panel {
   async updateHeader() {
     if (this.qv) return;
     if (this.rem) {
-      const ssh = this.rem.type === 'sftp';
-      this.$drive.textContent = (ssh ? '⌨ SSH' : '☁ NAS') + ' ▾';
+      const t = this.rem.type;
+      this.$drive.textContent = `${REM_ICON[t] || '☁'} ${remTitle(t)} ▾`;
       this.$path.textContent = this.dir + (this.dir.endsWith('/') ? '' : '/') + '*';
       this.$path.title = this.dir;
-      this.$space.textContent = ssh ? 'SSH / SFTP' + (this.consoleOn ? '' : '   (Ctrl+O: console)') : 'Synology NAS (File Station)';
+      this.$space.textContent = t === 'sftp' ? 'SSH / SFTP' + (this.consoleOn ? '' : '   (Ctrl+O: console)') : t === 'nas' ? 'Synology NAS (File Station)' : remTitle(t);
       return;
     }
     // drive combo
@@ -584,6 +584,13 @@ class Panel {
   }
 }
 
+// kinds of remote panels (panel.rem.type) and of saved connection records (record.type)
+const REM_TITLE = { nas: 'NAS', sftp: 'SSH', dropbox: 'Dropbox', gdrive: 'Google Drive' };
+const remTitle = (t) => REM_TITLE[t] || 'NAS';
+const REM_ICON = { nas: '☁', sftp: '⌨', dropbox: '❖', gdrive: '▲' };
+const RECORD_REM = { nas: 'nas', ssh: 'sftp', dropbox: 'dropbox', gdrive: 'gdrive' }; // saved record kind -> panel type
+const REC_ICON = { nas: '☁', ssh: '⌨', dropbox: '❖', gdrive: '▲' };
+
 /** NAS paths always use '/' */
 const remJoin = (base, name) => (base === '/' ? '' : base.replace(/\/+$/, '')) + '/' + name;
 
@@ -655,12 +662,12 @@ function openDrivePicker(p) {
     const live = typeof liveConns !== 'undefined' ? [...liveConns.values()] : [];
     if (live.length) {
       sep();
-      for (const l of live) add('', (l.type === 'sftp' ? '\u2328  ' : '\u2601  ') + l.name + '   (connected)', { live: l });
+      for (const l of live) add('', `${REM_ICON[l.type] || '\u2601'}  ${l.name}   (connected)`, { live: l });
     }
     const conns = (typeof nasLoad === 'function' ? nasLoad() : []).filter((c) => !(typeof liveConns !== 'undefined' && liveConns.has(c.id)));
     if (conns.length) {
       sep();
-      for (const c of conns) add('', (c.type === 'ssh' ? '\u2328  ' : '\u2601  ') + (c.name || c.url) + '   ' + nasDefaultName(c.url), { conn: c });
+      for (const c of conns) add('', `${REC_ICON[c.type] || REC_ICON.nas}  ${c.name || c.url}   ${c.url ? nasDefaultName(c.url) : remTitle(RECORD_REM[c.type] || 'nas')}`, { conn: c });
     }
     const cur = driveFor(p.realDir());
     let i = keepPath ? rows.findIndex((x) => x.drive && x.drive.path === keepPath) : rows.findIndex((x) => x.drive === cur);
@@ -843,13 +850,13 @@ async function uploadToRemote(kind) {
 async function doUpload(dst, items, kind, askFirst = false) {
   if (!items.length || !dst.rem) return;
   const destPath = dst.uploadDir();
-  if (destPath === '/' && dst.rem.type !== 'sftp') return msg('NAS', NAS_ROOT_MSG);
+  if (destPath === '/' && dst.rem.type === 'nas') return msg('NAS', NAS_ROOT_MSG);
   const where = `${dst.rem.name}:${destPath}`;
   const label = kind === 'copy' ? 'Copy' : 'Move';
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} file(s)/dir(s)`;
   // dropping onto the console asks nothing but the overwrite question: the target is obvious
   if (askFirst) {
-    const r = await dialog({ title: label, text: `${label} ${what} to ${dst.rem.type === 'sftp' ? 'SSH' : 'NAS'} folder:\n${where}`, buttons: OKCANCEL });
+    const r = await dialog({ title: label, text: `${label} ${what} to ${remTitle(dst.rem.type)} folder:\n${where}`, buttons: OKCANCEL });
     if (r.value !== 'ok') return;
   }
   const listing = await api.nasList({ id: dst.rem.id, path: destPath });
@@ -892,7 +899,7 @@ async function renameRemote() {
   const p = A();
   const it = p.cur();
   if (!it || it.up) return;
-  if (p.rem.type !== 'sftp' && p.rem.path === '/') return msg('NAS', 'Shared folders cannot be renamed here.');
+  if (p.rem.type === 'nas' && p.rem.path === '/') return msg('NAS', 'Shared folders cannot be renamed here.');
   const r = await dialog({ title: 'Rename', text: `Rename "${it.name}" to:`, input: it.name, buttons: OKCANCEL });
   const nn = r.input && r.input.trim();
   if (r.value !== 'ok' || !nn || nn === it.name) return;
@@ -904,7 +911,7 @@ async function renameRemote() {
 
 async function mkdirRemote() {
   const p = A();
-  if (p.rem.type !== 'sftp' && p.rem.path === '/') return msg('NAS', NAS_ROOT_MSG);
+  if (p.rem.type === 'nas' && p.rem.path === '/') return msg('NAS', NAS_ROOT_MSG);
   const r = await dialog({ title: 'New folder', text: 'Enter new directory name:', input: '', buttons: OKCANCEL });
   const name = r.input && r.input.trim();
   if (r.value !== 'ok' || !name) return;
@@ -915,13 +922,16 @@ async function mkdirRemote() {
 
 async function deleteRemote() {
   const p = A();
-  if (p.rem.type !== 'sftp' && p.rem.path === '/') return msg('NAS', 'Shared folders cannot be deleted here.');
+  if (p.rem.type === 'nas' && p.rem.path === '/') return msg('NAS', 'Shared folders cannot be deleted here.');
   const items = p.targets();
   if (!items.length) return;
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} selected item(s)`;
   const r = await dialog({
     title: 'Delete',
-    text: `Delete ${what} from the NAS?\nThis cannot be undone.`,
+    text:
+      p.rem.type === 'dropbox' ? `Delete ${what} from Dropbox?\nIt goes to Dropbox's deleted files (kept for 30 days).`
+      : p.rem.type === 'gdrive' ? `Move ${what} to the Google Drive Trash?`
+      : `Delete ${what} from the ${p.rem.type === 'sftp' ? 'server' : 'NAS'}?\nThis cannot be undone.`,
     buttons: [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no', cancel: true }],
   });
   if (r.value !== 'yes') return;
@@ -1272,6 +1282,8 @@ const MENUS = [
   ['Net', [
     { l: 'Synology NAS...', k: M + '+F', f: () => openConnections(undefined, 'nas') },
     { l: 'SSH server...', k: M + '+Shift+F', f: () => openConnections(undefined, 'ssh') },
+    { l: 'Dropbox...', f: () => openConnections(undefined, 'dropbox') },
+    { l: 'Google Drive...', f: () => openConnections(undefined, 'gdrive') },
     { l: 'SSH: Console / File List', k: M + '+O', f: () => sshToggleConsole(A()) },
     { l: 'Disconnect (NAS / SSH)', f: () => nasDisconnect() },
     '-',

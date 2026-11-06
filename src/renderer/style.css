@@ -64,7 +64,11 @@ body.no-toolbar #toolbar { display: none; }
 .nas-empty { padding: 8px; color: #777; }
 .nas-form { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .nas-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
-.dlg.nas:not(.is-ssh) .only-ssh, .dlg.nas.is-ssh .only-nas { display: none; }
+.nas-row[hidden] { display: none; }
+.nas-help { margin-top: 10px; }
+.nas-help .n-link { font: inherit; height: 22px; padding: 0 10px; border: 1px solid #adadad; background: #e1e1e1; margin-bottom: 6px; }
+.n-help-text { white-space: pre-wrap; color: #555; font-size: 11px; line-height: 1.45; max-height: 118px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; padding: 6px 8px; user-select: text; -webkit-user-select: text; }
+.dlg.nas { width: 800px; }
 .nas-form input[type=text], .nas-form input[type=password], .nas-form input:not([type]) { height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; min-width: 0; user-select: text; -webkit-user-select: text; }
 .nas-form select { height: 24px; font: inherit; min-width: 0; }
 .n-keyrow { display: flex; gap: 6px; min-width: 0; }

@@ -13,6 +13,7 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 - **File operations** with progress and cancel: copy, move, rename, new folder, delete (to the Recycle Bin / Trash), multi-rename tool, compare and synchronize folders, search (names, text in files, names inside zip).
 - **Archives:** pack and unpack zip; open a zip like a folder and edit it in place (add, delete, rename, new folder). A zip on a NAS / SSH server opens as a read-only folder (it is downloaded to a temporary copy; files can be copied out of it).
 - **Synology NAS** (File Station API, works through **QuickConnect**): browse, copy both ways, create, rename, delete, view/edit, stream video and music.
+- **Dropbox and Google Drive** as remote disks (Net menu > Dropbox... / Google Drive..., also in the Alt+F1 / Alt+F2 list): browse, copy both ways, create, rename, delete, view/edit, stream video and music. They use the official APIs with OAuth sign-in in your browser, so **no desktop client is needed**. You create your own free API app once (see "Cloud drives" below).
 - **SSH servers** (password or key file): the panel shows an interactive **console** (xterm.js); files copied (F5) or dropped into the console are uploaded to the console's current folder. Ctrl+O switches to an SFTP file list.
 - **Viewer (F3):** text with automatic encoding detection (UTF-8/16, Windows-1251, CP866...), hex, images, PDF, video and audio. Formats Chromium cannot play (HEVC, AVI, WMV, AC3 sound, APE, WavPack, ALAC, AIFF...) are converted on the fly by a bundled **ffmpeg**.
 - **Editor (F4):** keeps encoding, BOM and line endings; find/replace; works on files inside zip archives and on a NAS / SSH server.
@@ -68,6 +69,16 @@ The first time the app reads Documents, Downloads or Desktop, macOS asks for per
 | Ctrl+Space (macOS: Option+Space), Ctrl+Shift+Left/Right | music player: play/pause, previous/next track |
 
 **macOS notes:** the F-keys need `Fn` (or enable "Use F1, F2, etc. keys as standard function keys" in System Settings > Keyboard); the buttons at the bottom of the window and the menus do the same. Mac keyboards have no Insert or numeric keypad: use Space and the Mark menu.
+
+## Cloud drives (Dropbox, Google Drive)
+
+Dropbox and Google require every program to identify itself with its own API key, so you create one (free, one time). The connection window shows these steps next to the fields.
+
+**Dropbox:** [App Console](https://www.dropbox.com/developers/apps) > Create app > Scoped access > Full Dropbox. Permissions: `files.metadata.read`, `files.metadata.write`, `files.content.read`, `files.content.write` > Submit. Copy the **App key** into Net > Dropbox..., press *Sign in with Dropbox*, approve in the browser, paste the code, press *Connect*.
+
+**Google Drive:** [Cloud Console](https://console.cloud.google.com/apis/credentials): create a project, enable the *Google Drive API*, configure the OAuth consent screen (External; add yourself as a test user, or press *Publish app* so the login does not expire after 7 days), then Credentials > OAuth client ID > *Desktop app*. Copy the **Client ID** and **Client secret** into Net > Google Drive... and press *Connect*; the browser opens and you approve.
+
+Notes: only a refresh token is stored (encrypted with the system keychain, optional "Stay signed in"); your files never pass through any server except Dropbox / Google. Google documents (Docs, Sheets, Slides) appear with an extra `.docx` / `.xlsx` / `.pptx` and are exported when copied. Deleting in Dropbox goes to its deleted files, in Google Drive to the Trash.
 
 ## Security notes
 

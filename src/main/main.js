@@ -180,6 +180,26 @@ ipcMain.handle('places:list', async () => {
       add(label, app.getPath(key));
     } catch {}
   }
+  // Dropbox: the desktop client records its folders in info.json
+  const infoFiles = isWin
+    ? [path.join(process.env.LOCALAPPDATA || '', 'Dropbox', 'info.json'), path.join(process.env.APPDATA || '', 'Dropbox', 'info.json')]
+    : [path.join(os.homedir(), '.dropbox', 'info.json')];
+  for (const f of infoFiles) {
+    try {
+      const info = JSON.parse(fs.readFileSync(f, 'utf8'));
+      for (const [kind, v] of Object.entries(info)) if (v && v.path) add(kind === 'personal' ? 'Dropbox' : `Dropbox (${kind})`, v.path);
+      break;
+    } catch {}
+  }
+  // Google Drive for desktop: on macOS under ~/Library/CloudStorage/GoogleDrive-<account>/My Drive, on Windows a virtual drive (it is already in the drive list)
+  // or the old "Google Drive" folder
+  try {
+    const cs = path.join(os.homedir(), 'Library', 'CloudStorage');
+    for (const d of fs.readdirSync(cs)) {
+      if (/^GoogleDrive-/i.test(d)) add(`Google Drive (${d.replace(/^GoogleDrive-/i, '')})`, fs.existsSync(path.join(cs, d, 'My Drive')) ? path.join(cs, d, 'My Drive') : path.join(cs, d));
+    }
+  } catch {}
+  add('Google Drive', path.join(os.homedir(), 'Google Drive'));
   return out;
 });
 
@@ -1268,6 +1288,42 @@ ipcMain.handle('ssh:resize', (_e, { id, cols, rows }) => {
 ipcMain.handle('dialog:openFile', async (_e, { title, defaultPath }) => {
   const r = await dialog.showOpenDialog(win, { title, defaultPath, properties: ['openFile', 'showHiddenFiles'] });
   return r.canceled ? null : r.filePaths[0];
+});
+
+// ---------------------------------------------------------------- Dropbox / Google Drive (OAuth in the system browser)
+
+const { Dropbox, GDrive } = require('./cloud');
+const openBrowser = (url) => {
+  if (process.env.COMMANDER_NO_BROWSER) console.log('[oauth] open this address:', url); // tests: no real browser
+  else shell.openExternal(url);
+};
+
+/** Dropbox step 1: open the sign-in page; the user pastes the code it shows into the program */
+ipcMain.handle('cloud:dropboxStart', nasWrap(async (_e, { appKey }) => {
+  if (!appKey) throw new Error('Enter the app key of your Dropbox app first.');
+  const { url, verifier } = Dropbox.startAuth(appKey);
+  openBrowser(url);
+  return { url, verifier };
+}));
+
+/** Google: sign in through the browser (the answer comes back to a local loopback address); returns the refresh token */
+ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret }) => {
+  return GDrive.signIn({ clientId, clientSecret, openUrl: openBrowser });
+}));
+
+/** connect: kind 'dropbox' {appKey, refreshToken | code+verifier}  or  'gdrive' {clientId, clientSecret, refreshToken} */
+ipcMain.handle('cloud:connect', nasWrap(async (_e, { id, kind, ...creds }) => {
+  const c = kind === 'dropbox' ? new Dropbox() : new GDrive();
+  const r = await c.connect(creds);
+  const old = nasSessions.get(id);
+  if (old) old.logout();
+  nasSessions.set(id, c);
+  return { ok: true, refreshToken: r.refreshToken, account: r.account };
+}));
+
+/** open an https address in the system browser (help links in the connection windows) */
+ipcMain.handle('shell:openUrl', (_e, url) => {
+  if (typeof url === 'string' && /^https:\/\//i.test(url)) shell.openExternal(url);
 });
 
 ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {

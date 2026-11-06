@@ -49,7 +49,8 @@ async function inner(archive) {
 /** [{ name: 'dir/file', size, mtime, dir }] */
 async function list(archive) {
   const file = await inner(archive);
-  const text = await run(['l', '-slt', '-ba', '-spd', file]);
+  // -sccUTF-8: print names as UTF-8. Without it 7za on Windows writes them in the console code page and every non-ASCII letter becomes "_"
+  const text = await run(['l', '-slt', '-ba', '-spd', '-sccUTF-8', file]);
   const entries = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
     const f = {};

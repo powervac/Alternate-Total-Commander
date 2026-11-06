@@ -235,7 +235,7 @@ class Panel {
     this.hi = -1;
     this.lastDirOnDrive = new Map();
     el.innerHTML =
-      '<div class="top"><button class="drive" tabindex="-1"></button><span class="space"></span></div>' +
+      '<div class="top"><button class="drive" tabindex="-1"></button><select class="sshmode" tabindex="-1" hidden><option value="console">Console</option><option value="files">File manager</option></select><span class="space"></span></div>' +
       '<div class="tabs"></div>' +
       '<div class="pathbar"></div>' +
       '<div class="colhead"><div data-k="name">Name</div><div data-k="ext">Ext</div><div data-k="size" class="r">Size</div><div data-k="time">Date</div><div data-k="attr">Attr</div></div>' +
@@ -244,6 +244,8 @@ class Panel {
     this.qv = false;
     this.$drive = $('.drive', el);
     this.$space = $('.space', el);
+    this.$mode = $('.sshmode', el);
+    this.$mode.onchange = () => { const v = this.$mode.value; this.focus(); if (typeof sshSetMode === 'function') sshSetMode(this, v); };
     this.$path = $('.pathbar', el);
     this.$list = $('.list', el);
     this.$status = $('.status', el);
@@ -674,9 +676,12 @@ class Panel {
       this.$drive.textContent = `${REM_ICON[t] || '☁'} ${remTitle(t)} ▾`;
       this.$path.textContent = this.dir + (this.dir.endsWith('/') ? '' : '/') + '*';
       this.$path.title = this.dir;
-      this.$space.textContent = t === 'sftp' ? 'SSH / SFTP' + (this.consoleOn ? '' : '   (Ctrl+O: console)') : t === 'nas' ? 'Synology NAS (File Station)' : remTitle(t);
+      this.$space.textContent = t === 'sftp' ? '' : t === 'nas' ? 'Synology NAS (File Station)' : remTitle(t);
+      this.$mode.hidden = t !== 'sftp'; // the console is available for SSH connections: a picklist Console / File manager
+      this.$mode.value = this.consoleOn ? 'console' : 'files';
       return;
     }
+    this.$mode.hidden = true;
     // drive combo
     const d = driveFor(this.dir);
     this.$drive.textContent = (d ? d.label : '?') + ' ▾';
@@ -1012,6 +1017,62 @@ async function mkdirInArc() {
 // ---------------------------------------------------------------- NAS operations
 const NAS_ROOT_MSG = 'This is the list of shared folders. Open a shared folder first.';
 
+/** F5 / F6 between two remote panels (cloud -> cloud, NAS -> Dropbox ...): into a temporary folder on this computer, from there to the target, then the folder is deleted */
+async function remoteToRemote(kind) {
+  const src = A(), dst = O();
+  const items = src.targets();
+  if (!items.length) return;
+  const destPath = dst.uploadDir();
+  if (destPath === '/' && dst.rem.type === 'nas') return msg('NAS', NAS_ROOT_MSG);
+  const label = kind === 'copy' ? 'Copy' : 'Move';
+  const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} file(s)/dir(s)`;
+  const where = `${dst.rem.name}:${destPath}`;
+  const ok = await dialog({
+    title: label,
+    text: `${label} ${what} from ${src.rem.name} to ${where}?\n\nThe files go through a temporary folder on this computer, which is emptied afterwards.`,
+    buttons: OKCANCEL,
+  });
+  if (ok.value !== 'ok') return;
+  const listing = await api.nasList({ id: dst.rem.id, path: destPath });
+  if (listing.error) return msg(label, listing.error);
+  const have = new Set(listing.items.map((i) => i.name));
+  let chosen = items;
+  let overwrite = 'skip';
+  const clash = items.filter((i) => have.has(i.name));
+  if (clash.length) {
+    const c = await dialog({
+      title: 'Confirm overwrite',
+      text: `Already exist in ${where}:\n${clash.slice(0, 5).map((i) => i.name).join('\n')}${clash.length > 5 ? `\n... and ${clash.length - 5} more` : ''}`,
+      buttons: [{ label: 'Overwrite', value: 'all', primary: true }, { label: 'Skip existing', value: 'skip' }, { label: 'Cancel', value: 'cancel', cancel: true }],
+    });
+    if (c.value === 'cancel') return;
+    overwrite = c.value;
+    if (c.value === 'skip') chosen = items.filter((i) => !have.has(i.name));
+    if (!chosen.length) return;
+  }
+  const srcRem = src.rem, dstRem = dst.rem, base = srcRem.path;
+  const title = `${kind === 'copy' ? 'Copying' : 'Moving'} ${chosen.length === 1 ? chosen[0].name : chosen.length + ' items'} (${srcRem.name} → ${dstRem.name})`;
+  const res = await runJob(title, async (id) => {
+    const tmp = await api.mkTemp();
+    try {
+      const d = await api.nasDownload({ id: srcRem.id, jobId: id, base, destDir: tmp, overwrite: 'all', items: chosen.map((i) => ({ name: i.name, isDir: i.isDir, size: i.size, mtime: i.mtime })) });
+      if (d.error) return { errors: [d.error], cancelled: false, skipped: 0 };
+      if (d.cancelled || (d.errors && d.errors.length)) return d;
+      const u = await api.nasUpload({ id: dstRem.id, jobId: id, sources: chosen.map((i) => P.join(tmp, i.name)), destPath, overwrite });
+      if (u.error) return { errors: [u.error], cancelled: false, skipped: 0 };
+      if (kind === 'move' && !u.cancelled && !(u.errors && u.errors.length) && !u.skipped) {
+        const r = await api.nasDelete({ id: srcRem.id, paths: chosen.map((i) => remJoin(base, i.name)) });
+        if (r.error) u.errors = [...(u.errors || []), r.error];
+      }
+      return u;
+    } finally {
+      await api.del({ sources: [tmp], permanent: true }); // the temporary copy is always removed
+    }
+  });
+  await Promise.all(panels.map((p) => p.refresh()));
+  await showErrors(res.errors || []);
+}
+
 /** F5 / F6 from a local panel into a NAS / SSH panel (for an SSH panel in console mode: into the console's current directory) */
 async function uploadToRemote(kind) {
   const src = A(), dst = O();
@@ -1131,7 +1192,7 @@ async function copyMove(kind, opts = {}) {
   if (kind === 'move' && src.arc && arcReadOnly(src.arc)) return remoteArcMsg(); // "move" would delete from the archive
   if (opts.renameOnly && src.rem) return renameRemote();
   if (opts.renameOnly && src.arc) return renameInArc();
-  if (src.rem && dst.rem) return msg('NAS', 'Copying between two NAS panels is not supported yet.\nCopy through a local folder.');
+  if (src.rem && dst.rem) return remoteToRemote(kind);
   if ((src.rem && dst.arc) || (src.arc && dst.rem)) return msg('NAS', 'Copying between a NAS and an archive is not supported.\nUse a local folder in between.');
   if (dst.rem) return uploadToRemote(kind);
   if (src.arc && dst.arc) return msg('Archive', 'Copying between two archives is not supported yet.');

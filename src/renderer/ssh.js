@@ -168,6 +168,7 @@ async function sshShowConsole(panel) {
   panel.$term.appendChild(t.host);
   panel.el.classList.add('console');
   panel.consoleOn = true;
+  if (panel.$mode) panel.$mode.value = 'console';
   if (!t.opened) { t.term.open(t.host); t.opened = true; }
   if (!panel.$term.dataset.bound) {
     panel.$term.dataset.bound = '1';
@@ -209,6 +210,7 @@ async function sshShowConsole(panel) {
 function sshShowList(panel) {
   panel.el.classList.remove('console');
   panel.consoleOn = false;
+  if (panel.$mode) panel.$mode.value = 'files';
   if (document.activeElement && panel.$term.contains(document.activeElement)) document.activeElement.blur();
   panel.updateStatus();
 }
@@ -227,6 +229,12 @@ function sshToggleConsole(panel = A()) {
     const t = termMap.get(panel.rem.id);
     if (t && t.cwd && t.cwd !== panel.rem.path) panel.loadRem(panel.rem, t.cwd, { push: true });
   } else sshShowConsole(panel);
+}
+
+/** the picklist next to "SSH / SFTP": 'console' or 'files' */
+function sshSetMode(panel, mode) {
+  if (!panel.rem || panel.rem.type !== 'sftp') return;
+  if ((mode === 'console') !== panel.consoleOn) sshToggleConsole(panel);
 }
 
 /** a line of our own in the console (not sent to the server) */

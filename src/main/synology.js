@@ -235,7 +235,17 @@ class Syno {
   /** call an API; one transparent re-login when the session is gone */
   async call(apiName, method, params = {}, version = 2, retry = true) {
     const max = (this.apis[apiName] || {}).maxVersion || version;
-    const r = await this.rawCall(apiName, { api: apiName, version: Math.min(version, max), method, ...params });
+    let r;
+    // the NAS or the QuickConnect relay now and then answers 502 / 503 / 504 for a single request: try again a couple of times
+    for (let attempt = 0; ; attempt++) {
+      try {
+        r = await this.rawCall(apiName, { api: apiName, version: Math.min(version, max), method, ...params });
+        break;
+      } catch (e) {
+        if (attempt >= 2 || !/HTTP 50[234]/.test(String(e && e.message))) throw e;
+        await new Promise((res) => setTimeout(res, 1000 * (attempt + 1)));
+      }
+    }
     if (r.success) return r.data;
     const c = r.error && r.error.code;
     if (retry && [106, 107, 119].includes(c) && this.creds) {
@@ -274,7 +284,24 @@ class Syno {
   }
 
   async remove(paths) {
-    await this.call('SYNO.FileStation.Delete', 'delete', { path: paths, recursive: true }, 1);
+    const api = 'SYNO.FileStation.Delete';
+    if (((this.apis[api] || {}).maxVersion || 1) < 2) {
+      await this.call(api, 'delete', { path: paths, recursive: true }, 1);
+      return;
+    }
+    // version 2 works as a background task (start, then ask for the status): no long blocking request that a relay may cut with a 502
+    const t = await this.call(api, 'start', { path: paths, recursive: true }, 2);
+    if (!t || !t.taskid) return;
+    const until = Date.now() + 15 * 60 * 1000;
+    for (;;) {
+      const d = await this.call(api, 'status', { taskid: t.taskid }, 2);
+      if (d && d.finished) {
+        if (d.errors && d.errors.length) throw new Error('Cannot delete: ' + (d.errors[0].path || '') + (d.errors[0].code ? ` (DSM error ${d.errors[0].code})` : ''));
+        return;
+      }
+      if (Date.now() > until) throw new Error('Deleting takes too long, it continues on the NAS');
+      await new Promise((res) => setTimeout(res, 400));
+    }
   }
 
   /** stream a remote file to a local path; onData(n) per chunk; onReq(req) to be able to cancel */

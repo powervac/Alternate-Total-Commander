@@ -429,3 +429,6 @@ body.no-toolbar #toolbar { display: none; }
 .pg-line .bar i { transition: none; }
 .pg-line span { width: 42px; text-align: right; }
 .pg-head { text-align: center; }
+.panel .top { align-items: center; }
+.panel .sshmode { height: 20px; min-width: 120px; font: inherit; font-size: 12px; border: 1px solid #adadad; background: #fff; padding: 0 2px; }
+.panel .sshmode[hidden] { display: none; }

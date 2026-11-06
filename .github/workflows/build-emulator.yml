@@ -1,0 +1,49 @@
+name: Build ZX Spectrum emulator (WebAssembly)
+
+# Compiles Unreal Speccy Portable (GPL-3.0, https://github.com/djdron/UnrealSpeccyP) with Emscripten, exactly as its own workflow does.
+# The result (unreal_speccy_portable.html / .js / .wasm / .data) is copied into src/renderer/emu/ and runs inside Commander.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'UnrealSpeccyP commit or branch'
+        default: 'c68f1d3e23aa'
+
+jobs:
+  emscripten:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the emulator sources
+        run: |
+          git clone https://github.com/djdron/UnrealSpeccyP.git usp
+          cd usp
+          git checkout "${{ github.event.inputs.ref || 'c68f1d3e23aa' }}"
+          git submodule update --init --recursive || true
+          git log -1 --format='%H %s'
+      - name: Install Emscripten SDK
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+      - name: Build
+        run: |
+          source emsdk/emsdk_env.sh
+          cd usp
+          mkdir -p build/cmake/build_emscripten
+          cd build/cmake/build_emscripten
+          emcmake cmake .. -DUSE_SDL=0 -DUSE_SDL2=1 -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --parallel "$(nproc)"
+          ls -la unreal_speccy_portable.*
+      - name: License and source note
+        run: |
+          cp usp/LICENSE usp/build/cmake/build_emscripten/LICENSE-UnrealSpeccyP.txt
+          echo "Unreal Speccy Portable, source: https://github.com/djdron/UnrealSpeccyP, commit $(cd usp && git rev-parse HEAD)" > usp/build/cmake/build_emscripten/SOURCE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unreal-speccy-wasm
+          path: |
+            usp/build/cmake/build_emscripten/unreal_speccy_portable.*
+            usp/build/cmake/build_emscripten/LICENSE-UnrealSpeccyP.txt
+            usp/build/cmake/build_emscripten/SOURCE.txt
+          if-no-files-found: error

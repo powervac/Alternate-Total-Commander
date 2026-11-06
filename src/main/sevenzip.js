@@ -33,6 +33,35 @@ function run(args, cwd) {
   });
 }
 
+
+/** a .tar.gz / .tgz / .tar.bz2 / .tar.xz is read through a pipe: the first 7za unpacks the compression layer to its output, the second reads the tar from its input.
+ *  Nothing is written to disk (the old way wrote the whole .tar into the temp folder: gigabytes of the system disk for a big archive). */
+function pipeTwo(archive, args2, onPct, hold) {
+  return new Promise((resolve, reject) => {
+    const p1 = spawn(bin, ['x', '-so', '-bsp2', '-bso0', '-spd', archive], { windowsHide: true });
+    const p2 = spawn(bin, args2, { windowsHide: true });
+    const out = [];
+    let e1 = '', e2 = '', buf = '', d1 = null, d2 = null;
+    if (hold) hold.kill = () => { try { p1.kill(); } catch { /* gone */ } try { p2.kill(); } catch { /* gone */ } };
+    p1.stdout.pipe(p2.stdin);
+    p2.stdin.on('error', () => { /* the reader ended early: its own error is reported */ });
+    p1.stderr.on('data', (c) => { const x = c.toString('latin1'); e1 += x; if (onPct) { buf += x; const m = buf.match(/(\d{1,3})%/g); if (m) onPct(Math.min(100, parseInt(m[m.length - 1], 10))); if (buf.length > 4096) buf = buf.slice(-256); } });
+    p2.stderr.on('data', (c) => (e2 += c));
+    p2.stdout.on('data', (c) => out.push(c));
+    const msg = (x, code) => new Error((x || '7za exited with code ' + code).trim().split('\n').slice(-2).join(' '));
+    const finish = () => {
+      if (d1 === null || d2 === null) return;
+      if (d2 > 1) return reject(msg(e2, d2));
+      if (d1 > 1 && !hold) return reject(msg(e1, d1));
+      resolve(Buffer.concat(out).toString('utf8'));
+    };
+    p1.on('error', reject);
+    p2.on('error', reject);
+    p1.on('close', (c) => { d1 = c; finish(); });
+    p2.on('close', (c) => { d2 = c; finish(); });
+  });
+}
+
 const unwrapped = new Map(); // archive -> { sig, tar }
 /** a .tar.gz is two layers: unpack the outer one into a temp folder once and work with the .tar inside */
 async function inner(archive) {
@@ -65,9 +94,10 @@ async function listRar(archive) {
 
 async function list(archive) {
   if (isRar(archive)) return listRar(archive);
-  const file = await inner(archive);
   // -sccUTF-8: print names as UTF-8. Without it 7za on Windows writes them in the console code page and every non-ASCII letter becomes "_"
-  const text = await run(['l', '-slt', '-ba', '-spd', '-sccUTF-8', file]);
+  const text = WRAPPED.test(archive)
+    ? await pipeTwo(archive, ['l', '-slt', '-ba', '-spd', '-sccUTF-8', '-si', '-ttar'])
+    : await run(['l', '-slt', '-ba', '-spd', '-sccUTF-8', archive]);
   const entries = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
     const f = {};
@@ -103,11 +133,11 @@ async function extractRar(archive, paths, destDir, cancelled) {
 
 async function extract(archive, paths, destDir) {
   if (isRar(archive)) return extractRar(archive, paths, destDir);
-  const file = await inner(archive);
   await fsp.mkdir(destDir, { recursive: true });
+  if (WRAPPED.test(archive)) { await pipeTwo(archive, ['x', '-y', '-spd', '-si', '-ttar', '-o' + destDir, '--', ...paths]); return; }
   // a single compressed file has no inner names: it is unpacked whole
-  if (!WRAPPED.test(archive) && SINGLE.test(archive)) { await run(['x', '-y', '-spd', '-o' + destDir, '--', file]); return; }
-  await run(['x', '-y', '-spd', '-o' + destDir, '--', file, ...paths]);
+  if (SINGLE.test(archive)) { await run(['x', '-y', '-spd', '-o' + destDir, '--', archive]); return; }
+  await run(['x', '-y', '-spd', '-o' + destDir, '--', archive, ...paths]);
 }
 
 /** 7za with the percent of the work reported: onPct(0..100); kill() stops it. -> promise */
@@ -128,8 +158,8 @@ function runProgress(args, cwd, onPct, hold) {
 async function unpackAll(archive, destDir, { overwrite = 'skip', onPct, hold, cancelled } = {}) {
   await fsp.mkdir(destDir, { recursive: true });
   if (isRar(archive)) { await extractRar(archive, [], destDir, cancelled); if (onPct) onPct(100); return; }
-  const file = await inner(archive);
-  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-o' + destDir, '--', file], undefined, onPct, hold);
+  if (WRAPPED.test(archive)) { await pipeTwo(archive, ['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-si', '-ttar', '-o' + destDir], onPct, hold); if (onPct) onPct(100); return; }
+  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-o' + destDir, '--', archive], undefined, onPct, hold);
 }
 
 /** pack sources (all of them in the same folder `cwd`, given by name) into archive. kind: 7z | tar | tgz | tbz2 | txz | gz | bz2 | xz */

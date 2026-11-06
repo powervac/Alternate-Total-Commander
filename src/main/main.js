@@ -1248,7 +1248,20 @@ ipcMain.handle('zip:temp', async (_e, { archive, inner, name }) => {
 });
 
 /** a fresh empty temp folder (removed when the program quits): used to hold archives downloaded from a NAS / SSH server */
-ipcMain.handle('fs:mktemp', async () => fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-')));
+const tempDirs = new Set(); // the temporary copies of this run (archives of a server, files taken out of archives ...)
+ipcMain.handle('fs:mktemp', async () => { const d = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-')); tempDirs.add(d); return d; });
+// big temporary copies must not stay on the system disk: removed at quit, and what an earlier run (or a crash) left is removed at start
+app.on('will-quit', () => { for (const d of tempDirs) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* in use */ } } });
+app.whenReady().then(async () => {
+  try {
+    for (const n of await fsp.readdir(os.tmpdir())) {
+      if (!/^commander-(zip|pack|thumb)-/.test(n)) continue;
+      const f = path.join(os.tmpdir(), n);
+      const st = await fsp.stat(f).catch(() => null);
+      if (st && Date.now() - st.mtimeMs > 3600 * 1000) fsp.rm(f, { recursive: true, force: true }).catch(() => {});
+    }
+  } catch { /* the temp folder is not readable: nothing to clean */ }
+});
 
 /** write a whole file (editor): to a temp file first, then moved over the original */
 ipcMain.handle('file:write', async (_e, { file, data, overwriteReadOnly }) => {

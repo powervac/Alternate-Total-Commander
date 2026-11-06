@@ -3,8 +3,10 @@
 // One-command release: version bump, commit + push, Windows build (the portable exe), macOS build on GitHub Actions,
 // upload to the download site and latest.json (the program offers the update by itself afterwards).
 //
-//   npm run release -- 0.1.7 "What is new in this version"
-//   npm run release -- patch "notes"            (0.1.6 -> 0.1.7)
+//   npm run release                              (the next version by itself, the notes from the commits, asks what to build)
+//   npm run release -- "What is new in this version"   (the next version by itself)
+//   npm run release -- 0.2.0 "notes"            (this version; a version that is not newer becomes the next one)
+//   npm run release -- minor "notes"            (0.1.7 -> 0.2.0)
 //   npm run release -- 0.1.7 "notes"            (asks what to build: Windows, macOS or both)
 //   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are; same: --win-only)
 //   npm run release -- 0.1.7 "notes" --no-win   (macOS only: the Windows file stays as it is; same: --mac-only; --both = both)
@@ -66,17 +68,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ------------------------------------------------------------ arguments
   const pkgFile = path.join(ROOT, 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
-  let version = pos[0];
-  const notes = pos[1];
-  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--no-mirror] [--wait-mirror] [--dry-run]');
+  // The version is chosen by itself: every build gets the next one (0.1.912 -> 0.1.913). A version can still be given (0.2.0), or "minor"; a version that is
+  // not newer than the current one (the same build started again) also becomes the next one, so that the programs always see an update.
   const cur = pkg.version.split('.').map(Number);
-  if (version === 'patch') version = [cur[0], cur[1], cur[2] + 1].join('.');
-  else if (version === 'minor') version = [cur[0], cur[1] + 1, 0].join('.');
-  if (!/^\d+\.\d+\.\d+$/.test(version)) die('The version must look like 0.1.7 (or "patch" / "minor").');
-  const nv = version.split('.').map(Number);
-  const diff = nv.reduce((r, n, i) => r || n - cur[i], 0);
-  if (diff === 0) log(`Version ${version} is already in package.json: no bump.`);
-  else if (diff < 0) die(`${version} is not newer than ${pkg.version}.`);
+  const SEMVER = /^\d+\.\d+\.\d+$/;
+  let version = null;
+  let notes = null;
+  if (pos.length && (SEMVER.test(pos[0]) || pos[0] === 'patch' || pos[0] === 'minor')) { version = pos[0]; notes = pos[1] || null; }
+  else if (pos.length) notes = pos.join(' ');
+  const bumpPatch = () => [cur[0], cur[1], cur[2] + 1].join('.');
+  if (version === 'minor') version = [cur[0], cur[1] + 1, 0].join('.');
+  else if (!version || version === 'patch') version = bumpPatch();
+  else {
+    const diffAsked = version.split('.').map(Number).reduce((r, n, i) => r || n - cur[i], 0);
+    if (diffAsked <= 0) { log(`${version} is not newer than ${pkg.version}: the next version is used.`); version = bumpPatch(); }
+  }
+  if (!notes) {
+    // no text given: the notes come from the commits since the last release
+    const lines = run('git', ['log', '--pretty=%s', '-60'], { capture: true, always: true, soft: true }).out.split('\n').filter(Boolean);
+    const stop = lines.findIndex((l) => /^Version \d/.test(l));
+    const fresh = (stop < 0 ? lines : lines.slice(0, stop)).filter((l) => !/^Version \d/.test(l));
+    notes = fresh.length ? [...new Set(fresh)].slice(0, 8).join('; ') : 'Bug fixes and improvements';
+  }
   // what to build: flags, else a question (without a terminal or with --yes: both, like before)
   let withWin = !(flags.has('--no-win') || flags.has('--mac-only'));
   let withMac = !(flags.has('--no-mac') || flags.has('--win-only'));

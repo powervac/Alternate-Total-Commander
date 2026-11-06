@@ -11,9 +11,14 @@
 //   npm run release -- 0.1.7 "notes" --dry-run  (show the steps, change nothing)
 //   other flags: --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), --yes (no questions)
 //
+// Everything is uploaded to the main site first. The fast mirror (https://nem68.duckdns.org, a small VPS) pulls the files from it by itself (cron every
+// 10 minutes); after a release this script starts that pull at once over ssh (a failure there is only a warning) and, with --wait-mirror, waits for it.
+// The program and the download page use the mirror when it has the same version, else the main site.
+//
 // Needs: git with push rights, the GitHub CLI `gh` (signed in), OpenSSH (ssh / scp) and the deploy key of the server.
 // Settings (environment variables, defaults in brackets): RELEASE_HOST [oleg@gieldowa.keenetic.link], RELEASE_PORT [2022],
-// RELEASE_KEY [H:/boosty/web/.deploy/id_gieldowa], RELEASE_DIR on the server [total-site], RELEASE_URL [https://total.gieldowa.keenetic.link].
+// RELEASE_KEY [H:/boosty/web/.deploy/id_gieldowa], RELEASE_DIR on the server [total-site], RELEASE_URL [https://total.gieldowa.keenetic.link],
+// RELEASE_MIRROR_URL [https://nem68.duckdns.org], RELEASE_MIRROR_HOST [oleg@31.3.218.19], RELEASE_MIRROR_PORT [2022], RELEASE_MIRROR_KEY [H:/boosty/web/.deploy/id_nem68].
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -28,6 +33,10 @@ const KEY = process.env.RELEASE_KEY || 'H:/boosty/web/.deploy/id_gieldowa';
 const SITE = process.env.RELEASE_DIR || 'total-site';
 const URL_BASE = (process.env.RELEASE_URL || 'https://total.gieldowa.keenetic.link').replace(/\/+$/, '');
 const OUT = path.join(ROOT, 'dist-release');
+const MIRROR_URL = (process.env.RELEASE_MIRROR_URL || 'https://nem68.duckdns.org').replace(/\/+$/, '');
+const MIRROR_HOST = process.env.RELEASE_MIRROR_HOST || 'oleg@31.3.218.19';
+const MIRROR_PORT = process.env.RELEASE_MIRROR_PORT || '2022';
+const MIRROR_KEY = process.env.RELEASE_MIRROR_KEY || 'H:/boosty/web/.deploy/id_nem68';
 const WIN = process.platform === 'win32';
 
 const args = process.argv.slice(2);
@@ -58,7 +67,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
   let version = pos[0];
   const notes = pos[1];
-  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--dry-run] [--yes]');
+  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--no-mirror] [--wait-mirror] [--dry-run] [--yes]');
   const cur = pkg.version.split('.').map(Number);
   if (version === 'patch') version = [cur[0], cur[1], cur[2] + 1].join('.');
   else if (version === 'minor') version = [cur[0], cur[1] + 1, 0].join('.');
@@ -168,8 +177,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     const lj = { ...old, version, notes };
     delete lj.win; // the installer is not published any more
-    if (withWin) lj.winPortable = { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size, version };
+    if (withWin) lj.winPortable = { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, urls: [`${MIRROR_URL}/downloads/Alternate-Total-Commander-Portable.exe`, `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`], sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size, version };
     else if (old.winPortable) lj.winPortable = { ...old.winPortable, version: old.winPortable.version || old.version };
+    if (lj.winPortable && !lj.winPortable.urls) lj.winPortable.urls = [`${MIRROR_URL}/downloads/Alternate-Total-Commander-Portable.exe`, lj.winPortable.url]; // the entry of an older release gets the mirror too
     lj.mac = { ...(old.mac || {}), version: withMac ? version : (old.mac && old.mac.version) || old.version || version };
     const tmp = path.join(os.tmpdir(), 'commander-latest.json');
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
@@ -194,6 +204,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const len = +h.headers.get('content-length');
       if (h.body) await h.body.cancel().catch(() => {});
       if (len && info[n] && len !== info[n].size) die(`${n} on the site has the size ${len}, but ${info[n].size} bytes were uploaded.`);
+    }
+  }
+  // the mirror pulls from the main site (it does that every 10 minutes anyway); started now it is ready a few minutes after the upload
+  if (!flags.has('--no-mirror')) {
+    if (!fs.existsSync(MIRROR_KEY)) log(`(mirror: the key ${MIRROR_KEY} is not here: the mirror will pull by itself within 10 minutes)`);
+    else {
+      const m = run('ssh', ['-i', MIRROR_KEY, '-p', MIRROR_PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=15', MIRROR_HOST, 'nohup ~/total-mirror/pull.sh >/dev/null 2>&1 & echo started'], { capture: true, soft: true, always: false });
+      if (!DRY) log(m.out === 'started' ? 'Mirror: the pull has been started (the files arrive in a few minutes).' : 'Mirror: could not be started over ssh; it will pull by itself within 10 minutes.');
+    }
+    if (flags.has('--wait-mirror') && !DRY) {
+      log(`Waiting for the mirror (${MIRROR_URL}) ...`);
+      let ok = false;
+      for (let i = 0; i < 120 && !ok; i++) {
+        await sleep(5000);
+        const j = await fetch(`${MIRROR_URL}/latest.json?t=${Date.now()}`).then((r) => r.json()).catch(() => null);
+        ok = !!(j && j.version === version);
+      }
+      log(ok ? 'The mirror has this version.' : 'The mirror does not have this version yet (the programs use the main site until it does).');
     }
   }
   log(`Done: ${version} is on the site. Programs offer the update at their next start (Configuration > Check for Updates...).`);

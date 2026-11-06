@@ -504,3 +504,17 @@ body.no-toolbar #toolbar { display: none; }
 .cfg-page .hk-row { grid-template-columns: 220px 1fr; }
 .cfg-page[hidden] { display: none; }
 .pg-line[hidden] { display: none !important; }
+
+/* About (about.js) */
+.dlg.about { width: 520px; max-width: 94vw; }
+.ab-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+.ab-sub { color: #555; margin-bottom: 12px; }
+.ab-ver { margin-bottom: 2px; }
+.ab-state { margin-bottom: 4px; color: #333; }
+.ab-state.new { color: #0a6a2a; font-weight: 600; }
+.ab-notes { color: #555; font-size: 12px; margin-bottom: 8px; word-break: break-word; }
+.ab-links { margin: 10px 0 8px; }
+.ab-links > div { display: flex; gap: 12px; padding: 2px 0; }
+.ab-links span { width: 96px; color: #666; flex: none; }
+.ab-links a { color: #0a5ab0; cursor: pointer; }
+.ab-credit { margin-top: 10px; color: #777; font-size: 12px; }

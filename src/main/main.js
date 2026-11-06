@@ -1873,23 +1873,37 @@ ipcMain.handle('emu:available', () => emulator.available());
 
 // ---------------------------------------------------------------- updates
 // latest.json on the download site: { version, notes, win: { url, sha256 }, mac: { command } }. COMMANDER_UPDATE_URL overrides the address (tests).
-const UPDATE_URL = process.env.COMMANDER_UPDATE_URL || 'https://total.gieldowa.keenetic.link/latest.json';
+// The fast mirror (nem68.duckdns.org) and the main site (where releases are uploaded first) both have latest.json: the newer one wins, the files are tried
+// in the order of the "urls" list of the entry (mirror first, then the main site).
+const UPDATE_URLS = process.env.COMMANDER_UPDATE_URL ? [process.env.COMMANDER_UPDATE_URL] : ['https://nem68.duckdns.org/latest.json', 'https://total.gieldowa.keenetic.link/latest.json'];
 const verNum = (v) => String(v || '0').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 
+const ownVersion = (info) => (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
+
 ipcMain.handle('update:check', async () => {
   try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 12000);
-    const r = await fetch(UPDATE_URL, { signal: ctl.signal, headers: { 'User-Agent': 'Commander-updater' } });
-    clearTimeout(t);
-    if (!r.ok) return { error: `HTTP ${r.status}` };
-    const info = await r.json();
+    const one = async (url) => {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 10000);
+      try {
+        const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), { signal: ctl.signal, headers: { 'User-Agent': 'Commander-updater' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+      } finally { clearTimeout(t); }
+    };
+    const results = await Promise.allSettled(UPDATE_URLS.map(one));
+    const infos = results.filter((x) => x.status === 'fulfilled' && x.value && x.value.version).map((x) => x.value);
+    if (!infos.length) {
+      const why = results.map((x) => (x.reason && x.reason.name === 'AbortError' ? 'no answer' : x.reason && x.reason.message) || '').find(Boolean);
+      return { error: why === 'no answer' || !why ? 'The update server did not answer' : why, current: app.getVersion() };
+    }
     // every platform has its own version in latest.json (a Windows-only release does not make the Mac programs ask for an update)
-    const own = (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
+    const info = infos.reduce((best, x) => (isNewer(ownVersion(x), ownVersion(best)) ? x : best));
+    const own = ownVersion(info);
     return { current: app.getVersion(), latest: own, newer: isNewer(own, app.getVersion()), info, platform: process.platform };
   } catch (err) {
-    return { error: err.name === 'AbortError' ? 'The update server did not answer' : err.message };
+    return { error: err.name === 'AbortError' ? 'The update server did not answer' : err.message, current: app.getVersion() };
   }
 });
 
@@ -1900,23 +1914,37 @@ ipcMain.handle('update:install', async (e, { info }) => {
       // an installed copy of an older version: when the site no longer has an installer, the portable exe is saved to Downloads
       const toDownloads = !portable && !(info && info.win) && !!(info && info.winPortable);
       const w = portable || toDownloads ? (info && (info.winPortable || null)) : info && info.win;
-      const urlOk = w && (/^https:\/\//.test(w.url) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(w.url))); // http only for a local test server
-      if (!urlOk) return { error: portable ? 'No portable version in the update information' : 'No Windows installer in the update information' };
+      const okUrl = (u) => typeof u === 'string' && (/^https:\/\//.test(u) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(u))); // http only for a local test server
+      const cands = w ? [...new Set([...(Array.isArray(w.urls) ? w.urls : []), w.url])].filter(okUrl) : [];
+      if (!cands.length) return { error: portable ? 'No portable version in the update information' : 'No Windows installer in the update information' };
       const file = portable ? process.env.PORTABLE_EXECUTABLE_FILE + '.new' : toDownloads ? path.join(app.getPath('downloads'), `Commander-Portable-${info.version || 'new'}.exe`) : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
-      const r = await fetch(w.url, { headers: { 'User-Agent': 'Commander-updater' } });
-      if (!r.ok) return { error: `Download failed: HTTP ${r.status}` };
-      const total = +r.headers.get('content-length') || w.size || 0;
-      const hash = require('crypto').createHash('sha256');
-      const ws = fs.createWriteStream(file);
-      let done = 0, last = 0;
-      for await (const chunk of r.body) {
-        hash.update(chunk);
-        if (!ws.write(chunk)) await new Promise((res) => ws.once('drain', res));
-        done += chunk.length;
-        if (Date.now() - last > 250) { last = Date.now(); e.sender.send('update:progress', { done, total }); }
+      // the fast mirror first, then the main site: the next address is tried when one does not answer, does not have the file yet or sends a damaged one
+      let lastErr = 'Download failed';
+      let got = false;
+      for (const u of cands) {
+        try {
+          const ctl = new AbortController();
+          const timer = setTimeout(() => ctl.abort(), 20000); // the answer must start within 20 seconds; the body may take as long as it takes
+          let r;
+          try { r = await fetch(u, { headers: { 'User-Agent': 'Commander-updater' }, signal: ctl.signal }); } finally { clearTimeout(timer); }
+          if (!r.ok) { lastErr = `Download failed: HTTP ${r.status}`; continue; }
+          const total = +r.headers.get('content-length') || w.size || 0;
+          const hash = require('crypto').createHash('sha256');
+          const ws = fs.createWriteStream(file);
+          let done = 0, last = 0;
+          for await (const chunk of r.body) {
+            hash.update(chunk);
+            if (!ws.write(chunk)) await new Promise((res) => ws.once('drain', res));
+            done += chunk.length;
+            if (Date.now() - last > 250) { last = Date.now(); e.sender.send('update:progress', { done, total }); }
+          }
+          await new Promise((res) => ws.end(res));
+          if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); lastErr = 'The downloaded file is damaged (checksum mismatch)'; continue; }
+          got = true;
+          break;
+        } catch (err) { lastErr = err.name === 'AbortError' ? 'The download server did not answer' : err.message; }
       }
-      await new Promise((res) => ws.end(res));
-      if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); return { error: 'The downloaded installer is damaged (checksum mismatch)' }; }
+      if (!got) return { error: lastErr };
       // silent install over the current one; the new version starts itself
       if (process.env.COMMANDER_UPDATE_DRYRUN) return { ok: true, dry: true, file };
       if (toDownloads) { shell.showItemInFolder(file); return { ok: true, saved: file }; }

@@ -6,7 +6,8 @@
 # processor (Apple Silicon or Intel), copies the app into /Applications, signs it locally (needed on Apple Silicon) and starts it.
 set -e
 
-BASE="https://total.gieldowa.keenetic.link/downloads"
+# the fast mirror first; the main site is the second address (both serve the images only to curl with this key)
+BASES="https://nem68.duckdns.org/downloads https://total.gieldowa.keenetic.link/downloads"
 case "$(uname -m)" in
   arm64) FILE="Alternate-Total-Commander-macOS-AppleSilicon.dmg" ;;
   *)     FILE="Alternate-Total-Commander-macOS-Intel.dmg" ;;
@@ -19,7 +20,12 @@ cleanup() { hdiutil detach "$MNT" -quiet >/dev/null 2>&1 || true; rm -rf "$TMP";
 trap cleanup EXIT
 
 echo "Downloading $FILE ..."
-curl -fL --progress-bar -o "$TMP/app.dmg" "$BASE/$FILE?k=@MACKEY@"
+GOT=""
+for BASE in $BASES; do
+  if curl -fL --connect-timeout 15 --progress-bar -o "$TMP/app.dmg" "$BASE/$FILE?k=@MACKEY@"; then GOT=1; break; fi
+  echo "That server did not give the file, trying the next one ..." >&2
+done
+if [ -z "$GOT" ]; then echo "The download failed on both servers." >&2; exit 1; fi
 
 echo "Installing into /Applications ..."
 hdiutil attach -nobrowse -readonly -noverify -mountpoint "$MNT" "$TMP/app.dmg" >/dev/null

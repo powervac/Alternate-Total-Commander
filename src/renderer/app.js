@@ -1588,7 +1588,7 @@ const MENUS = [
     { l: 'Hotkeys...', f: () => openConfig('hotkeys') },
     { l: 'Editor...', f: () => openConfig('editor') },
   ]],
-  ['Start', [{ l: 'Open Home Folder', f: () => A().load(api.home) }]],
+  ['About', () => openAbout()], // a function instead of a list of items: the click opens the window itself
 ];
 
 /** Ctrl+Up: open the folder (or archive) under the cursor in a new tab */
@@ -1617,6 +1617,7 @@ function closeMenu() {
 }
 function openMenu(i) {
   closeMenu();
+  if (typeof MENUS[i][1] === 'function') return;
   menuOpen = i;
   const mi = $('#menubar').children[i];
   mi.classList.add('open');
@@ -1646,8 +1647,9 @@ function buildMenu() {
     const el = document.createElement('div');
     el.className = 'mi';
     el.textContent = label;
-    el.onclick = (e) => { e.stopPropagation(); menuOpen === i ? closeMenu() : openMenu(i); };
-    el.onmouseenter = () => { if (menuOpen >= 0 && menuOpen !== i) openMenu(i); };
+    const direct = typeof MENUS[i][1] === 'function';
+    el.onclick = (e) => { e.stopPropagation(); if (direct) { closeMenu(); MENUS[i][1](); } else menuOpen === i ? closeMenu() : openMenu(i); };
+    el.onmouseenter = () => { if (menuOpen >= 0 && menuOpen !== i) { if (direct) closeMenu(); else openMenu(i); } };
     bar.appendChild(el);
   });
   document.addEventListener('mousedown', (e) => { if (menuOpen >= 0 && !e.target.closest('#menubar')) closeMenu(); });

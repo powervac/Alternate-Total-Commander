@@ -5,7 +5,9 @@
 //
 //   npm run release -- 0.1.7 "What is new in this version"
 //   npm run release -- patch "notes"            (0.1.6 -> 0.1.7)
-//   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are)
+//   npm run release -- 0.1.7 "notes"            (asks what to build: Windows, macOS or both)
+//   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are; same: --win-only)
+//   npm run release -- 0.1.7 "notes" --no-win   (macOS only: the Windows file stays as it is; same: --mac-only; --both = both)
 //   npm run release -- 0.1.7 "notes" --dry-run  (show the steps, change nothing)
 //   other flags: --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), --yes (no questions)
 //
@@ -56,7 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
   let version = pos[0];
   const notes = pos[1];
-  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--no-mac] [--no-push] [--no-build] [--dry-run] [--yes]');
+  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--dry-run] [--yes]');
   const cur = pkg.version.split('.').map(Number);
   if (version === 'patch') version = [cur[0], cur[1], cur[2] + 1].join('.');
   else if (version === 'minor') version = [cur[0], cur[1] + 1, 0].join('.');
@@ -65,7 +67,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const diff = nv.reduce((r, n, i) => r || n - cur[i], 0);
   if (diff === 0) log(`Version ${version} is already in package.json: no bump.`);
   else if (diff < 0) die(`${version} is not newer than ${pkg.version}.`);
-  const withMac = !flags.has('--no-mac');
+  // what to build: flags, else a question (without a terminal or with --yes: both, like before)
+  let withWin = !(flags.has('--no-win') || flags.has('--mac-only'));
+  let withMac = !(flags.has('--no-mac') || flags.has('--win-only'));
+  const explicit = ['--no-mac', '--no-win', '--win-only', '--mac-only', '--both'].some((f) => flags.has(f));
+  if (!explicit && !flags.has('--yes') && process.stdin.isTTY) {
+    console.log('\nWhat do you want to build and publish?\n  1) Windows (portable exe)\n  2) macOS (dmg files, built on GitHub)\n  3) Both');
+    const a = await new Promise((res) => { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); rl.question('Choose 1, 2 or 3 [1]: ', (x) => { rl.close(); res(x.trim()); }); });
+    withWin = a === '' || a === '1' || a === '3';
+    withMac = a === '2' || a === '3';
+    if (!withWin && !withMac) die('Nothing chosen.');
+  }
+  const what = withWin && withMac ? 'Windows + macOS' : withWin ? 'Windows only' : 'macOS only';
 
   // ------------------------------------------------------------ checks
   if (!DRY) {
@@ -74,7 +87,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const t = ssh('echo ok', { always: true, soft: true });
     if (t.out !== 'ok') die('Cannot reach the server over ssh (check RELEASE_HOST / RELEASE_PORT / RELEASE_KEY).');
   }
-  log(`Release ${version}${withMac ? ' (Windows + macOS)' : ' (Windows only)'}\n  notes: ${notes}\n  server: ${HOST}:${SITE}`);
+  log(`Release ${version} (${what})\n  notes: ${notes}\n  server: ${HOST}:${SITE}`);
   if (!DRY && !(await ask('Go on?'))) die('Cancelled.');
 
   // ------------------------------------------------------------ 1. version, commit, push
@@ -103,12 +116,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   // ------------------------------------------------------------ 3. Windows build
   const portable = path.join(OUT, `Commander-Portable-${version}.exe`);
-  if (!flags.has('--no-build')) {
-    if (!DRY) fs.rmSync(OUT, { recursive: true, force: true });
+  if (withWin && !flags.has('--no-build')) {
+    if (!DRY) fs.rmSync(OUT, { recursive: true, force: true }); // the Mac files are downloaded after this
     log('Building the Windows portable exe ...');
     run('npx', ['electron-builder', '--win', `-c.directories.output=${OUT}`]);
   }
-  if (!DRY && !fs.existsSync(portable)) die(`The Windows files were not found in ${OUT} (expected version ${version}).`);
+  if (withWin && !DRY && !fs.existsSync(portable)) die(`The Windows files were not found in ${OUT} (expected version ${version}).`);
 
   // ------------------------------------------------------------ 4. macOS files
   const dmgs = {};
@@ -130,7 +143,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   // ------------------------------------------------------------ 5. upload (as .part first, renamed when everything arrived)
-  const files = [{ local: portable, name: 'Alternate-Total-Commander-Portable.exe' }];
+  const files = withWin ? [{ local: portable, name: 'Alternate-Total-Commander-Portable.exe' }] : [];
   if (withMac) files.push({ local: dmgs.arm, name: 'Alternate-Total-Commander-macOS-AppleSilicon.dmg' }, { local: dmgs.intel, name: 'Alternate-Total-Commander-macOS-Intel.dmg' });
   const info = {};
   for (const f of files) {
@@ -145,11 +158,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     const mv = files.map((f) => `mv -f ${f.name}.part ${f.name}`).join(' && ');
     ssh(`cd ${SITE}/downloads && ${mv} && chmod 644 *`);
-    // latest.json goes last: only now the program starts to offer the new version
-    const lj = {
-      version, notes,
-      winPortable: { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size },
-    };
+    // latest.json goes last: only now the program starts to offer the new version. It keeps the entry of the platform that was not built,
+    // each platform has its own version (a Windows-only release must not make the Mac programs look for an update that does not exist)
+    let old = null;
+    for (let i = 0; i < 4 && !old; i++) old = await fetch(`${URL_BASE}/latest.json?t=${Date.now()}`).then((r) => r.json()).catch(() => null);
+    if (!old) {
+      if (!(withWin && withMac)) die('Cannot read the current latest.json from the site, so the entry of the other platform would be lost. The files are uploaded as .part and not published; run again.');
+      old = {};
+    }
+    const lj = { ...old, version, notes };
+    delete lj.win; // the installer is not published any more
+    if (withWin) lj.winPortable = { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size, version };
+    else if (old.winPortable) lj.winPortable = { ...old.winPortable, version: old.winPortable.version || old.version };
+    lj.mac = { ...(old.mac || {}), version: withMac ? version : (old.mac && old.mac.version) || old.version || version };
     const tmp = path.join(os.tmpdir(), 'commander-latest.json');
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
     scp(tmp, `${SITE}/latest.json.part`);
@@ -165,7 +186,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await sleep(4000);
     }
     if (!j || j.version !== version) die('latest.json on the site does not show the new version after 30 seconds: check the server (the files are already uploaded).');
-    for (const n of ['Alternate-Total-Commander-Portable.exe']) {
+    for (const n of files.filter((f) => /Portable\.exe$/.test(f.name)).map((f) => f.name)) {
       // GET and stop reading (the server resets a HEAD request from Node's fetch); the size must be the size that was uploaded
       let h = null;
       for (let i = 0; i < 3 && !h; i++) h = await fetch(`${URL_BASE}/downloads/${n}`).catch(() => null);

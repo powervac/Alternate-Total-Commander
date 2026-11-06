@@ -15,7 +15,7 @@ let syncTimer = null;
 let syncBusy = false;
 let syncWarned = false;
 
-const syncCfg = () => syncRaw('syncCfg', { on: false, connId: '', last: 0, secrets: true });
+const syncCfg = () => syncRaw('syncCfg', { on: false, connId: '', last: 0, secrets: true, encrypt: true });
 const syncMeta = () => syncRaw('syncMeta', {});
 
 /** called by store.set (app.js) for every saved setting */
@@ -174,6 +174,7 @@ async function syncNow(quiet, mode = 'sync') {
     const cfg0 = syncCfg();
     const withSecrets = !!cfg0.secrets;
     const pass = cfg0.encrypt ? await syncPassGet() : '';
+    if (cfg0.encrypt && !pass) { if (!quiet || !syncWarned) { syncWarned = true; msg(SYNC_T, 'The password of the zip is not available on this computer, so nothing was sent (a plain file would not be protected). Open Configuration > Settings sync..., enter the password again and press Save.'); } return; }
     let result = { applied: [], pushNeeded: true };
     let note = '';
     let remoteHasSecrets = false;
@@ -267,8 +268,17 @@ async function openSyncDialog() {
   if (kind === 'local' && !localDir) return msg(SYNC_T, 'Choose the folder for the settings file.');
   if (kind !== 'local' && !connId) return msg(SYNC_T, `Sign in to ${SYNC_KINDS[kind]} first (Net menu), then come back here.`);
   const wantSecrets = box.querySelector('.sy-sec').checked;
-  const wantEnc = box.querySelector('.sy-enc').checked;
   const typed = box.querySelector('.sy-pass').value;
+  const wantEnc = box.querySelector('.sy-enc').checked || !!typed; // a typed password is meant to be used: the box is ticked for you
+  if (wantSecrets && !wantEnc && mode !== 'pull') {
+    const ok = await ftForm(SYNC_T, '<div class="dlg-text">You put passwords and SSH keys into the zip, but the zip is NOT protected by a password.\nAnyone who can open ' + esc(SYNC_KINDS[kind]) + ' (or the folder) can read them.\n\nPress "Add a password" to go back and protect it, or "Send without a password".</div>', 'Send without a password', (b) => {
+      const cancel = b.querySelector('.ft-cancel');
+      cancel.textContent = 'Add a password';
+      cancel.classList.add('primary');
+      b.querySelector('.ft-ok').classList.remove('primary');
+    });
+    if (!ok) return openSyncDialog();
+  }
   if (wantEnc && !typed && !syncRaw('syncPassEnc', '')) return msg(SYNC_T, 'Enter a password for the zip (the same on every computer), or untick the protection.');
   if (typed && (!/^[ -~]+$/.test(typed) || /["\\]/.test(typed))) return msg(SYNC_T, 'The password for the zip may contain only Latin letters, digits and symbols (no quotes and no backslash).');
   if (typed && !(await syncPassSet(typed))) return msg(SYNC_T, 'The system cannot store the password safely on this computer.');

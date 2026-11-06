@@ -548,7 +548,10 @@ function mkCtx(e, id) {
     const now = Date.now();
     if (!force && now - ctx.last < 80) return;
     ctx.last = now;
-    e.sender.send('op:progress', { id, done: ctx.done, total: ctx.total, current: path.basename(ctx.current || '') });
+    e.sender.send('op:progress', {
+      id, done: ctx.done, total: ctx.total, current: path.basename(ctx.current || ''),
+      from: ctx.curSrc || '', to: ctx.curDst || '', fdone: ctx.fileDone || 0, ftotal: ctx.fileTotal || 0, n: ctx.filesDone || 0, nt: ctx.filesTotal || 0,
+    });
   };
   return ctx;
 }
@@ -589,8 +592,9 @@ async function walkPack(abs, rel, out, ctx, skip) {
     out.push({ dir: true, rel, mtime: st.mtime, mode: st.mode });
     for (const n of await fsp.readdir(abs)) await walkPack(path.join(abs, n), rel + '/' + n, out, ctx, skip);
   } else if (st.isFile()) {
-    out.push({ abs, rel, mtime: st.mtime, mode: st.mode });
+    out.push({ abs, rel, mtime: st.mtime, mode: st.mode, size: st.size });
     ctx.total += st.size;
+    ctx.filesTotal = (ctx.filesTotal || 0) + 1;
   }
 }
 
@@ -1207,8 +1211,9 @@ ipcMain.handle('nas:download', nasWrap(async (e, { id, jobId, base, items, destD
         tasks.push({ dir: true, target });
         for (const ch of await c.list(remote)) await plan(rjoin(remote, ch.name), path.join(target, ch.name), ch);
       } else {
-        tasks.push({ remote, target, mtime: it.mtime });
+        tasks.push({ remote, target, mtime: it.mtime, size: it.size > 0 ? it.size : 0 });
         ctx.total += it.size > 0 ? it.size : 0;
+        ctx.filesTotal = (ctx.filesTotal || 0) + 1;
       }
     };
     for (const it of items) await plan(rjoin(base, it.name), path.join(destDir, items.length === 1 && rename ? rename : it.name), it);
@@ -1219,9 +1224,10 @@ ipcMain.handle('nas:download', nasWrap(async (e, { id, jobId, base, items, destD
         if ((await exists(t.target)) && overwrite !== 'all') { ctx.skipped++; continue; }
         const part = t.target + '.cmdr-part';
         ctx.current = t.remote;
+        ctx.curSrc = t.remote; ctx.curDst = t.target; ctx.fileTotal = t.size || 0; ctx.fileDone = 0;
         await fsp.mkdir(path.dirname(t.target), { recursive: true });
         try {
-          await c.download(t.remote, part, { onData: (n) => { ctx.done += n; ctx.tick(); }, onReq: (r) => { cur = r; } });
+          await c.download(t.remote, part, { onData: (n) => { ctx.done += n; ctx.fileDone += n; ctx.tick(); }, onReq: (r) => { cur = r; } });
         } catch (err) {
           await fsp.rm(part, { force: true }).catch(() => {});
           if (ctx.cancel) break;
@@ -1229,6 +1235,7 @@ ipcMain.handle('nas:download', nasWrap(async (e, { id, jobId, base, items, destD
         }
         await fsp.rename(part, t.target);
         if (t.mtime > 0) { const d = new Date(t.mtime); await fsp.utimes(t.target, d, d).catch(() => {}); }
+        ctx.filesDone = (ctx.filesDone || 0) + 1;
       } catch (err) {
         ctx.errors.push(path.basename(t.target) + ': ' + err.message);
       }
@@ -1260,7 +1267,9 @@ ipcMain.handle('nas:upload', nasWrap(async (e, { id, jobId, sources, destPath, o
           continue;
         }
         ctx.current = en.abs;
-        await c.upload(en.abs, parent, name, overwrite === 'all', { onData: (n) => { ctx.done += n; ctx.tick(); }, onReq: (r) => { cur = r; } });
+        ctx.curSrc = en.abs; ctx.curDst = rjoin(parent, name); ctx.fileTotal = en.size || 0; ctx.fileDone = 0;
+        await c.upload(en.abs, parent, name, overwrite === 'all', { onData: (n) => { ctx.done += n; ctx.fileDone += n; ctx.tick(); }, onReq: (r) => { cur = r; } });
+        ctx.filesDone = (ctx.filesDone || 0) + 1;
       } catch (err) {
         if (ctx.cancel) break;
         ctx.errors.push(path.basename(en.rel) + ': ' + err.message);
@@ -1876,7 +1885,9 @@ ipcMain.handle('update:check', async () => {
     clearTimeout(t);
     if (!r.ok) return { error: `HTTP ${r.status}` };
     const info = await r.json();
-    return { current: app.getVersion(), latest: info.version, newer: isNewer(info.version, app.getVersion()), info, platform: process.platform };
+    // every platform has its own version in latest.json (a Windows-only release does not make the Mac programs ask for an update)
+    const own = (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
+    return { current: app.getVersion(), latest: own, newer: isNewer(own, app.getVersion()), info, platform: process.platform };
   } catch (err) {
     return { error: err.name === 'AbortError' ? 'The update server did not answer' : err.message };
   }

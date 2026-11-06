@@ -57,6 +57,8 @@ const HK_COMMANDS = [
 
   ['search', 'Tools', 'Find files', ['Alt+F7'], () => openSearch()],
   ['compare', 'Tools', 'Compare directories', ['Shift+F2'], () => compareDirectories()],
+  ['cmdname', 'Tools', 'File name under the cursor into the command line', [HK_MOD + '+Enter'], () => cmdInsert(false)],
+  ['cmdpath', 'Tools', 'Full path of the file into the command line', [HK_MOD + '+Shift+Enter'], () => cmdInsert(true)],
   ['hotlist', 'Tools', 'Directory hotlist', [HK_MOD + '+D'], () => openHotlist()],
   ['menu', 'Tools', 'Open the menu', ['F9', 'F10'], () => openMenu(0)],
   ['nas', 'Tools', 'Synology NAS connection', [HK_MOD + '+F'], () => openConnections(undefined, 'nas')],

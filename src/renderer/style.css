@@ -503,3 +503,4 @@ body.no-toolbar #toolbar { display: none; }
 .cfg-page .hk-list { height: 300px; }
 .cfg-page .hk-row { grid-template-columns: 220px 1fr; }
 .cfg-page[hidden] { display: none; }
+.pg-line[hidden] { display: none !important; }

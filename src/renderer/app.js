@@ -187,6 +187,9 @@ function progressDialog(title, onCancel, onBackground, onPause) {
       $('.pg-head', box).textContent = `${title.replace(/ .*/, '')}: ${paused ? 'paused' : speed > 0 ? (speed / 1024).toFixed(0).replace(/\B(?=(\d{3})+$)/g, ',') + ' kbytes/s' : ''}${paused ? '' : ', ' + secs((now - t0) / 1000)}`;
       $('.pg-from', box).textContent = p.from || p.current || '';
       $('.pg-to', box).textContent = p.to || '';
+      $('.pg-to', box).parentElement.hidden = !p.to; // no "To:" line when the job does not tell the target
+      const fl = $('.pg-f', box).closest('.pg-line');
+      fl.hidden = !p.ftotal; // the bar of the current file only when its size is known; otherwise the one total bar is enough
       $('.pg-f', box).style.width = fpct + '%';
       $('.pg-fp', box).textContent = fpct + ' %';
       $('.pg-t', box).style.width = pct + '%';
@@ -1672,11 +1675,49 @@ function buildFkeys() {
 
 // ------------------------------------------------------------------ keyboard
 const cmdEl = $('#cmd');
+/** cd folder in the command line: the active panel goes there (relative to its folder, ~ = home, "cd .." = up, "cd /d D:\x" is accepted) */
+async function commandCd(arg) {
+  const p = A();
+  let a = String(arg || '').trim().replace(/^\/d\s+/i, '');
+  if (a.length > 1 && /^(["']).*\1$/.test(a)) a = a.slice(1, -1);
+  if (!a || a === '~') return p.load(api.home);
+  if (a.startsWith('~/') || a.startsWith('~\\')) a = P.join(api.home, a.slice(2));
+  if (p.arc) return msg('cd', 'Inside an archive use Enter on the folders and Backspace to go up.');
+  if (p.rem) {
+    // a folder of the server: "/" starts at the root, ".." goes up
+    const parts = (a.startsWith('/') ? [] : p.rem.path.split('/').filter(Boolean));
+    for (const seg of a.split(/[\\/]/).filter(Boolean)) { if (seg === '..') parts.pop(); else if (seg !== '.') parts.push(seg); }
+    return p.loadRem(p.rem, '/' + parts.join('/'));
+  }
+  if (/^[A-Za-z]:$/.test(a)) a += '\\';
+  const target = P.resolve(p.dir, a);
+  const st = await api.stat(target);
+  if (!st.exists) return msg('cd', `The folder was not found:\n${target}`);
+  if (!st.isDir) return p.load(P.dirname(target), { focusName: P.basename(target) });
+  return p.load(target);
+}
+
+/** Ctrl+Enter / Ctrl+Shift+Enter: the name (or the full path) of the file under the cursor goes into the command line */
+function cmdInsert(full) {
+  const p = A();
+  const it = p.cur();
+  if (!it || it.up) return;
+  let text = it.name;
+  if (full) text = p.rem ? remJoin(p.rem.path, it.name) : p.arc ? it.name : P.join(p.dir, it.name);
+  if (/\s/.test(text)) text = '"' + text + '"';
+  const v = cmdEl.value;
+  cmdEl.value = (v && !/\s$/.test(v) ? v + ' ' : v) + text + ' ';
+  cmdEl.focus();
+  cmdEl.setSelectionRange(cmdEl.value.length, cmdEl.value.length);
+}
+
 async function runCommand() {
   const c = cmdEl.value.trim();
   if (!c) return;
   cmdEl.value = '';
   cmdEl.blur();
+  const cd = /^cd(?:\s+(.*))?$/i.exec(c); // cd, cd folder, cd /d D:\folder: the panel goes there (like Total Commander)
+  if (cd) return commandCd(cd[1]);
   const err = await api.run(c, A().realDir());
   if (err) msg('Error', err);
 }

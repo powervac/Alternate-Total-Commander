@@ -136,24 +136,53 @@ document.addEventListener('mousedown', (e) => {
   document.addEventListener('mouseup', up);
 });
 
-// every dialog: drag by its title
-document.addEventListener('mousedown', (e) => {
+// every dialog: drag by its title. The pointer is captured by the title, so the drag always ends with the button (even when it is released outside the window),
+// and the dialog can never leave the screen: it is kept inside the window (a double click on the title puts it back in the middle).
+function dlgPlace(el, dx, dy, base) {
+  const minL = base.w <= innerWidth ? 0 : innerWidth - base.w, maxL = base.w <= innerWidth ? innerWidth - base.w : 0;
+  const L = Math.max(minL, Math.min(base.left0 + dx, maxL));
+  const maxT = base.h <= innerHeight ? innerHeight - base.h : innerHeight - 40; // too tall: at least the title bar stays on the screen
+  const T = Math.max(0, Math.min(base.top0 + dy, maxT));
+  el.dataset.dx = L - base.left0;
+  el.dataset.dy = T - base.top0;
+  el.style.transform = `translate(${L - base.left0}px, ${T - base.top0}px)`;
+}
+const dlgBase = (el) => { const r = el.getBoundingClientRect(); return { left0: r.left - (+el.dataset.dx || 0), top0: r.top - (+el.dataset.dy || 0), w: r.width, h: r.height }; };
+
+document.addEventListener('pointerdown', (e) => {
   const t = e.target.closest && e.target.closest('.dlg-title');
-  if (!t) return;
+  if (!t || e.button !== 0) return;
   const el = t.closest('.dlg');
-  if (!el || e.button !== 0) return;
+  if (!el) return;
   e.preventDefault();
-  const r = el.getBoundingClientRect();
+  const base = dlgBase(el);
   const sx = e.clientX, sy = e.clientY;
   const ox = +el.dataset.dx || 0, oy = +el.dataset.dy || 0;
-  const left0 = r.left - ox, top0 = r.top - oy;
+  try { t.setPointerCapture(e.pointerId); } catch { /* the pointer is gone */ }
   const move = (ev) => {
-    const nx = Math.max(-left0 - r.width + 80, Math.min(ox + ev.clientX - sx, innerWidth - left0 - 80));
-    const ny = Math.max(-top0, Math.min(oy + ev.clientY - sy, innerHeight - top0 - 30));
-    el.dataset.dx = nx; el.dataset.dy = ny;
-    el.style.transform = `translate(${nx}px, ${ny}px)`;
+    if (ev.buttons === 0) return end(); // the button was released somewhere we did not see
+    dlgPlace(el, ox + ev.clientX - sx, oy + ev.clientY - sy, base);
   };
-  const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
-  document.addEventListener('mousemove', move);
-  document.addEventListener('mouseup', up);
+  const end = () => {
+    t.removeEventListener('pointermove', move);
+    t.removeEventListener('pointerup', end);
+    t.removeEventListener('pointercancel', end);
+    t.removeEventListener('lostpointercapture', end);
+  };
+  t.addEventListener('pointermove', move);
+  t.addEventListener('pointerup', end);
+  t.addEventListener('pointercancel', end);
+  t.addEventListener('lostpointercapture', end);
+});
+document.addEventListener('dblclick', (e) => {
+  const t = e.target.closest && e.target.closest('.dlg-title');
+  const el = t && t.closest('.dlg');
+  if (el) { el.dataset.dx = 0; el.dataset.dy = 0; el.style.transform = ''; }
+});
+// the window became smaller: dialogs that were moved are pulled back inside
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.dlg').forEach((el) => {
+    if (el.dataset.dx === undefined && el.dataset.dy === undefined) return;
+    dlgPlace(el, +el.dataset.dx || 0, +el.dataset.dy || 0, dlgBase(el));
+  });
 });

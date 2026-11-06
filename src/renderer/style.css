@@ -528,3 +528,33 @@ body.no-toolbar #toolbar { display: none; }
 .ab-bar { margin: 4px 0 8px; }
 .ab-bar[hidden], .ab-notes[hidden] { display: none; }
 .dlg.about .dlg-btns button[hidden] { display: none; }
+
+/* tall dialogs (Find Files with the index row, Configuration ...) must fit the window: the top gap shrinks with the window height and the body scrolls when needed */
+#modal-root.open { padding-top: clamp(12px, 11vh, 140px); padding-bottom: 12px; box-sizing: border-box; }
+.dlg { display: flex; flex-direction: column; max-height: calc(100vh - clamp(12px, 11vh, 140px) - 12px); }
+.dlg > .dlg-title, .dlg > .dlg-btns { flex: none; }
+.dlg > .dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.dlg.search .s-list { height: clamp(90px, 17vh, 160px); }
+.dlg.search .s-pane { min-height: 150px; }
+
+/* Find Files like the window of Total Commander: it can be resized, the list of results takes the room */
+.dlg.search { resize: both; overflow: hidden; min-width: 640px; min-height: 420px; max-width: 98vw; }
+.dlg.search > .dlg-body { display: flex; flex-direction: column; }
+.dlg.search > .dlg-body > * { flex: none; }
+.dlg.search > .dlg-body > .s-list { flex: 1 1 auto; height: auto; min-height: 90px; }
+.dlg.search .dlg-btns { flex-wrap: wrap; gap: 6px; }
+.dlg.search .dlg-btns button { min-width: 74px; }
+
+/* Find Files in a window of its own (find.html): the dialog is the whole window */
+body.find-window { overflow: hidden; background: #f0f0f0; }
+body.find-window #find-root { position: fixed; inset: 0; }
+body.find-window .dlg.search { position: absolute; inset: 0; width: auto; height: auto; max-width: none; max-height: none; min-width: 0; min-height: 0; resize: none; border: 0; box-shadow: none; transform: none !important; display: flex; flex-direction: column; }
+body.find-window .dlg.search > .dlg-title { display: none; }
+body.find-window .dlg.search > .dlg-body { flex: 1 1 auto; min-height: 0; padding: 10px 12px 4px; }
+
+/* the dialog inside its own window (dlgwin.js): the window is the dialog (:where keeps the widths that dialogs have of their own) */
+body.dlg-window { margin: 0; overflow: hidden; background: #f0f0f0; font-family: var(--ui-font, inherit); }
+:where(body.dlg-window) .dlg { position: static !important; margin: 0 !important; border: 0; box-shadow: none; transform: none !important; resize: none; width: max-content; } /* max-content: the size does not depend on the size of the window (fit-content made the window grow by itself) */
+body.dlg-window .dlg { max-height: none; max-width: 1100px !important; } /* (the window is as big as the dialog: no limits that depend on the size of the window) */
+body.dlg-window .dlg > .dlg-title { display: none; }
+body.dlg-window .dlg-text, body.dlg-window .s-hint { max-width: 680px; } /* long lines wrap: the dialog does not become very wide */

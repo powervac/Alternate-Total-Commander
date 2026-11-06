@@ -181,36 +181,55 @@ const ftParseSize = (s) => {
   const u = (m[2] || 'b').toLowerCase()[0];
   return Math.floor(n * { b: 1, k: 1024, m: 1024 ** 2, g: 1024 ** 3 }[u]);
 };
+/** the "Tree" button of the Split / Combine windows: choose the folder */
+const ftTreeButton = (b, input) => {
+  const t = document.createElement('button');
+  t.type = 'button';
+  t.textContent = 'Tree';
+  t.onclick = async () => { const f = await api.openFileDialog({ title: 'Choose the folder', defaultPath: input.value || api.home, folder: true }); if (f) input.value = f; };
+  b.querySelector('.dlg-btns').insertBefore(t, b.querySelector('.ft-cancel'));
+};
 async function ftSplit() {
   if (modalCount > 0) return;
   const p = A();
   if (needLocal('Split File', p)) return;
   const it = p.cur();
   if (!it || it.isDir || it.up) return msg('Split File', 'Put the cursor on a file first.');
-  const box = await ftForm('Split File',
-    `<div class="dlg-text">${esc(it.name)}  (${ftBig(it.size)})</div>` +
-    '<div class="ft-line"><label>Target folder:</label><input class="ft-dir" spellcheck="false"></div>' +
-    '<div class="ft-line"><label>Part size:</label><input class="ft-size" spellcheck="false" value="100 MB"><select class="ft-pre"><option value="">presets</option><option>1.44 MB</option><option>10 MB</option><option>100 MB</option><option>650 MB</option><option>700 MB</option><option>4 GB</option></select></div>', 'Split');
+  const last = store.get('splitSize', '8 MB');
+  const box = await ftForm('Split',
+    `<div class="dlg-text">Split the file '${esc(it.name)}' (${ftBig(it.size)}) to directory:</div>` +
+    '<div class="ft-line"><input class="ft-dir" spellcheck="false"></div>' +
+    '<div class="ft-line"><label>Bytes per file:</label><input class="ft-size" list="ft-presets" spellcheck="false"><datalist id="ft-presets"><option value="1.44 MB"><option value="8 MB"><option value="10 MB"><option value="100 MB"><option value="650 MB"><option value="700 MB"><option value="4 GB"></datalist></div>' +
+    '<div class="s-hint">The parts are name.001, name.002 ... and name.crc (the name, the size and a checksum: Combine uses it to join and to check the file, like Total Commander).</div>', 'OK',
+    (b) => { const d = b.querySelector('.ft-dir'); d.value = ftOtherDir(); b.querySelector('.ft-size').value = last; ftTreeButton(b, d); });
   if (!box) return;
   const dest = box.querySelector('.ft-dir').value.trim() || ftOtherDir();
-  const size = ftParseSize(box.querySelector('.ft-size').value);
-  const r = await ftWithBusy('Split File', 'Splitting ...', (id) => api.ftSplit({ file: ftFull(p, it), partSize: size, destDir: dest, id }));
+  const sizeText = box.querySelector('.ft-size').value;
+  const size = ftParseSize(sizeText);
+  if (!size) return msg('Split', 'Enter the bytes per file, for example 8 MB or 1457664.');
+  store.set('splitSize', sizeText.trim());
+  const r = await ftWithBusy('Split', 'Splitting ...', (id) => api.ftSplit({ file: ftFull(p, it), partSize: size, destDir: dest, id }));
   await Promise.all(panels.map((x) => x.refresh()));
-  if (r.error) msg('Split File', r.error);
-  else msg('Split File', r.cancelled ? 'Stopped.' : `Done: ${r.parts.length} part(s) in\n${dest}`);
+  if (r.error) msg('Split', r.error);
+  else msg('Split', r.cancelled ? 'Stopped.' : `Done: ${r.parts.length} part(s) and the .crc file in\n${dest}`);
 }
 async function ftCombine() {
   if (modalCount > 0) return;
   const p = A();
-  if (needLocal('Combine Files', p)) return;
+  if (needLocal('Combine', p)) return;
   const it = p.cur();
-  if (!it || !/\.\d{3,4}$/.test(it.name)) return msg('Combine Files', 'Put the cursor on the first part of a split file (name.001).');
-  const dest = await dialog({ title: 'Combine Files', text: `Join ${it.name} and the following parts into the folder:`, input: ftOtherDir(), buttons: [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }] });
-  if (dest.value !== 'ok') return;
-  const r = await ftWithBusy('Combine Files', 'Joining ...', (id) => api.ftCombine({ first: ftFull(p, it), destDir: (dest.input || '').trim() || ftOtherDir(), id }));
+  if (!it || it.isDir || it.up || !/\.(\d{3,4}|crc)$/i.test(it.name)) return msg('Combine', 'Put the cursor on a part of a split file (name.001, name.002 ...) or on its name.crc.');
+  const first = it.name.replace(/\.(\d{3,4}|crc)$/i, '');
+  const box = await ftForm('Combine',
+    `<div class="dlg-text">Combine ${esc(it.name)} and all files with ascending names to the following directory:</div>` +
+    '<div class="ft-line"><input class="ft-dir" spellcheck="false"></div>', 'OK',
+    (b) => { const d = b.querySelector('.ft-dir'); d.value = ftOtherDir(); ftTreeButton(b, d); });
+  if (!box) return;
+  void first;
+  const r = await ftWithBusy('Combine', 'Joining ...', (id) => api.ftCombine({ first: ftFull(p, it), destDir: box.querySelector('.ft-dir').value.trim() || ftOtherDir(), id }));
   await Promise.all(panels.map((x) => x.refresh()));
-  if (r.error) msg('Combine Files', r.error);
-  else msg('Combine Files', r.cancelled ? 'Stopped.' : `Done: ${r.parts} part(s) joined into\n${P.basename(r.out)}`);
+  if (r.error) msg('Combine', r.error);
+  else msg('Combine', r.cancelled ? 'Stopped.' : `Done: ${r.parts} part(s) joined into\n${P.basename(r.out)}` + (r.check ? '\n\n' + r.check : ''));
 }
 
 // ---------------------------------------------------------------- Encode / Decode

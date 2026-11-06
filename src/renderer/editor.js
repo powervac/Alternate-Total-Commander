@@ -95,12 +95,14 @@ async function newFileEdit() {
   openEditor();
 }
 
-async function openEditor() {
-  if (modalCount > 0) return;
-  const panel = A();
+/** panelArg: a panel-like object (Find Files gives its results); force: open above a dialog */
+async function openEditor(panelArg, force) {
+  if (modalCount > 0 && !force) return;
+  const panel = panelArg && panelArg.view ? panelArg : A();
   const cur = panel.cur();
   if (!cur || cur.up || cur.isDir) return;
   const fname = cur.name;
+  if (panel.list && cur.arc) return openViewer(panel, force); // a file inside an archive of the search list: view it (to change it, open the archive with Enter)
   if (panel.arc && panel.arc.remote) return remoteArcMsg(); // a downloaded copy: saving would not reach the server
 
   // ---- resolve the real file (files inside an archive are edited as a temp copy and written back)

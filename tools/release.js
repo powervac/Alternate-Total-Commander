@@ -9,7 +9,7 @@
 //   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are; same: --win-only)
 //   npm run release -- 0.1.7 "notes" --no-win   (macOS only: the Windows file stays as it is; same: --mac-only; --both = both)
 //   npm run release -- 0.1.7 "notes" --dry-run  (show the steps, change nothing)
-//   other flags: --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), --yes (no questions)
+//   other flags: --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), 
 //
 // Everything is uploaded to the main site first. The fast mirror (https://nem68.duckdns.org, a small VPS) pulls the files from it by itself (cron every
 // 10 minutes); after a release this script starts that pull at once over ssh (a failure there is only a warning) and, with --wait-mirror, waits for it.
@@ -36,7 +36,8 @@ const OUT = path.join(ROOT, 'dist-release');
 const MIRROR_URL = (process.env.RELEASE_MIRROR_URL || 'https://nem68.duckdns.org').replace(/\/+$/, '');
 const MIRROR_HOST = process.env.RELEASE_MIRROR_HOST || 'oleg@31.3.218.19';
 const MIRROR_PORT = process.env.RELEASE_MIRROR_PORT || '2022';
-const MIRROR_KEY = process.env.RELEASE_MIRROR_KEY || 'H:/boosty/web/.deploy/id_nem68';
+// the key of the mirror: the copy in ~/.ssh when there is one (Windows OpenSSH refuses a key file that other users may read), else the deploy folder
+const MIRROR_KEY = process.env.RELEASE_MIRROR_KEY || (fs.existsSync(path.join(os.homedir(), '.ssh', 'id_nem68')) ? path.join(os.homedir(), '.ssh', 'id_nem68') : 'H:/boosty/web/.deploy/id_nem68');
 const WIN = process.platform === 'win32';
 
 const args = process.argv.slice(2);
@@ -55,8 +56,8 @@ function run(cmd, a, opts = {}) {
   if (r.status !== 0 && !opts.soft) die(`Failed: ${shown}${opts.capture ? '\n' + (r.stderr || r.stdout || '') : ''}`);
   return { code: r.status, out: (r.stdout || '').trim() };
 }
-const ssh = (cmd, o) => run('ssh', ['-i', KEY, '-p', PORT, '-o', 'StrictHostKeyChecking=accept-new', HOST, cmd], { capture: true, ...o });
-const scp = (local, remote) => run('scp', ['-i', KEY, '-P', PORT, '-o', 'StrictHostKeyChecking=accept-new', local, `${HOST}:${remote}`]);
+const ssh = (cmd, o) => run('ssh', ['-i', KEY, '-p', PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', HOST, cmd], { capture: true, ...o });
+const scp = (local, remote) => run('scp', ['-i', KEY, '-P', PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', local, `${HOST}:${remote}`]);
 const sha256 = (f) => new Promise((res, rej) => { const h = crypto.createHash('sha256'); fs.createReadStream(f).on('data', (d) => h.update(d)).on('end', () => res(h.digest('hex'))).on('error', rej); });
 const ask = (q) => new Promise((res) => { if (flags.has('--yes')) return res(true); const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); rl.question(q + ' [y/N] ', (a) => { rl.close(); res(/^y/i.test(a)); }); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -67,7 +68,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
   let version = pos[0];
   const notes = pos[1];
-  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--no-mirror] [--wait-mirror] [--dry-run] [--yes]');
+  if (!version || !notes) die('Usage: npm run release -- <version|patch|minor> "release notes" [--win-only | --mac-only | --both] [--no-push] [--no-build] [--no-mirror] [--wait-mirror] [--dry-run]');
   const cur = pkg.version.split('.').map(Number);
   if (version === 'patch') version = [cur[0], cur[1], cur[2] + 1].join('.');
   else if (version === 'minor') version = [cur[0], cur[1] + 1, 0].join('.');
@@ -97,7 +98,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (t.out !== 'ok') die('Cannot reach the server over ssh (check RELEASE_HOST / RELEASE_PORT / RELEASE_KEY).');
   }
   log(`Release ${version} (${what})\n  notes: ${notes}\n  server: ${HOST}:${SITE}`);
-  if (!DRY && !(await ask('Go on?'))) die('Cancelled.');
 
   // ------------------------------------------------------------ 1. version, commit, push
   let macRun = null;
@@ -210,7 +210,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!flags.has('--no-mirror')) {
     if (!fs.existsSync(MIRROR_KEY)) log(`(mirror: the key ${MIRROR_KEY} is not here: the mirror will pull by itself within 10 minutes)`);
     else {
-      const m = run('ssh', ['-i', MIRROR_KEY, '-p', MIRROR_PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=15', MIRROR_HOST, 'nohup ~/total-mirror/pull.sh >/dev/null 2>&1 & echo started'], { capture: true, soft: true, always: false });
+      const m = run('ssh', ['-i', MIRROR_KEY, '-p', MIRROR_PORT, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', MIRROR_HOST, 'nohup ~/total-mirror/pull.sh >/dev/null 2>&1 & echo started'], { capture: true, soft: true, always: false });
       if (!DRY) log(m.out === 'started' ? 'Mirror: the pull has been started (the files arrive in a few minutes).' : 'Mirror: could not be started over ssh; it will pull by itself within 10 minutes.');
     }
     if (flags.has('--wait-mirror') && !DRY) {

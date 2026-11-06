@@ -59,7 +59,7 @@ function openSearch() {
     '<div class="s-status">Ready.</div>' +
     '<div class="s-match"></div>' +
     '</div>' +
-    '<div class="dlg-btns"><button class="s-start primary">Start search</button><button class="s-goto">Go to file</button><button class="s-close">Close</button></div>';
+    '<div class="dlg-btns"><button class="s-start primary">Start search</button><button class="s-view" title="View the file (F3)">F3 View</button><button class="s-edit" title="Edit the file (F4)">F4 Edit</button><button class="s-new" title="Clear the results and start again">New search</button><button class="s-goto">Go to file</button><button class="s-feed" title="Put the found files into the panel as one list">Feed to listbox</button><button class="s-close">Close</button></div>';
 
   const q = (s) => box.querySelector(s);
   const qa = (s) => [...box.querySelectorAll(s)];
@@ -231,7 +231,7 @@ function openSearch() {
     $start.textContent = 'Start search';
     $status.textContent = res.error
       ? 'Error: ' + res.error
-      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.length} found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(res.fromIndex ? 2 : 1)} s${res.fromIndex ? ' (from the index)' : ''}` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
+      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.filter((r) => !r.isDir).length} files and ${results.filter((r) => r.isDir).length} directories found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(res.fromIndex ? 2 : 1)} s${res.fromIndex ? ' (from the index)' : ''}` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
     if (results.length && !res.cancelled) $list.focus();
   }
 
@@ -245,6 +245,7 @@ function openSearch() {
   function gotoFile() {
     const r = results[cursor];
     if (!r) return;
+    if (window.FIND_WINDOW) { api.findAction({ type: 'goto', r, panelIdx: FIND_CTX.panelIdx || 0 }); close(); return; } // the main window shows the folder
     close();
     if (r.arc) panel.loadArc(r.arc.file, r.arc.inner, { focusName: r.name });
     else panel.load(r.dir, { focusName: r.name });
@@ -297,6 +298,43 @@ function openSearch() {
 
   $start.onclick = start;
   q('.s-goto').onclick = gotoFile;
+  /** F3 / F4 on a result: the viewer / editor of the program opens above this window (the results are its file list: arrows / n p go through them) */
+  function openResult(edit) {
+    const r = results[cursor];
+    if (!r || r.isDir) { $status.textContent = 'Select a file first.'; return; }
+    const files = results.filter((x) => !x.isDir);
+    const items = files.map((x) => ({ name: P.join(x.dir, x.name), isDir: false, size: x.size || 0, mtime: x.mtime || 0, arc: x.arc || null, entry: x.arc ? x.name : null, res: x }));
+    let at = Math.max(0, files.indexOf(r));
+    if (window.FIND_WINDOW) { api.findAction({ type: edit ? 'edit' : 'view', list: files, index: at }); return; } // the viewer / editor of the main window shows it
+    const fake = {
+      dir: '', arc: null, rem: null, list: { label: 'Search result' }, view: items,
+      cur: () => items[at], setCursor: (i) => { at = i; const k = results.indexOf(items[i].res); if (k >= 0) markRow(k); }, focus: () => {}, refresh: () => {},
+    };
+    box.style.visibility = 'hidden'; // the editor lies under dialogs: this window waits until the viewer / editor is closed
+    const back = setInterval(() => { if (!document.querySelector('.viewer')) { clearInterval(back); box.style.visibility = ''; $list.focus(); } }, 150);
+    (edit ? openEditor(fake, true) : openViewer(fake, true));
+  }
+  q('.s-view').onclick = () => openResult(false);
+  q('.s-edit').onclick = () => openResult(true);
+  q('.s-new').onclick = () => {
+    stop();
+    results = [];
+    cursor = -1;
+    $list.innerHTML = '';
+    $match.textContent = '';
+    $status.textContent = 'Ready.';
+    showTab('g');
+    $mask.focus();
+    $mask.select();
+  };
+  q('.s-feed').onclick = () => {
+    // all results go into the panel as one list (files inside zip archives too: they are opened through a temporary copy); the dialog closes
+    const list = results.slice();
+    if (!list.length) { $status.textContent = 'There is nothing to put into the list: start a search first.'; return; }
+    if (window.FIND_WINDOW) { api.findAction({ type: 'feed', list, panelIdx: FIND_CTX.panelIdx || 0 }); close(); return; }
+    close();
+    panel.loadList(list, 'Search result');
+  };
   q('.s-close').onclick = close;
   $list.addEventListener('mousedown', (e) => { const r = e.target.closest('.s-row'); if (r) { markRow(+r.dataset.i); $list.focus(); } });
   $list.addEventListener('dblclick', (e) => { if (e.target.closest('.s-row')) gotoFile(); });
@@ -305,7 +343,8 @@ function openSearch() {
     e.stopPropagation();
     const k = e.key;
     const inList = document.activeElement === $list;
-    if (k === 'Escape') { e.preventDefault(); runningId ? stop() : close(); }
+    if (inList && (k === 'F3' || k === 'F4')) { e.preventDefault(); openResult(k === 'F4'); }
+    else if (k === 'Escape') { e.preventDefault(); runningId ? stop() : close(); }
     else if (k === 'Enter') {
       const a = document.activeElement;
       if (a instanceof HTMLButtonElement || (a instanceof HTMLSelectElement) || (a && a.closest && a.closest('.s-tpl'))) return;

@@ -89,6 +89,10 @@ function createWindow() {
         }
       }
       win.show(); win.focus(); await new Promise((r) => setTimeout(r, 500));
+      let n = 0;
+      for (const pw of popupWins) { // dialog windows (dlgwin.js): COMMANDER_SHOT-dlg1.png ...
+        try { const pi = await pw.webContents.capturePage(); fs.writeFileSync(process.env.COMMANDER_SHOT.replace(/\.png$/i, '') + '-dlg' + (++n) + '.png', pi.toPNG()); console.log('dialog window captured', pi.getSize()); } catch { /* gone */ }
+      }
       const img = await win.webContents.capturePage();
       console.log('captured', img.getSize());
       fs.writeFileSync(process.env.COMMANDER_SHOT, img.toPNG());
@@ -97,6 +101,112 @@ function createWindow() {
   }
   if (process.env.COMMANDER_DEV) win.webContents.openDevTools({ mode: 'detach' });
 }
+
+// ---------------------------------------------------------------- dialogs in windows of their own (renderer/dlgwin.js opens them with window.open)
+// A dialog window is modal for the window it was opened from, has no menu and can be moved anywhere on the screen (also out of the program window).
+app.on('web-contents-created', (_e, contents) => {
+  contents.setWindowOpenHandler(({ frameName }) => {
+    if (!String(frameName).startsWith('cmdr-dialog')) return { action: 'deny' };
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        modal: true,
+        show: true,
+        minimizable: false,
+        maximizable: false,
+        fullscreenable: false,
+        useContentSize: false,
+        autoHideMenuBar: true,
+        backgroundColor: '#f0f0f0',
+        icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
+        webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false },
+      },
+    };
+  });
+  contents.on('did-create-window', (child) => {
+    child.setMenu(null);
+    popupWins.add(child);
+    child.on('closed', () => popupWins.delete(child));
+  });
+});
+const popupWins = new Set();
+const fitted = new WeakSet();
+ipcMain.handle('win:fit', (e, { w, h }) => {
+  const bw = BrowserWindow.fromWebContents(e.sender);
+  if (!bw || bw.isDestroyed()) return false;
+  const wa = require('electron').screen.getDisplayMatching(bw.getBounds()).workArea;
+  w = Math.max(160, Math.min(Math.round(w), wa.width - 20));
+  h = Math.max(80, Math.min(Math.round(h), wa.height - 40));
+  bw.setContentSize(w, h);
+  if (process.env.COMMANDER_DEBUG_FIT) console.log('[fit] asked', w + 'x' + h, '-> content', bw.getContentSize().join('x'), '| scale', require('electron').screen.getDisplayMatching(bw.getBounds()).scaleFactor);
+  if (!fitted.has(bw)) { // first time: in the middle of the window it belongs to
+    fitted.add(bw);
+    const par = bw.getParentWindow();
+    const pb = par ? par.getBounds() : wa;
+    const b = bw.getBounds();
+    bw.setPosition(Math.round(pb.x + (pb.width - b.width) / 2), Math.round(pb.y + Math.max(20, (pb.height - b.height) / 3)));
+  }
+  return true;
+});
+
+// ---------------------------------------------------------------- Find Files: a window of its own (like in Total Commander it can be taken out of the main window)
+let findWin = null;
+let findCtx = null;
+const findBoundsFile = () => path.join(app.getPath('userData'), 'find-window.json');
+function openFindWindow(ctx) {
+  findCtx = ctx;
+  if (findWin && !findWin.isDestroyed()) {
+    findWin.webContents.send('find:context', ctx);
+    if (findWin.isMinimized()) findWin.restore();
+    findWin.show();
+    findWin.focus();
+    return;
+  }
+  let b = { width: 940, height: 740 };
+  try { b = { ...b, ...JSON.parse(fs.readFileSync(findBoundsFile(), 'utf8')) }; } catch { /* the first time */ }
+  // where it was last time, when that place still exists on a screen
+  const { screen } = require('electron');
+  if (b.x !== undefined && !screen.getAllDisplays().some((d) => b.x < d.bounds.x + d.bounds.width - 60 && b.x + b.width > d.bounds.x + 60 && b.y >= d.bounds.y - 10 && b.y < d.bounds.y + d.bounds.height - 60)) { delete b.x; delete b.y; }
+  findWin = new BrowserWindow({
+    ...b,
+    minWidth: 640,
+    minHeight: 460,
+    backgroundColor: '#f0f0f0',
+    title: 'Find Files',
+    icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
+    autoHideMenuBar: true,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false },
+  });
+  findWin.setMenu(null);
+  findWin.loadFile(path.join(__dirname, '..', 'renderer', 'find.html'));
+  findWin.webContents.on('console-message', (_e, lvl, m, l, src) => console.log('[find]', m, src + ':' + l));
+  // dev helper like COMMANDER_SCRIPT: COMMANDER_FIND_SCRIPT runs in the Find Files window, COMMANDER_FIND_SHOT saves its picture
+  if (process.env.COMMANDER_FIND_SCRIPT) {
+    findWin.webContents.once('did-finish-load', async () => {
+      await new Promise((r) => setTimeout(r, 1200));
+      try { await findWin.webContents.executeJavaScript(fs.readFileSync(process.env.COMMANDER_FIND_SCRIPT, 'utf8')); } catch (e) { console.error('find script error', e); }
+      if (process.env.COMMANDER_FIND_SHOT && findWin && !findWin.isDestroyed()) {
+        const img = await findWin.webContents.capturePage();
+        fs.writeFileSync(process.env.COMMANDER_FIND_SHOT, img.toPNG());
+        console.log('find window captured', img.getSize());
+      }
+    });
+  }
+  const w = findWin;
+  w.on('close', () => { try { if (!w.isMinimized() && !w.isMaximized()) fs.writeFileSync(findBoundsFile(), JSON.stringify(w.getBounds())); } catch { /* not important */ } });
+  w.on('closed', () => { if (findWin === w) findWin = null; });
+}
+ipcMain.handle('find:open', (_e, ctx) => { openFindWindow(ctx || {}); return true; });
+ipcMain.handle('find:context', () => findCtx);
+// what the Find Files window wants from the main window (go to a file, put the results into a panel, view / edit a file)
+ipcMain.handle('find:action', (_e, action) => {
+  if (!win || win.isDestroyed()) return false;
+  win.webContents.send('find:action', action);
+  if (action && action.type !== 'view' && action.type !== 'edit') { if (win.isMinimized()) win.restore(); win.focus(); } // go to file / feed: the main window comes forward
+  else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+  return true;
+});
+app.on('before-quit', () => { if (findWin && !findWin.isDestroyed()) findWin.close(); });
 
 // a stray network error (SSH, NAS, ffmpeg pipes ...) must never pop up Electron's "JavaScript error in the main process" box
 process.on('uncaughtException', (err) => {
@@ -597,6 +707,74 @@ async function walkPack(abs, rel, out, ctx, skip) {
     ctx.filesTotal = (ctx.filesTotal || 0) + 1;
   }
 }
+
+// RAR can be read by the program itself, but only RARLAB's own program may write it: when WinRAR (Rar.exe) is installed, "rar" joins the types of Pack
+let rarPath;
+function findRar() {
+  if (rarPath !== undefined) return rarPath;
+  const c = [];
+  if (isWin) {
+    for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.ProgramW6432]) if (base) c.push(path.join(base, 'WinRAR', 'Rar.exe'));
+    for (const d of String(process.env.PATH || '').split(path.delimiter)) if (d) c.push(path.join(d, 'Rar.exe'));
+  } else for (const d of ['/usr/local/bin', '/usr/bin', '/opt/homebrew/bin', ...String(process.env.PATH || '').split(path.delimiter)]) if (d) c.push(path.join(d, 'rar'));
+  rarPath = c.find((f) => { try { return fs.statSync(f).isFile(); } catch { return false; } }) || null;
+  return rarPath;
+}
+ipcMain.handle('rar:find', () => findRar());
+
+// unpack a whole 7z / tar / tar.gz / gz / bz2 / xz / rar archive, and pack into 7z / tar / tar.gz / tar.bz2 / tar.xz / gz (7za, see sevenzip.js)
+ipcMain.handle('arc:unpack', async (e, { id, archive, destDir, overwrite }) => {
+  const ctx = mkCtx(e, id);
+  ctx.total = 100;
+  jobs.set(id, ctx);
+  const hold = {};
+  ctx.abort = () => hold.kill && hold.kill();
+  try {
+    ctx.current = archive;
+    ctx.curSrc = archive;
+    ctx.curDst = destDir;
+    await sevenzip.unpackAll(archive, destDir, { overwrite, hold, cancelled: () => ctx.cancel, onPct: (v) => { ctx.done = v; ctx.tick(); } });
+    ctx.tick(true);
+    return { errors: ctx.cancel ? [] : ctx.errors, cancelled: ctx.cancel };
+  } catch (err) {
+    return { errors: ctx.cancel ? [] : [`${path.basename(archive)}: ${/password|encrypted/i.test(err.message) ? 'the archive is protected by a password (not supported)' : err.message}`], cancelled: ctx.cancel };
+  } finally {
+    jobs.delete(id);
+  }
+});
+
+ipcMain.handle('arc:pack', async (e, { id, kind, cwd, names, archive }) => {
+  const ctx = mkCtx(e, id);
+  ctx.total = 100;
+  jobs.set(id, ctx);
+  const hold = {};
+  ctx.abort = () => hold.kill && hold.kill();
+  try {
+    ctx.current = archive;
+    ctx.curSrc = cwd;
+    ctx.curDst = archive;
+    if (kind === 'rar') {
+      const exe = findRar();
+      if (!exe) throw new Error('WinRAR (Rar.exe) was not found: install it to make .rar archives.');
+      await fsp.rm(archive, { force: true });
+      await new Promise((resolve, reject) => {
+        const p = spawn(exe, ['a', '-r', '-y', '-idcd', archive, ...names], { cwd, windowsHide: true });
+        let err = '', buf = '';
+        hold.kill = () => { try { p.kill(); } catch { /* gone */ } };
+        p.stdout.on('data', (c) => { buf += c.toString('latin1'); const m = buf.match(/(\d{1,3})%/g); if (m) { ctx.done = Math.min(100, parseInt(m[m.length - 1], 10)); ctx.tick(); } if (buf.length > 4096) buf = buf.slice(-256); });
+        p.stderr.on('data', (c) => (err += c));
+        p.on('error', reject);
+        p.on('close', (code) => (code === 0 || code === 1 ? resolve() : reject(new Error((err || 'Rar.exe exited with code ' + code).trim().split('\n').slice(-2).join(' ')))));
+      });
+    } else await sevenzip.pack(kind, cwd, names, archive, { hold, onPct: (v) => { ctx.done = v; ctx.tick(); } });
+    ctx.tick(true);
+    return { errors: [], cancelled: false };
+  } catch (err) {
+    return { errors: ctx.cancel ? [] : [err.message], cancelled: ctx.cancel };
+  } finally {
+    jobs.delete(id);
+  }
+});
 
 ipcMain.handle('zip:pack', async (e, { id, sources, archive }) => {
   const ctx = mkCtx(e, id);

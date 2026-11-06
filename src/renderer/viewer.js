@@ -70,9 +70,10 @@ function vHexLine(b, i) {
   return off.toString(16).padStart(8, '0') + '  ' + hex + ' |' + asc + '|';
 }
 
-function openViewer() {
-  if (modalCount > 0) return;
-  const panel = A();
+/** panelArg: a panel-like object with the files to show (Find Files gives its results); force: open above a dialog */
+function openViewer(panelArg, force) {
+  if (modalCount > 0 && !force) return;
+  const panel = panelArg && panelArg.view ? panelArg : A();
   const first = panel.cur();
   if (!first || first.up || first.isDir) return;
   if (V_VIDEO[splitExt(first.name)[1].toLowerCase()] || V_AUDIO[splitExt(first.name)[1].toLowerCase()]) playerPause(); // one sound at a time
@@ -412,7 +413,12 @@ function openViewer() {
       size = f.size;
     } else {
       let path;
-      if (panel.arc) {
+      if (panel.list && f.arc) {
+        const t = await api.zipTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
+        if (token !== loadToken) return;
+        if (t.error) return message(t.error);
+        path = t.file;
+      } else if (panel.arc) {
         const t = await api.zipTemp({ archive: panel.arc.file, inner: panel.arc.inner, name: f.name });
         if (token !== loadToken) return;
         if (t.error) return message(t.error);
@@ -450,7 +456,12 @@ function openViewer() {
     mediaSpec = null;
     if (V_VIDEO[ext()] || V_AUDIO[ext()]) return loadMedia(token, f);
     let path;
-    if (panel.rem) {
+    if (panel.list && f.arc) {
+      const t = await api.zipTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
+      if (token !== loadToken) return;
+      if (t.error) return message(t.error);
+      path = t.file;
+    } else if (panel.rem) {
       const t = await api.nasTemp({ id: panel.rem.id, path: remJoin(panel.rem.path, f.name) });
       if (token !== loadToken) return;
       if (t.error) return message(t.error);

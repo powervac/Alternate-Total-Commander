@@ -80,6 +80,8 @@ function thumbPump() {
 // ------------------------------------------------------------------ dialogs
 let modalCount = 0;
 function openModal(box) {
+  // a dialog in a window of its own (dlgwin.js), unless that is switched off in Configuration > Display
+  if (box.classList.contains('dlg') && store.get('dlgWindows', true) !== false && typeof dlgPopup === 'function') { const c = dlgPopup(box); if (c) return c; }
   const root = $('#modal-root');
   root.appendChild(box);
   root.classList.add('open');
@@ -324,10 +326,10 @@ class Panel {
   uploadDir() { return this.consoleOn && typeof sshCwd === 'function' ? sshCwd(this) : this.rem.path; }
 
   /** real folder on disk: the panel's folder, or the folder that holds the open archive */
-  realDir() { return this.arc ? (this.arc.remote ? this.lastLocal || api.home : P.dirname(this.arc.file)) : this.rem ? this.lastLocal || api.home : this.dir; }
+  realDir() { if (this.list) return (this.listFrom && this.listFrom.dir) || api.home; return this.arc ? (this.arc.remote ? this.lastLocal || api.home : P.dirname(this.arc.file)) : this.rem ? this.lastLocal || api.home : this.dir; }
 
   /** location snapshot: {dir}, {arc:{file,inner}} or {rem:{id,name,path}} */
-  snap() { return this.arc ? { arc: { ...this.arc } } : this.rem ? { rem: { ...this.rem } } : { dir: this.dir }; }
+  snap() { if (this.list) return this.listFrom || { dir: api.home }; return this.arc ? { arc: { ...this.arc } } : this.rem ? { rem: { ...this.rem } } : { dir: this.dir }; }
   go(nav, opts) {
     if (nav.rem) return this.loadRem(nav.rem, nav.rem.path, opts);
     return nav.arc ? this.loadArc(nav.arc.file, nav.arc.inner, { ...opts, remote: nav.arc.remote }) : this.load(nav.dir, opts);
@@ -341,6 +343,8 @@ class Panel {
     if (!this.posMap) this.posMap = new Map();
     if (this.view && this.view.length) { const c = this.cur(); this.posMap.set(Panel.navKey(this.snap()), { top: this.$list.scrollTop, name: c && !c.up ? c.name : undefined }); }
     const keepSel = opts.keepSel ? new Set(this.sel) : null;
+    this.list = null; // a normal folder replaces a list of search results
+    this.listFrom = null;
     this.arc = arc;
     this.rem = rem;
     if (!rem && !(arc && arc.remote)) this.lastLocal = arc ? P.dirname(arc.file) : dir;
@@ -381,14 +385,18 @@ class Panel {
     return p;
   }
 
-  renderTabs() {
+  renderTabs(fromPeer) {
     const list = this.tabs.map((t, i) => (i === this.ti ? this.snap() : t.nav));
-    this.$tabs.classList.toggle('on', list.length > 1);
+    // when one panel has tabs, both show their tab row (a panel with one tab shows that one): the two lists of files stay on the same level
+    const peers = typeof panels !== 'undefined' && Array.isArray(panels) ? panels.filter((q) => q && q !== this && q.tabs) : [];
+    const any = list.length > 1 || peers.some((q) => q.tabs.length > 1);
+    this.$tabs.classList.toggle('on', any);
     this.$tabs.innerHTML = list
       .map((nav, i) => `<div class="tab${i === this.ti ? ' active' : ''}" data-i="${i}" title="${esc(nav.arc ? nav.arc.file : nav.rem ? nav.rem.name + ':' + nav.rem.path : nav.dir)}">${esc(this.tabTitle(nav))}</div>`)
       .join('');
     const real = list.map((n) => (n.arc ? P.dirname(n.arc.file) : n.rem ? api.home : n.dir)); // NAS tabs are not restored
     store.set(`tabs${this.idx}`, { ti: this.ti, list: real });
+    if (!fromPeer) for (const q of peers) q.renderTabs(true); // the other panel follows (it shows or hides its tab row too)
   }
 
   /** new tab = a copy of the current one, placed right after it, and made active */
@@ -497,9 +505,46 @@ class Panel {
   }
 
   refresh() {
+    if (this.list) return this.refreshList();
     this.dirSizes.clear();
     const c = this.cur();
     return this.go(this.snap(), { push: false, focusName: c && c.name, keepSel: true });
+  }
+
+  /**
+   * "Feed to listbox" of Find Files: the found files and folders as a flat list (names are full paths) in this panel, like Total Commander's search result panel.
+   * Everything that works on the files under the cursor works here too (F3, F4, F5, F8, Enter ...); Backspace goes back to where the list began.
+   */
+  loadList(entries, label = 'Search result') {
+    if (!this.list) this.listFrom = this.snap();
+    this.list = { label };
+    this.arc = null;
+    this.rem = null;
+    this.dir = '';
+    this.dirSizes.clear();
+    // a file inside a zip archive keeps where it is: arc = { file, inner }, entry = its name there (the name shown is the path through the archive)
+    this.items = entries.map((e) => ({ name: P.join(e.dir, e.name), isDir: !!e.isDir, size: e.isDir ? -1 : e.size || 0, mtime: e.mtime || 0, ro: false, hidden: String(e.name).startsWith('.'), link: false, arc: e.arc || null, entry: e.arc ? e.name : null }));
+    this.sel = new Set();
+    this.hist = this.hist.slice(0, this.hi + 1);
+    this.rebuild(undefined);
+    this.updateHeader();
+    this.renderTabs();
+    this.focus();
+    return true;
+  }
+
+  /** a reread of the list: what does not exist any more is dropped */
+  async refreshList() {
+    const keep = [];
+    for (const it of this.items) {
+      if (it.arc) { if ((await api.stat(it.arc.file)).exists) keep.push({ dir: P.dirname(it.name), name: it.entry, isDir: false, size: it.size, mtime: it.mtime, arc: it.arc }); continue; }
+      const st = await api.stat(it.name);
+      if (st.exists) keep.push({ dir: P.dirname(it.name), name: P.basename(it.name), isDir: st.isDir, size: st.size, mtime: st.mtime });
+    }
+    const c = this.cur();
+    this.items = [];
+    this.loadList(keep, this.list.label);
+    if (c) { const i = this.view.findIndex((v) => v.name === c.name); if (i >= 0) this.setCursor(i); }
   }
 
   setSort(key, toggle) {
@@ -527,7 +572,7 @@ class Panel {
     const dcmp = store.get('dirSort', 'like') === 'name' ? byName : cmp;
     const dirs = shown.filter((i) => i.isDir).sort((a, b) => rev * dcmp(a, b));
     const files = shown.filter((i) => !i.isDir).sort((a, b) => rev * cmp(a, b));
-    const hasParent = this.arc || this.rem ? true : P.dirname(this.dir) !== this.dir;
+    const hasParent = this.arc || this.rem || this.list ? true : P.dirname(this.dir) !== this.dir;
     this.view = [...(hasParent ? [{ name: '..', isDir: true, up: true, size: -1, mtime: 0 }] : []), ...dirs, ...files];
     let idx = focusName ? this.view.findIndex((i) => i.name === focusName) : -1;
     if (idx < 0) idx = Math.min(this.cursor, this.view.length - 1);
@@ -689,6 +734,14 @@ class Panel {
 
   async updateHeader() {
     if (this.qv) return;
+    if (this.list) {
+      this.$drive.textContent = 'Search result \u25be';
+      this.$path.textContent = `${this.list.label}: ${this.items.length} item(s)`;
+      this.$path.title = 'The files are listed with their full paths. Backspace goes back to the folder that was open.';
+      this.$space.textContent = '';
+      this.$mode.hidden = true;
+      return;
+    }
     if (this.rem) {
       const t = this.rem.type;
       this.$drive.textContent = `${REM_ICON[t] || '☁'} ${remTitle(t)} ▾`;
@@ -738,6 +791,16 @@ class Panel {
       if (err) msg('Error', err);
       return;
     }
+    if (this.list && it.arc) {
+      // a file inside a zip archive: a temporary copy is opened (the archive itself is not changed)
+      const t = await api.zipTemp({ archive: it.arc.file, inner: it.arc.inner, name: it.entry });
+      if (t.error) return msg('Archive', t.error);
+      if (isSpeccyFile(it.entry)) return openEmulator(t.file);
+      if (isDocFile(it.entry)) return openViewer();
+      const err = await api.open(t.file);
+      if (err) msg('Error', err);
+      return;
+    }
     const full = P.join(this.dir, it.name);
     if (it.isDir) return this.load(full);
     if (isArc(it.name)) return this.loadArc(full, '');
@@ -749,6 +812,7 @@ class Panel {
   }
 
   goUp() {
+    if (this.list) return this.go(this.listFrom || { dir: api.home }, { push: false }); // out of the list of search results: back to where it began
     if (this.rem) {
       const { path } = this.rem;
       if (path === '/') return this.load(this.lastLocal || api.home); // leave the NAS
@@ -1024,6 +1088,7 @@ async function deleteFromArc() {
   if (arcReadOnly(p.arc)) return remoteArcMsg();
   const items = p.targets();
   if (!items.length) return;
+  if (p.list && items.some((i) => i.arc)) return msg('Delete', 'Files inside zip archives cannot be deleted from the list of search results.\nOpen the archive (Enter on it) and delete them there.');
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} selected item(s)`;
   const r = await dialog({
     title: 'Delete',
@@ -1214,16 +1279,51 @@ function needLocal(feature, ...ps) {
   return false;
 }
 
+/** F5 / F6 in a list of search results that has files inside zip archives: those are extracted, the others copied or moved as usual */
+async function copyFromList(kind, items, dst) {
+  if (dst.rem || dst.arc || dst.list) return msg('Copy', 'Open a normal folder in the other panel first.');
+  const arcItems = items.filter((i) => i.arc);
+  const plain = items.filter((i) => !i.arc);
+  const r = await dialog({
+    title: kind === 'copy' ? 'Copy' : 'Move',
+    text: `${items.length} file(s) to:` + (arcItems.length && kind === 'move' ? '\n(files inside archives are copied, they cannot be moved out of the archive)' : ''),
+    input: P.join(dst.dir, '*.*'),
+    buttons: [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }],
+  });
+  const val = r.input && r.input.trim();
+  if (r.value !== 'ok' || !val) return;
+  const destDir = P.resolve(dst.dir, val.replace(/[\\/]?\*\.\*$/, '') || '.');
+  const res = await runJob((kind === 'copy' ? 'Copying ' : 'Moving ') + items.length + ' items', async (id) => {
+    const errors = [];
+    if (plain.length) {
+      const o = await api.runOp({ id, kind, sources: plain.map((i) => i.name), destDir, rename: null, overwrite: 'skip' });
+      errors.push(...(o.errors || []));
+    }
+    // a zip archive at a time
+    const groups = new Map();
+    for (const i of arcItems) { const k = i.arc.file + '|' + i.arc.inner; if (!groups.has(k)) groups.set(k, { archive: i.arc.file, inner: i.arc.inner, names: [] }); groups.get(k).names.push(i.entry); }
+    for (const g of groups.values()) {
+      const o = await api.zipExtract({ id, archive: g.archive, inner: g.inner, names: g.names, destDir, rename: null, overwrite: 'skip' });
+      errors.push(...(o.errors || []));
+    }
+    return { errors, cancelled: false, skipped: 0 };
+  });
+  await Promise.all(panels.map((p) => p.refresh()));
+  await showErrors(res.errors || []);
+}
+
 async function copyMove(kind, opts = {}) {
   const src = A(), dst = O();
   const items = src.targets();
   if (!items.length) return;
+  if (src.list && items.some((i) => i.arc)) return copyFromList(kind, items, dst);
   if (src.consoleOn) return;
   if (kind === 'move' && src.arc && arcReadOnly(src.arc)) return remoteArcMsg(); // "move" would delete from the archive
   if (opts.renameOnly && src.rem) return renameRemote();
   if (opts.renameOnly && src.arc) return renameInArc();
   if (src.rem && dst.rem) return remoteToRemote(kind);
   if ((src.rem && dst.arc) || (src.arc && dst.rem)) return msg('NAS', 'Copying between a NAS and an archive is not supported.\nUse a local folder in between.');
+  if (dst.list) return msg(kind === 'copy' ? 'Copy' : 'Move', 'The other panel shows a list of search results: open a folder in it first (Backspace leaves the list).');
   if (dst.rem) return uploadToRemote(kind);
   if (src.arc && dst.arc) return msg('Archive', 'Copying between two archives is not supported yet.');
   if (dst.arc) return addToArchive(kind);
@@ -1316,6 +1416,7 @@ async function copyMove(kind, opts = {}) {
 
 async function makeDir() {
   const p = A();
+  if (p.list) return msg('New folder', 'This panel shows a list of search results: leave it first (Backspace).');
   if (p.rem) return mkdirRemote();
   if (p.arc) return mkdirInArc();
   const r = await dialog({
@@ -1360,7 +1461,7 @@ async function deleteSel(permanent) {
 
 const OKCANCEL = [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }];
 const isZip = (n) => /\.zip$/i.test(n);
-const isSevenArc = (n) => /\.(7z|tar|cab|tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i.test(n); // browsed read-only through 7za
+const isSevenArc = (n) => /\.(7z|tar|cab|tgz|tbz2?|txz|gz|bz2|xz|lzma|rar|tar\.(gz|bz2|xz))$/i.test(n); // browsed read-only through 7za / unrar (sevenzip.js)
 const isDocFile = (n) => typeof V_DOC !== 'undefined' && !!V_DOC[splitExt(n)[1].toLowerCase()];
 const isArc = (n) => isZip(n) || isSevenArc(n);
 const arcReadOnly = (a) => !!(a.remote || isSevenArc(a.file));
@@ -1372,6 +1473,10 @@ async function withProgress(title, start) {
 const showErrors = (errors) =>
   errors.length && msg('Error', errors.slice(0, 8).join('\n') + (errors.length > 8 ? `\n... and ${errors.length - 8} more` : ''));
 
+/** the archive kinds that can be made: key -> [label, extension] */
+const PACK_KINDS = { zip: ['zip', '.zip'], '7z': ['7z', '.7z'], tar: ['tar', '.tar'], tgz: ['tar.gz', '.tar.gz'], tbz2: ['tar.bz2', '.tar.bz2'], txz: ['tar.xz', '.tar.xz'], gz: ['gz (one file)', '.gz'], bz2: ['bz2 (one file)', '.bz2'], xz: ['xz (one file)', '.xz'] };
+const packKindOf = (name) => (/\.rar$/i.test(name) ? 'rar' : /\.tar\.gz$|\.tgz$/i.test(name) ? 'tgz' : /\.tar\.bz2$|\.tbz2?$/i.test(name) ? 'tbz2' : /\.tar\.xz$|\.txz$/i.test(name) ? 'txz' : /\.7z$/i.test(name) ? '7z' : /\.tar$/i.test(name) ? 'tar' : /\.gz$/i.test(name) ? 'gz' : /\.bz2$/i.test(name) ? 'bz2' : /\.xz$/i.test(name) ? 'xz' : 'zip');
+
 async function packSel() {
   const src = A(), dst = O();
   if (needLocal('Pack', src, dst)) return;
@@ -1380,15 +1485,28 @@ async function packSel() {
   if (!items.length) return;
   const names = items.map((i) => i.name);
   const base = names.length === 1 ? (items[0].isDir ? names[0] : splitExt(names[0])[0]) : P.basename(src.dir) || 'archive';
-  const r = await dialog({
-    title: 'Pack files',
-    text: names.length === 1 ? `Pack "${names[0]}" to archive (zip):` : `Pack ${names.length} file(s)/dir(s) to archive (zip):`,
-    input: P.join(dst.dir, base + '.zip'),
-    buttons: OKCANCEL,
-  });
-  let val = r.input && r.input.trim();
-  if (r.value !== 'ok' || !val) return;
-  if (!isZip(val)) val += '.zip';
+  const lastKind = store.get('packKind', 'zip');
+  const rarExe = await api.rarFind(); // WinRAR installed: .rar can be made
+  const kinds = { ...PACK_KINDS, ...(rarExe ? { rar: ['rar (WinRAR)', '.rar'] } : {}) };
+  const box = await ftForm('Pack files',
+    `<div class="dlg-text">${names.length === 1 ? `Pack "${esc(names[0])}"` : `Pack ${names.length} file(s)/dir(s)`} into the archive:</div>` +
+    '<div class="ft-line"><input class="pk-name" spellcheck="false"></div>' +
+    '<div class="ft-line"><label>Type:</label><select class="pk-kind">' + Object.entries(kinds).map(([k, v]) => `<option value="${k}"${k === lastKind ? ' selected' : ''}>${v[0]}</option>`).join('') + '</select></div>' +
+    '<div class="s-hint">The type follows the extension of the name: .zip, .7z, .tar, .tar.gz (.tgz), .tar.bz2, .tar.xz, or a single file in .gz / .bz2 / .xz.' + (rarExe ? ' .rar is made by WinRAR.' : ' A .rar can be opened and unpacked here, but only WinRAR itself can make one: install WinRAR and "rar" appears in this list.') + '</div>', 'Pack',
+    (b) => {
+      const nm = b.querySelector('.pk-name'), kd = b.querySelector('.pk-kind');
+      const strip = (n) => n.replace(/\.(tar\.(gz|bz2|xz)|tgz|tbz2?|txz|zip|7z|rar|tar|gz|bz2|xz)$/i, '');
+      nm.value = P.join(dst.dir, base + (kinds[lastKind] || PACK_KINDS.zip)[1]);
+      kd.onchange = () => { nm.value = strip(nm.value) + kinds[kd.value][1]; };
+      nm.oninput = () => { const k = packKindOf(nm.value); if (kd.value !== k && /\.[A-Za-z0-9]+$/.test(nm.value)) kd.value = k; };
+    });
+  if (!box) return;
+  let val = box.querySelector('.pk-name').value.trim();
+  if (!val) return;
+  let kind = packKindOf(val);
+  if (!/\.(zip|7z|rar|tar|tgz|tbz2?|txz|gz|bz2|xz)$/i.test(val)) { kind = box.querySelector('.pk-kind').value; val += kinds[kind][1]; }
+  if (kind === 'rar' && !rarExe) return msg('Pack', 'A .rar can only be made by WinRAR, which was not found on this computer. Choose zip or 7z, or install WinRAR.');
+  store.set('packKind', kind in PACK_KINDS || kind === 'rar' ? kind : 'zip');
   const archive = P.resolve(src.dir, val);
   const st = await api.stat(archive);
   if (st.exists) {
@@ -1400,8 +1518,9 @@ async function packSel() {
     });
     if (c.value !== 'ok') return;
   }
-  const res = await withProgress('Packing', (id) =>
-    api.zipPack({ id, sources: items.map((i) => P.join(src.dir, i.name)), archive }));
+  const res = await withProgress('Packing', (id) => (kind === 'zip'
+    ? api.zipPack({ id, sources: items.map((i) => P.join(src.dir, i.name)), archive })
+    : api.arcPack({ id, kind, cwd: src.dir, names, archive })));
   await Promise.all(panels.map((p) => p.refresh()));
   await showErrors(res.errors);
 }
@@ -1411,9 +1530,9 @@ async function unpackSel() {
   if (needLocal('Unpack', src, dst)) return;
   const archives = src.arc
     ? [{ name: P.basename(src.arc.file), full: src.arc.file }]
-    : src.targets().filter((i) => !i.isDir && isZip(i.name));
+    : src.targets().filter((i) => !i.isDir && isArc(i.name));
   if (dst.arc) return msg('Unpack', 'Unpacking into an archive is not supported.');
-  if (!archives.length) return msg('Unpack', 'Select (or put the cursor on) a .zip archive.');
+  if (!archives.length) return msg('Unpack', 'Select (or put the cursor on) an archive: zip, 7z, rar, tar, tar.gz, gz, bz2, xz ...');
   const r = await dialog({
     title: 'Unpack files',
     text: archives.length === 1 ? `Unpack all files from "${archives[0].name}" to:` : `Unpack all files from ${archives.length} archives to:`,
@@ -1426,6 +1545,20 @@ async function unpackSel() {
   const allErrors = [];
   for (const a of archives) {
     const archive = a.full || P.join(src.dir, a.name);
+    if (!isZip(a.name)) {
+      // 7z, tar, tar.gz, gz, bz2, xz, rar: the whole archive at once (7za / unrar)
+      const there = await api.stat(destDir);
+      let overwrite = 'skip';
+      if (there.exists && there.isDir) {
+        const c = await dialog({ title: 'Confirm overwrite', text: `${a.name}: files that already exist in the target folder:`, buttons: [{ label: 'Overwrite', value: 'all', primary: true }, { label: 'Skip existing', value: 'skip' }, { label: 'Cancel', value: 'cancel', cancel: true }] });
+        if (c.value === 'cancel') break;
+        overwrite = c.value;
+      }
+      const res = await withProgress('Unpacking', (id) => api.arcUnpack({ id, archive, destDir, overwrite }));
+      allErrors.push(...res.errors);
+      if (res.cancelled) break;
+      continue;
+    }
     const info = await api.zipInspect({ archive, destDir });
     if (info.error) { allErrors.push(`${a.name}: ${info.error}`); continue; }
     let overwrite = 'skip';

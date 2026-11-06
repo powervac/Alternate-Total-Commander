@@ -300,16 +300,23 @@ function register(ipcMain, jobs) {
     } finally { done(id); }
   });
 
+  // CRC32 of the whole file, the way Total Commander writes it into the .crc file of a split file
+  const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crcUpdate = (crc, buf, len) => { let c = crc; for (let i = 0; i < len; i++) c = CRC_T[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return c >>> 0; };
+
+  // split: name.001, name.002 ... and name.crc (filename=, size=, crc32=) like Total Commander
   handle('ft:split', async ({ file, partSize, destDir, id }) => {
     const ctx = job(id);
     try {
       const st = await fsp.stat(file);
-      if (!(partSize > 0)) return { error: 'Enter a part size' };
+      if (!(partSize > 0)) return { error: 'Enter the bytes per file' };
       const total = Math.ceil(st.size / partSize);
       if (total > 9999) return { error: 'That would make more than 9999 parts' };
+      await fsp.mkdir(destDir, { recursive: true });
       const base = path.join(destDir, path.basename(file));
       const rs = await fsp.open(file, 'r');
       const parts = [];
+      let crc = 0xffffffff;
       try {
         const buf = Buffer.allocUnsafe(Math.min(partSize, 4 << 20));
         for (let i = 1; i <= total; i++) {
@@ -321,6 +328,7 @@ function register(ipcMain, jobs) {
             while (left > 0) {
               const { bytesRead } = await rs.read(buf, 0, Math.min(buf.length, left), null);
               if (!bytesRead) break;
+              crc = crcUpdate(crc, buf, bytesRead);
               await ws.write(buf, 0, bytesRead);
               left -= bytesRead;
             }
@@ -328,35 +336,58 @@ function register(ipcMain, jobs) {
           parts.push(out);
         }
       } finally { await rs.close(); }
+      const crcHex = ((crc ^ 0xffffffff) >>> 0).toString(16).toUpperCase().padStart(8, '0');
+      await fsp.writeFile(base + '.crc', `filename=${path.basename(file)}\r\nsize=${st.size}\r\ncrc32=${crcHex}\r\n`, 'latin1');
       return { parts };
     } finally { done(id); }
   });
 
+  // combine: the first part (name.001, or any numbered part, or name.crc) and all the parts with ascending names; the .crc file gives the name and is checked
   handle('ft:combine', async ({ first, destDir, id }) => {
     const ctx = job(id);
     try {
-      const m = /^(.*)\.(\d{3,4})$/.exec(first);
-      if (!m) return { error: 'Choose the first part of the file (name.001)' };
-      const outName = path.basename(m[1]);
+      let m = /^(.*)\.(\d{3,4})$/.exec(first);
+      let base;
+      if (m) base = m[1];
+      else if (/\.crc$/i.test(first)) base = first.replace(/\.crc$/i, '');
+      else return { error: 'Choose a part of the split file (name.001) or its name.crc' };
+      const width = m ? m[2].length : 3;
+      const start = 1; // always from the first part
+      let want = null;
+      try {
+        const txt = await fsp.readFile(base + '.crc', 'latin1');
+        want = {};
+        for (const line of txt.split(/\r?\n/)) { const k = /^(\w+)=(.*)$/.exec(line.trim()); if (k) want[k[1].toLowerCase()] = k[2].trim(); }
+      } catch { want = null; }
+      const outName = (want && want.filename && !/[\\/]/.test(want.filename)) ? want.filename : path.basename(base);
       const out = path.join(destDir, outName);
       if (fs.existsSync(out)) return { error: `${outName} already exists in the target folder` };
-      const width = m[2].length;
+      await fsp.mkdir(destDir, { recursive: true });
       const ws = await fsp.open(out, 'w');
-      let n = 0;
+      let n = 0, size = 0;
+      let crc = 0xffffffff;
       try {
-        for (let i = +m[2]; ; i++) {
+        for (let i = start; ; i++) {
           if (ctx.cancel) { await ws.close(); await fsp.rm(out, { force: true }); return { cancelled: true }; }
-          const p = `${m[1]}.${String(i).padStart(width, '0')}`;
+          const p = `${base}.${String(i).padStart(width, '0')}`;
           let rs;
           try { rs = await fsp.open(p, 'r'); } catch { break; }
           try {
             const buf = Buffer.allocUnsafe(4 << 20);
-            for (;;) { const { bytesRead } = await rs.read(buf, 0, buf.length, null); if (!bytesRead) break; await ws.write(buf, 0, bytesRead); }
+            for (;;) { const { bytesRead } = await rs.read(buf, 0, buf.length, null); if (!bytesRead) break; crc = crcUpdate(crc, buf, bytesRead); size += bytesRead; await ws.write(buf, 0, bytesRead); }
           } finally { await rs.close(); }
           n++;
         }
       } finally { try { await ws.close(); } catch { /* closed above */ } }
-      return { out, parts: n };
+      if (!n) { await fsp.rm(out, { force: true }); return { error: `The first part ${path.basename(base)}.${'1'.padStart(width, '0')} was not found next to the chosen one` }; }
+      let check = '';
+      if (want) {
+        const hex = ((crc ^ 0xffffffff) >>> 0).toString(16).toUpperCase().padStart(8, '0');
+        if (want.size && +want.size !== size) check = `The size (${size}) does not match the .crc file (${want.size}): a part is missing or damaged.`;
+        else if (want.crc32 && want.crc32.toUpperCase() !== hex) check = `The checksum (${hex}) does not match the .crc file (${want.crc32.toUpperCase()}): a part is damaged.`;
+        else check = 'The size and the checksum agree with the .crc file.';
+      }
+      return { out, parts: n, check };
     } finally { done(id); }
   });
 

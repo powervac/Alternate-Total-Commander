@@ -1,0 +1,44 @@
+name: Build macOS
+
+# Builds the macOS app (dmg + zip, Apple Silicon and Intel) on a GitHub macOS runner. Run it from the Actions tab or push a tag like v0.1.1.
+# Optional repository secret OAUTH_DEFAULTS_JSON = contents of src/main/oauth-defaults.json (Google / Dropbox app keys for the one-button sign-in).
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm ci
+      - name: App keys (optional)
+        env:
+          OAUTH_DEFAULTS_JSON: ${{ secrets.OAUTH_DEFAULTS_JSON }}
+        run: |
+          if [ -n "$OAUTH_DEFAULTS_JSON" ]; then printf '%s' "$OAUTH_DEFAULTS_JSON" > src/main/oauth-defaults.json; echo "app keys written"; else echo "no app keys secret: cloud sign-in will ask for them"; fi
+      - name: Build Apple Silicon (arm64)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac dmg zip --arm64 --publish never
+      - name: Build Intel (x64) with the x64 ffmpeg
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          npm_config_arch: x64
+          npm_config_platform: darwin
+        run: |
+          rm -f node_modules/ffmpeg-static/ffmpeg node_modules/ffmpeg-static/ffmpeg.exe
+          (cd node_modules/ffmpeg-static && node install.js)
+          npx electron-builder --mac dmg zip --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Alternate-Total-Commander-macOS
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: error

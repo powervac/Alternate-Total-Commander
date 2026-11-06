@@ -26,6 +26,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def _allowed(self):
         u = urlparse(self.path)
+        if u.path.startswith("/cfg-"):  # app keys for the program: only its own downloader, the name is not linked anywhere
+            if not self.headers.get("User-Agent", "").startswith("Commander-keys/"):
+                self.send_response(404)
+                self.end_headers()
+                return False
         if u.path.lower().endswith(".dmg"):
             key = mac_key()
             ua = self.headers.get("User-Agent", "")

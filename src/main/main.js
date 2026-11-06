@@ -1,4 +1,20 @@
 const { app, BrowserWindow, ipcMain, shell, Menu, dialog, clipboard, protocol } = require('electron');
+// Windows answers "UNKNOWN: unknown error, read" for a file of a cloud folder (Dropbox, OneDrive) that is "online only" while the sync
+// program does not run. Every error text that goes to the window is rewritten to say what is going on.
+const CLOUD_ONLY_RE = /UNKNOWN: unknown error, \w+/;
+const CLOUD_ONLY_HINT = 'this file is only in the cloud (Dropbox / OneDrive "online only") and cannot be downloaded now. Start the Dropbox app and wait until it is ready, or choose "Always keep on this device" for the file in Explorer, then try again';
+function cloudErr(v) {
+  if (typeof v === 'string') return CLOUD_ONLY_RE.test(v) ? v.replace(CLOUD_ONLY_RE, CLOUD_ONLY_HINT) : v;
+  if (v && typeof v === 'object' && !Array.isArray(v) && !Buffer.isBuffer(v)) {
+    if (typeof v.error === 'string') v.error = cloudErr(v.error);
+    if (Array.isArray(v.errors)) v.errors = v.errors.map(cloudErr);
+  }
+  return v;
+}
+{
+  const handle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, fn) => handle(channel, async (...a) => cloudErr(await fn(...a)));
+}
 const emulator = require('./emulator');
 emulator.registerScheme(protocol); // emu:// for the ZX Spectrum emulator (before the app is ready)
 const path = require('path');
@@ -1381,12 +1397,28 @@ ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret
  * Ready-made app keys: if src/main/oauth-defaults.json exists, the sign-in buttons work without any setup by the user.
  * { "google": { "clientId": "...", "clientSecret": "..." }, "dropbox": { "appKey": "..." } }
  */
-ipcMain.handle('cloud:defaults', () => {
+// App keys of Google / Dropbox for the one-button sign-in: from oauth-defaults.json when the build has them, else from the copy cached in the
+// user's profile, else downloaded ONCE from the download site (so that a build without the keys, e.g. the Mac one, still works at once).
+const KEYS_URL = process.env.COMMANDER_KEYS_URL || 'https://total.gieldowa.keenetic.link/cfg-f43948e43a892dd3.json';
+const hasKeys = (j) => !!(j && ((j.google && j.google.clientId) || (j.dropbox && j.dropbox.appKey)));
+const readKeys = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
+ipcMain.handle('cloud:defaults', async () => {
+  const local = process.env.COMMANDER_NO_DEFAULTS ? null : readKeys(path.join(__dirname, 'oauth-defaults.json'));
+  if (hasKeys(local)) return local;
+  const cache = path.join(app.getPath('userData'), 'oauth-defaults.json');
+  const cached = readKeys(cache);
+  if (hasKeys(cached)) return cached;
   try {
-    return JSON.parse(fs.readFileSync(path.join(__dirname, 'oauth-defaults.json'), 'utf8'));
-  } catch {
-    return {};
-  }
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(KEYS_URL, { signal: ctl.signal, headers: { 'User-Agent': 'Commander-keys/1' } });
+    clearTimeout(t);
+    if (r.ok) {
+      const j = await r.json();
+      if (hasKeys(j)) { try { await fsp.writeFile(cache, JSON.stringify(j), { mode: 0o600 }); } catch { /* no cache then */ } return j; }
+    }
+  } catch { /* offline: the connection window asks for the keys as before */ }
+  return {};
 });
 
 /** the user closed the window while the browser sign-in was pending */

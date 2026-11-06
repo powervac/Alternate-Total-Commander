@@ -242,3 +242,6 @@ body.no-toolbar #toolbar { display: none; }
 .s-status { padding: 4px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 20px; }
 .bar { height: 16px; border: 1px solid #8a8a8a; background: #fff; margin: 6px 0; }
 .bar > i { display: block; height: 100%; width: 0; background: #06b025; }
+
+.drag-ghost { position: fixed; z-index: 1000; pointer-events: none; background: #fff; border: 1px solid #4aa3ff; padding: 2px 8px; box-shadow: 2px 2px 6px rgba(0,0,0,.35); font-size: 13px; }
+.panel.dragover { outline: 3px dashed #4aa3ff; outline-offset: -3px; }

@@ -33,13 +33,15 @@ const isSevenArchive = (f) => EXT.test(f);
 
 function run(args, cwd) {
   return new Promise((resolve, reject) => {
+    if (global.devlog) global.devlog('7za', `${bin} ${args.map((a) => (/^-p/.test(a) ? '-p***' : a)).join(' ')}`);
     const p = spawn(bin, args, { cwd, windowsHide: true });
     const out = [];
     let err = '';
     p.stdout.on('data', (c) => out.push(c));
     p.stderr.on('data', (c) => (err += c));
-    p.on('error', reject);
+    p.on('error', (e) => { if (global.devlog) global.devlog('7za', 'spawn ERROR ' + e.message); reject(e); });
     p.on('close', (code) => {
+      if (global.devlog) global.devlog('7za', `exit ${code}${err ? ' | stderr: ' + err.trim().slice(0, 500) : ''}`);
       if (code > 1) return reject(new Error((err || Buffer.concat(out).toString()).trim().split('\n').slice(-2).join(' ') || '7za exited with code ' + code));
       resolve(Buffer.concat(out).toString('utf8'));
     });

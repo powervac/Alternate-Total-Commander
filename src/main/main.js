@@ -141,6 +141,32 @@ ipcMain.on('drag:start', (e, files) => {
     e.sender.startDrag({ file: files[0], files, icon: dragIcon });
   } catch (err) { console.error('drag out', err.message); }
 });
+// ---------------------------------------------------------------- developer mode: a window with the detailed log of operations (sync, updates, archives)
+// About > "Developer mode". dlog() writes a line there (and opens the window when it is not open); passwords are never written.
+let devMode = false;
+let devWin = null;
+const devBuf = [];
+function openDevLog() {
+  if (devWin && !devWin.isDestroyed()) return;
+  devWin = new BrowserWindow({ width: 920, height: 520, show: false, title: 'Developer log', autoHideMenuBar: true, backgroundColor: '#1e1e1e', webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: false } });
+  devWin.setMenu(null);
+  devWin.loadFile(path.join(__dirname, '..', 'renderer', 'devlog.html'));
+  devWin.once('ready-to-show', () => { if (devWin && !devWin.isDestroyed()) devWin.showInactive(); });
+  const w = devWin;
+  w.on('closed', () => { if (devWin === w) devWin = null; });
+}
+function dlog(tag, text) {
+  if (!devMode) return;
+  const line = `${new Date().toLocaleTimeString()}  [${tag}] ${String(text)}`;
+  devBuf.push(line);
+  if (devBuf.length > 3000) devBuf.shift();
+  openDevLog();
+  if (devWin && !devWin.isDestroyed() && !devWin.webContents.isLoading()) devWin.webContents.send('dev:line', line);
+}
+global.devlog = dlog; // the modules (settingsync.js, sevenzip.js) use it when it exists
+ipcMain.handle('dev:set', (_e, on) => { devMode = !!on; if (devMode) dlog('dev', `Developer mode is on: ${app.getName()} ${app.getVersion()} | ${process.platform} ${process.arch} | electron ${process.versions.electron} | safeStorage ${sysStorage.isEncryptionAvailable() ? 'available' : 'NOT available (the key file of the program is used)'}${process.env.APPIMAGE ? ' | AppImage ' + process.env.APPIMAGE : ''}`); else if (devWin && !devWin.isDestroyed()) devWin.close(); return devMode; });
+ipcMain.on('dev:log', (_e, tag, text) => dlog('ui:' + String(tag).slice(0, 20), String(text).slice(0, 6000)));
+ipcMain.handle('dev:buffer', () => devBuf.slice());
 const popupWins = new Set();
 const fitted = new WeakSet();
 ipcMain.handle('win:fit', (e, { w, h }) => {
@@ -1352,7 +1378,38 @@ app.on('quit', () => {
 // ---------------------------------------------------------------- Synology NAS (File Station API)
 
 const { Syno } = require('./synology');
-const { safeStorage } = require('electron');
+const { safeStorage: sysStorage } = require('electron');
+// Saved logins and passwords are protected by the system (Keychain / DPAPI / the keyring of the desktop). Linux without a keyring (a bare Ubuntu in a VM, many window managers)
+// has none: then a key file of this program (userData/local-key.bin, only the user can read it) is used, like Chrome does ("basic text" store). Weaker, but the login survives a restart.
+const localKey = () => {
+  const f = path.join(app.getPath('userData'), 'local-key.bin');
+  try { const k = fs.readFileSync(f); if (k.length === 32) return k; } catch { /* create */ }
+  const k = require('crypto').randomBytes(32);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, k, { mode: 0o600 });
+  return k;
+};
+const safeStorage = {
+  isEncryptionAvailable: () => true,
+  systemAvailable: () => sysStorage.isEncryptionAvailable(),
+  encryptString(text) {
+    if (sysStorage.isEncryptionAvailable()) return sysStorage.encryptString(text);
+    const crypto = require('crypto');
+    const iv = crypto.randomBytes(12);
+    const c = crypto.createCipheriv('aes-256-gcm', localKey(), iv);
+    const ct = Buffer.concat([c.update(String(text), 'utf8'), c.final()]);
+    return Buffer.concat([Buffer.from('L1:'), iv, c.getAuthTag(), ct]);
+  },
+  decryptString(buf) {
+    if (buf.subarray(0, 3).toString() === 'L1:') {
+      const crypto = require('crypto');
+      const d = crypto.createDecipheriv('aes-256-gcm', localKey(), buf.subarray(3, 15));
+      d.setAuthTag(buf.subarray(15, 31));
+      return Buffer.concat([d.update(buf.subarray(31)), d.final()]).toString('utf8');
+    }
+    return sysStorage.decryptString(buf);
+  },
+};
 const nasSessions = new Map(); // connection id -> Syno (kept for the whole run, creds only in memory)
 const nasGet = (id) => {
   const c = nasSessions.get(id);
@@ -1708,7 +1765,7 @@ ipcMain.handle('shell:openUrl', (_e, url) => {
 });
 
 ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {
-  if (!safeStorage.isEncryptionAvailable()) return { unavailable: true };
+  if (!safeStorage.isEncryptionAvailable()) { return { unavailable: true }; }
   if (decrypt) return { text: safeStorage.decryptString(Buffer.from(text, 'base64')) };
   return { text: safeStorage.encryptString(text).toString('base64') };
 }));
@@ -1717,14 +1774,18 @@ ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {
 ipcMain.handle('settings:cloud', async (_e, { action, kind, appKey, clientId, encSecret, clientSecret, enc, dir, text, secrets, password }) => {
   try {
     const st = { kind: kind || 'dropbox', appKey, clientId, clientSecret, dir };
+    dlog('sync', `${action} kind=${st.kind} password=${password ? 'yes, ' + password.length + ' chars' : 'no'} systemKeyStore=${safeStorage.systemAvailable()}`);
     if (st.kind !== 'local') {
       if (!safeStorage.isEncryptionAvailable()) return { error: 'The system cannot decrypt the saved login here.' };
       st.token = safeStorage.decryptString(Buffer.from(enc, 'base64'));
       if (encSecret) st.clientSecret = safeStorage.decryptString(Buffer.from(encSecret, 'base64'));
     }
     const ss = require('./settingsync');
-    return action === 'pull' ? await ss.pull(st, password) : await ss.push(st, text, secrets, password);
+    const res = action === 'pull' ? await ss.pull(st, password) : await ss.push(st, text, secrets, password);
+    dlog('sync', `${action} finished: ` + JSON.stringify(Object.fromEntries(Object.entries(res || {}).map(([k, v]) => [k, typeof v === 'string' && v.length > 80 ? `<${v.length} chars>` : k === 'secrets' && v ? `<${Object.keys(v).length} items>` : v]))));
+    return res;
   } catch (err) {
+    dlog('sync', 'ERROR ' + (err && err.stack || err));
     return { error: err.message };
   }
 });
@@ -2128,6 +2189,7 @@ ipcMain.handle('app:version', () => app.getVersion());
 
 ipcMain.handle('update:check', async () => {
   try {
+    dlog('update', `check: ${UPDATE_URLS.join(', ')} | own version ${app.getVersion()} | ${process.platform}`);
     const one = async (url) => {
       const ctl = new AbortController();
       const t = setTimeout(() => ctl.abort(), 10000);
@@ -2138,6 +2200,7 @@ ipcMain.handle('update:check', async () => {
       } finally { clearTimeout(t); }
     };
     const results = await Promise.allSettled(UPDATE_URLS.map(one));
+    results.forEach((x, i) => dlog('update', `${UPDATE_URLS[i]} -> ` + (x.status === 'fulfilled' ? `version ${x.value && x.value.version}` : 'FAILED ' + (x.reason && x.reason.message))));
     const infos = results.filter((x) => x.status === 'fulfilled' && x.value && x.value.version).map((x) => x.value);
     if (!infos.length) {
       const why = results.map((x) => (x.reason && x.reason.name === 'AbortError' ? 'no answer' : x.reason && x.reason.message) || '').find(Boolean);
@@ -2173,13 +2236,15 @@ ipcMain.handle('update:install', async (e, { info }) => {
       const alive = async (u) => { try { const c = new AbortController(); const tm = setTimeout(() => c.abort(), 5000); try { const r = await fetch(u, { method: 'HEAD', headers: { 'User-Agent': 'Commander-updater' }, signal: c.signal }); return r.ok; } finally { clearTimeout(tm); } } catch { return false; } };
       const mirrorUp = cands.some(isMirror) ? await alive(cands.find(isMirror)) : false;
       const order = [...cands.filter((u) => isMirror(u) && mirrorUp), ...cands.filter((u) => !isMirror(u)), ...cands.filter((u) => isMirror(u) && !mirrorUp)];
+      dlog('update', `mirror ${mirrorUp ? 'answers' : 'does not answer'}; download order: ${order.join(' , ')}; file ${file}`);
       for (const u of order) {
         try {
+          dlog('update', 'downloading ' + u);
           const ctl = new AbortController();
           const timer = setTimeout(() => ctl.abort(), 20000); // the answer must start within 20 seconds; the body may take as long as it takes
           let r;
           try { r = await fetch(u, { headers: { 'User-Agent': 'Commander-updater' }, signal: ctl.signal }); } finally { clearTimeout(timer); }
-          if (!r.ok) { lastErr = `Download failed: HTTP ${r.status}`; continue; }
+          if (!r.ok) { lastErr = `Download failed: HTTP ${r.status}`; dlog('update', `${u}: HTTP ${r.status}`); continue; }
           const total = +r.headers.get('content-length') || w.size || 0;
           const hash = require('crypto').createHash('sha256');
           const ws = fs.createWriteStream(file);
@@ -2194,7 +2259,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
           if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); lastErr = 'The downloaded file is damaged (checksum mismatch)'; continue; }
           got = true;
           break;
-        } catch (err) { lastErr = err.name === 'AbortError' ? 'The download server did not answer' : err.message; }
+        } catch (err) { lastErr = err.name === 'AbortError' ? 'The download server did not answer' : err.message; dlog('update', `${u}: ERROR ${err.stack || err}`); }
       }
       if (!got) return { error: lastErr };
       // silent install over the current one; the new version starts itself

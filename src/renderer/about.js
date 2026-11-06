@@ -30,10 +30,13 @@ async function openAbout(opts = {}) {
     `<div><span>Fast mirror</span><a href="#" data-u="${ABOUT_LINKS.mirror}">${ABOUT_LINKS.mirror.replace('https://', '')}</a></div>` +
     `<div><span>Source code</span><a href="#" data-u="${ABOUT_LINKS.git}">github.com/powervac/Alternate-Total-Commander</a></div>` +
     '</div>' +
+    '<label class="ab-dev"><input type="checkbox" class="ab-devmode"> Developer mode (a window with the detailed log opens during sync, updates and archive work)</label>' +
     '<div class="ab-credit">The ZX Spectrum emulator is Unreal Speccy Portable (GPL-3.0). The interface font is Inter.</div>' +
     '</div><div class="dlg-btns"><button class="ab-update primary" hidden>Update</button><button class="ab-check">Check for updates</button><button class="ab-skip" hidden>Skip this version</button><button class="ab-close">Close</button></div>';
   const q = (s) => box.querySelector(s);
   const close = openModal(box);
+  q('.ab-devmode').checked = !!store.get('devMode', false);
+  q('.ab-devmode').onchange = (e) => { store.set('devMode', e.target.checked); api.devSet(e.target.checked); };
   let busy = false;
   let last = null; // the last check result
   box.querySelectorAll('.ab-links a').forEach((a) => (a.onclick = (e) => { e.preventDefault(); api.openUrl(a.dataset.u); }));

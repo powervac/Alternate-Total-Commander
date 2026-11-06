@@ -103,3 +103,9 @@ function dlgPopup(box) {
   }, 200);
   return finish;
 }
+
+// ---------------------------------------------------------------- developer mode (About > Developer mode): lines go to the log window of the main process
+const devLog = (tag, text) => { try { if (store.get('devMode', false)) api.devLog(tag, text); } catch { /* ignore */ } };
+window.addEventListener('error', (e) => devLog('error', `${e.message} at ${e.filename}:${e.lineno}`));
+window.addEventListener('unhandledrejection', (e) => devLog('error', 'unhandled: ' + ((e.reason && e.reason.stack) || e.reason)));
+setTimeout(() => { try { api.devSet(!!store.get('devMode', false)); } catch { /* ignore */ } }, 600);

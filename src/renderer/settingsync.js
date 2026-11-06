@@ -170,6 +170,7 @@ async function syncNow(quiet, mode = 'sync') {
   const c = await syncConn();
   if (!c || (c.kind === 'dropbox' && !c.appKey) || (c.kind === 'gdrive' && !c.clientId)) { if (!quiet) msg(SYNC_T, 'Choose where the settings go: open Configuration > Settings sync..., pick Dropbox / Google Drive (signed in under Net) or a folder.'); return; }
   syncBusy = Date.now();
+  devLog('sync', `start: mode=${mode} quiet=${quiet} target=${syncCfg().target || 'dropbox'} encrypt=${syncCfg().encrypt} secrets=${syncCfg().secrets} connection=${c.kind}`);
   try {
     const cfg0 = syncCfg();
     const withSecrets = !!cfg0.secrets;
@@ -180,9 +181,12 @@ async function syncNow(quiet, mode = 'sync') {
     let remoteHasSecrets = false;
     let remoteEnc = false;
     let remoteExists = false;
+    let remoteInfo = '';
     let pushed = null; // what went into the zip: { pw, keys }
     if (mode !== 'push') {
+      devLog('sync', `password of the zip: ${pass ? 'known (' + pass.length + ' chars)' : 'not set'}`);
       const r = await api.settingsCloud({ action: 'pull', ...c, password: pass });
+      devLog('sync', 'pull answer: ' + JSON.stringify({ error: r.error, needPassword: r.needPassword, wrongPassword: r.wrongPassword, empty: r.empty, encrypted: r.encrypted, legacy: r.legacy, textLength: r.text ? r.text.length : 0, secrets: r.secrets ? Object.keys(r.secrets).length : 0 }));
       if (r.error) { if (!quiet) msg(SYNC_T, r.error); return; }
       if (r.needPassword || r.wrongPassword) {
         const t = r.needPassword ? 'The settings file is protected by a password. Open Configuration > Settings sync..., tick "Protect the zip with a password" and enter it.' : 'The password does not fit the settings file. Open Configuration > Settings sync... and enter the same password as on the other computer.';
@@ -193,7 +197,9 @@ async function syncNow(quiet, mode = 'sync') {
         let remote;
         try { remote = JSON.parse(r.text); } catch { if (!quiet) msg(SYNC_T, 'The settings file is damaged.'); return; }
         remoteExists = true;
+        remoteInfo = `the file was written by "${remote.device || '?'}" on ${remote.updated ? new Date(remote.updated).toLocaleString() : '?'} and holds ${Object.keys(remote.data || {}).length} settings (${Object.keys(remote.data || {}).join(', ') || 'none'})`;
         result = syncMerge(remote, mode === 'pull');
+        devLog('sync', `merge: applied [${result.applied.join(', ')}], this computer has newer data: ${result.pushNeeded}; the file holds [${Object.keys(remote.data || {}).join(', ')}]`);
         remoteEnc = !!r.encrypted;
         remoteHasSecrets = !!r.secrets;
         if (withSecrets && r.secrets) {
@@ -219,7 +225,7 @@ async function syncNow(quiet, mode = 'sync') {
     if (quiet) return;
     const how = (cfg0.encrypt ? 'protected with a password' : 'no password') + (!withSecrets ? ', WITHOUT passwords and keys (the option is off in this window)' : pushed ? `, with ${pushed.pw} password(s) and ${pushed.keys} key file(s)` : ', with passwords and keys');
     if (mode === 'push') msg(SYNC_T, `Saved to ${syncWhere()}: ${syncFile()} (${how}).`);
-    else if (mode === 'pull') msg(SYNC_T, `Retrieved from ${syncWhere()}: ${result.applied.length ? result.applied.join(', ') : 'nothing new'}.` + note);
+    else if (mode === 'pull') msg(SYNC_T, `Retrieved from ${syncWhere()}: ${result.applied.length ? result.applied.join(', ') : 'nothing new'}.` + (remoteInfo ? String.fromCharCode(10) + remoteInfo + '.' : '') + note);
     else msg(SYNC_T, (result.applied.length ? `Updated from ${syncWhere()}: ${result.applied.join(', ')}.${mustPush ? '\nYour newer settings were uploaded too.' : ''}` : mustPush ? `Your settings were uploaded to ${syncWhere()} (${syncFile()}, ${how}).` : 'Everything is up to date.') + note);
   } catch (err) {
     if (!quiet) msg(SYNC_T, 'Synchronisation failed: ' + ((err && err.message) || err));

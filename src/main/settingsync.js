@@ -75,7 +75,9 @@ async function pull(st, password) {
         throw e2;
       }
     }
-    const enc = /Encrypted = \+/.test(await run(['l', '-slt', zip]).catch(() => ''));
+    const listing = await run(['l', '-slt', zip]).catch((e) => { if (global.devlog) global.devlog('sync', 'listing failed: ' + e.message); return ''; });
+    const enc = /Encrypted = \+/.test(listing);
+    if (global.devlog) global.devlog('sync', `zip downloaded (${fs.statSync(zip).size} bytes), encrypted=${enc}`);
     if (enc && !password) return { needPassword: true };
     const out = path.join(dir, 'x');
     try {
@@ -84,6 +86,7 @@ async function pull(st, password) {
       if (enc) return { wrongPassword: true };
       throw e;
     }
+    if (global.devlog) global.devlog('sync', 'unpacked: ' + (await fsp.readdir(out).catch(() => [])).join(', '));
     const text = await fsp.readFile(path.join(out, 'settings.json'), 'utf8');
     let secrets = null;
     try { secrets = JSON.parse(await fsp.readFile(path.join(out, 'secrets.json'), 'utf8')); } catch { /* none */ }

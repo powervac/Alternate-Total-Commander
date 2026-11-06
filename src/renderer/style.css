@@ -558,3 +558,5 @@ body.dlg-window { margin: 0; overflow: hidden; background: #f0f0f0; font-family:
 body.dlg-window .dlg { max-height: none; max-width: 1100px !important; } /* (the window is as big as the dialog: no limits that depend on the size of the window) */
 body.dlg-window .dlg > .dlg-title { display: none; }
 body.dlg-window .dlg-text, body.dlg-window .s-hint { max-width: 680px; } /* long lines wrap: the dialog does not become very wide */
+
+body.dlg-window .ab-dev, .dlg.about .ab-dev { display: block; margin: 10px 0 0; font-size: 12px; color: #666; }

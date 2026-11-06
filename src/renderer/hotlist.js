@@ -2,11 +2,13 @@
 // Ctrl+D "Directory Hotlist": favourite folders in a popup menu.
 // Uses helpers from app.js (A, P, esc, store, dialog, openModal, modalCount, msg).
 
+// every system has its own list: the paths of Windows do not exist on Ubuntu or macOS (Windows keeps the old key 'hotlist')
+const hotlistKey = () => (api.platform === 'win32' ? 'hotlist' : 'hotlist_' + api.platform);
 const hotlistLoad = () => {
-  const v = store.get('hotlist', []);
+  const v = store.get(hotlistKey(), []);
   return Array.isArray(v) ? v.filter((h) => h && typeof h.path === 'string') : [];
 };
-const hotlistSave = (l) => store.set('hotlist', l);
+const hotlistSave = (l) => store.set(hotlistKey(), l);
 const hotSame = (a, b) => (isMac || api.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 
 function openHotlist(sel = 0) {
@@ -159,8 +161,8 @@ function openHotlist(sel = 0) {
   document.body.appendChild(box);
   render();
   // first use: bring the favourites over from Total Commander if there is a configuration (once)
-  if (!list.length && !store.get('hotlistTcDone', false)) {
-    store.set('hotlistTcDone', true);
+  if (!list.length && !store.get('hotlistTcDone' + (api.platform === 'win32' ? '' : '_' + api.platform), false)) {
+    store.set('hotlistTcDone' + (api.platform === 'win32' ? '' : '_' + api.platform), true);
     importTC(true);
   }
   document.addEventListener('keydown', onKey, true);

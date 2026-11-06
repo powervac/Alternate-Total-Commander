@@ -10,7 +10,20 @@ const os = require('os');
 const path = require('path');
 
 let bin = require('7zip-bin').path7za.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
-try { fs.chmodSync(bin, 0o755); } catch { /* read-only install: hope it is already executable */ }
+try { fs.chmodSync(bin, 0o755); } catch { /* read-only install (an AppImage): see below */ }
+if (process.platform !== 'win32') {
+  // the file inside a read-only image may have lost its x bit (spawn EACCES): then a copy in a folder that can be written is used
+  try { fs.accessSync(bin, fs.constants.X_OK); } catch {
+    try {
+      const dir = path.join(os.tmpdir(), 'commander-bin-' + (process.getuid ? process.getuid() : 'u'));
+      fs.mkdirSync(dir, { recursive: true });
+      const copy = path.join(dir, '7za');
+      if (!fs.existsSync(copy) || fs.statSync(copy).size !== fs.statSync(bin).size) fs.copyFileSync(bin, copy);
+      fs.chmodSync(copy, 0o755);
+      bin = copy;
+    } catch { /* nothing more to try: the error of spawn is shown */ }
+  }
+}
 
 const EXT = /\.(7z|tar|cab|tgz|tbz2?|txz|gz|bz2|xz|lzma|rar|tar\.(gz|bz2|xz))$/i;
 const isRar = (f) => /\.rar$/i.test(f);

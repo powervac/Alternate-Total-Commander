@@ -5,7 +5,7 @@
 // the Dropbox login itself is not synced: sign in to Dropbox once on each computer.
 // Uses helpers from app.js (store, dialog, msg, esc) and filetools.js (ftForm); nas.js (nasLoad, connType).
 
-const SYNC_KEYS = ['nas', 'hotlist', 'hotlistTcDone', 'mrPresets', 'searchTemplates', 'searchHistory', 'search2', 'cloudApp', 'toolbar', 'lang',
+const SYNC_KEYS = ['nas', 'hotlist', 'hotlistTcDone', 'hotlist_darwin', 'hotlist_linux', 'hotlistTcDone_darwin', 'hotlistTcDone_linux', 'mrPresets', 'searchTemplates', 'searchHistory', 'search2', 'cloudApp', 'toolbar', 'lang',
   'sortKey0', 'sortKey1', 'sortRev0', 'sortRev1', 'thumbs0', 'thumbs1', 'hotkeys', 'showHidden', 'dirBrackets', 'dirSort', 'confirmDelete', 'useTrash'];
 const SYNC_RELOAD = new Set(['lang', 'toolbar', 'sortKey0', 'sortKey1', 'sortRev0', 'sortRev1', 'thumbs0', 'thumbs1']); // keys the page reads only at start
 const syncRaw = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };

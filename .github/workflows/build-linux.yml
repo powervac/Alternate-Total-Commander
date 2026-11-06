@@ -20,6 +20,8 @@ jobs:
           OAUTH_DEFAULTS_JSON: ${{ secrets.OAUTH_DEFAULTS_JSON }}
         run: |
           if [ -n "$OAUTH_DEFAULTS_JSON" ]; then printf '%s' "$OAUTH_DEFAULTS_JSON" > src/main/oauth-defaults.json; echo "app keys written"; else echo "no app keys secret: cloud sign-in will ask for them"; fi
+      - name: Executable bits of the helper programs
+        run: chmod +x node_modules/7zip-bin/linux/*/7za* node_modules/ffmpeg-static/ffmpeg || true
       - name: Build AppImage
         run: npx electron-builder --linux AppImage --x64 --publish never
       - uses: actions/upload-artifact@v4

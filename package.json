@@ -1,6 +1,6 @@
 {
   "name": "commander",
-  "version": "0.1.914",
+  "version": "0.1.915",
   "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
   "main": "src/main/main.js",
   "scripts": {
@@ -80,6 +80,16 @@
       "target": [
         "portable"
       ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "target": [
+        "AppImage"
+      ]
+    },
+    "appImage": {
+      "artifactName": "Commander-${version}-x86_64.AppImage"
     },
     "portable": {
       "artifactName": "Commander-Portable-${version}.exe"

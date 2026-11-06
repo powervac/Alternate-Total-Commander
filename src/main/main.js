@@ -26,6 +26,7 @@ const sevenzip = require('./sevenzip');
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
+if (process.platform === 'linux' && process.env.APPIMAGE) require('electron').app.commandLine.appendSwitch('no-sandbox'); // an AppImage cannot have the setuid sandbox helper (Ubuntu 24 also restricts user namespaces)
 
 let win;
 
@@ -2121,7 +2122,7 @@ const UPDATE_URLS = process.env.COMMANDER_UPDATE_URL ? [process.env.COMMANDER_UP
 const verNum = (v) => String(v || '0').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 
-const ownVersion = (info) => (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
+const ownVersion = (info) => (process.platform === 'darwin' ? info.mac && info.mac.version : process.platform === 'linux' ? info.linux && info.linux.version : process.platform === 'win32' ? info.winPortable && info.winPortable.version : null) || info.version;
 
 ipcMain.handle('app:version', () => app.getVersion());
 
@@ -2153,15 +2154,17 @@ ipcMain.handle('update:check', async () => {
 
 ipcMain.handle('update:install', async (e, { info }) => {
   try {
-    if (process.platform === 'win32') {
-      const portable = !!process.env.PORTABLE_EXECUTABLE_FILE;
+    if (process.platform === 'win32' || process.platform === 'linux') {
+      const lin = process.platform === 'linux';
+      const selfFile = lin ? process.env.APPIMAGE : process.env.PORTABLE_EXECUTABLE_FILE; // the file that is replaced: the portable exe / the AppImage
+      const portable = !!selfFile;
       // an installed copy of an older version: when the site no longer has an installer, the portable exe is saved to Downloads
-      const toDownloads = !portable && !(info && info.win) && !!(info && info.winPortable);
-      const w = portable || toDownloads ? (info && (info.winPortable || null)) : info && info.win;
+      const toDownloads = lin ? !portable && !!(info && info.linux) : !portable && !(info && info.win) && !!(info && info.winPortable);
+      const w = lin ? info && info.linux : portable || toDownloads ? (info && (info.winPortable || null)) : info && info.win;
       const okUrl = (u) => typeof u === 'string' && (/^https:\/\//.test(u) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(u))); // http only for a local test server
       const cands = w ? [...new Set([...(Array.isArray(w.urls) ? w.urls : []), w.url])].filter(okUrl) : [];
       if (!cands.length) return { error: portable ? 'No portable version in the update information' : 'No Windows installer in the update information' };
-      const file = portable ? process.env.PORTABLE_EXECUTABLE_FILE + '.new' : toDownloads ? path.join(app.getPath('downloads'), `Commander-Portable-${info.version || 'new'}.exe`) : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
+      const file = portable ? selfFile + '.new' : toDownloads ? path.join(app.getPath('downloads'), lin ? `Commander-${info.version || 'new'}-x86_64.AppImage` : `Commander-Portable-${info.version || 'new'}.exe`) : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
       // the fast mirror first, then the main site: the next address is tried when one does not answer, does not have the file yet or sends a damaged one
       let lastErr = 'Download failed';
       let got = false;
@@ -2196,7 +2199,14 @@ ipcMain.handle('update:install', async (e, { info }) => {
       if (!got) return { error: lastErr };
       // silent install over the current one; the new version starts itself
       if (process.env.COMMANDER_UPDATE_DRYRUN) return { ok: true, dry: true, file };
+      if (lin) try { await fsp.chmod(file, 0o755); } catch { /* ignore */ }
       if (toDownloads) { shell.showItemInFolder(file); return { ok: true, saved: file }; }
+      if (lin) { // replace the running AppImage after it has quit, then start the new one
+        const q = (x) => "'" + x.replace(/'/g, "'\\''") + "'";
+        spawn('sh', ['-c', `sleep 2; mv -f ${q(file)} ${q(selfFile)} && (${q(selfFile)} >/dev/null 2>&1 &)`], { detached: true, stdio: 'ignore' }).unref();
+        setTimeout(() => app.quit(), 400);
+        return { ok: true };
+      }
       if (portable) {
         // replace the running exe after it has quit, then start the new one
         const exe = process.env.PORTABLE_EXECUTABLE_FILE;
@@ -2219,7 +2229,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
       spawn('osascript', ['-e', 'tell application "Terminal" to activate', '-e', `tell application "Terminal" to do script "${cmd.replace(/"/g, '\\"')}"`], { detached: true, stdio: 'ignore' }).unref();
       return { ok: true, terminal: true };
     }
-    return { error: 'Updating from the program is available on Windows and macOS only' };
+    return { error: 'Updating from the program is available on Windows, macOS and Linux only' };
   } catch (err) {
     return { error: err.message };
   }

@@ -1,0 +1,29 @@
+name: Build Linux
+
+# Builds the Linux app (AppImage, x64) on a GitHub Ubuntu runner. Started by `npm run release -- --linux`, or by hand from the Actions tab.
+# Optional repository secret OAUTH_DEFAULTS_JSON = contents of src/main/oauth-defaults.json (Google / Dropbox app keys for the one-button sign-in).
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        run: npm ci
+      - name: App keys (optional)
+        env:
+          OAUTH_DEFAULTS_JSON: ${{ secrets.OAUTH_DEFAULTS_JSON }}
+        run: |
+          if [ -n "$OAUTH_DEFAULTS_JSON" ]; then printf '%s' "$OAUTH_DEFAULTS_JSON" > src/main/oauth-defaults.json; echo "app keys written"; else echo "no app keys secret: cloud sign-in will ask for them"; fi
+      - name: Build AppImage
+        run: npx electron-builder --linux AppImage --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Alternate-Total-Commander-Linux
+          path: dist/*.AppImage
+          if-no-files-found: error

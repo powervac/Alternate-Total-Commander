@@ -8,6 +8,7 @@
 //   npm run release -- 0.2.0 "notes"            (this version; a version that is not newer becomes the next one)
 //   npm run release -- minor "notes"            (0.1.7 -> 0.2.0)
 //   npm run release -- 0.1.7 "notes"            (asks what to build: Windows, macOS or both)
+//   npm run release -- --linux                  (adds the Linux AppImage to what is built; --linux-only = only Linux; --all = Windows + macOS + Linux)
 //   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are; same: --win-only)
 //   npm run release -- 0.1.7 "notes" --no-win   (macOS only: the Windows file stays as it is; same: --mac-only; --both = both)
 //   npm run release -- 0.1.7 "notes" --dry-run  (show the steps, change nothing)
@@ -93,20 +94,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // what to build: flags, else a question (without a terminal or with --yes: both, like before)
   let withWin = !(flags.has('--no-win') || flags.has('--mac-only'));
   let withMac = !(flags.has('--no-mac') || flags.has('--win-only'));
-  const explicit = ['--no-mac', '--no-win', '--win-only', '--mac-only', '--both'].some((f) => flags.has(f));
+  let withLinux = flags.has('--linux') || flags.has('--all') || flags.has('--linux-only');
+  if (flags.has('--linux-only')) { withWin = false; withMac = false; }
+  if (flags.has('--all')) { withWin = true; withMac = true; }
+  const explicit = ['--no-mac', '--no-win', '--win-only', '--mac-only', '--both', '--linux', '--linux-only', '--all'].some((f) => flags.has(f));
   if (!explicit && !flags.has('--yes') && process.stdin.isTTY) {
-    console.log('\nWhat do you want to build and publish?\n  1) Windows (portable exe)\n  2) macOS (dmg files, built on GitHub)\n  3) Both');
-    const a = await new Promise((res) => { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); rl.question('Choose 1, 2 or 3 [1]: ', (x) => { rl.close(); res(x.trim()); }); });
-    withWin = a === '' || a === '1' || a === '3';
-    withMac = a === '2' || a === '3';
-    if (!withWin && !withMac) die('Nothing chosen.');
+    console.log('\nWhat do you want to build and publish?\n  1) Windows (portable exe)\n  2) macOS (dmg files, built on GitHub)\n  3) Windows + macOS\n  4) Linux (AppImage, built on GitHub)\n  5) All three');
+    const a = await new Promise((res) => { const rl = readline.createInterface({ input: process.stdin, output: process.stdout }); rl.question('Choose 1-5 [1]: ', (x) => { rl.close(); res(x.trim()); }); });
+    withWin = a === '' || a === '1' || a === '3' || a === '5';
+    withMac = a === '2' || a === '3' || a === '5';
+    withLinux = a === '4' || a === '5';
+    if (!withWin && !withMac && !withLinux) die('Nothing chosen.');
   }
-  const what = withWin && withMac ? 'Windows + macOS' : withWin ? 'Windows only' : 'macOS only';
+  const what = [withWin && 'Windows', withMac && 'macOS', withLinux && 'Linux'].filter(Boolean).join(' + ');
 
   // ------------------------------------------------------------ checks
   if (!DRY) {
     if (!fs.existsSync(KEY)) die(`The deploy key was not found: ${KEY} (set RELEASE_KEY).`);
-    if (run('gh', ['auth', 'status'], { capture: true, soft: true, always: true }).code !== 0 && withMac) die('The GitHub CLI is not signed in: run `gh auth login`.');
+    if (run('gh', ['auth', 'status'], { capture: true, soft: true, always: true }).code !== 0 && (withMac || withLinux)) die('The GitHub CLI is not signed in: run `gh auth login`.');
     const t = ssh('echo ok', { always: true, soft: true });
     if (t.out !== 'ok') die('Cannot reach the server over ssh (check RELEASE_HOST / RELEASE_PORT / RELEASE_KEY).');
   }
@@ -134,6 +139,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       }
       if (!macRun) die('The macOS build did not start on GitHub.');
       log('macOS build started on GitHub: run ' + macRun);
+    }
+  }
+  // Linux build on GitHub (in the background, like the Mac one)
+  let linuxRun = null;
+  if (withLinux && !flags.has('--no-build')) {
+    const before = Date.now() - 15000;
+    run('gh', ['workflow', 'run', 'build-linux.yml']);
+    if (!DRY) {
+      for (let i = 0; i < 20 && !linuxRun; i++) {
+        await sleep(3000);
+        const l = JSON.parse(run('gh', ['run', 'list', '--workflow', 'build-linux.yml', '-L', '3', '--json', 'databaseId,createdAt'], { capture: true }).out || '[]');
+        const r = l.find((x) => new Date(x.createdAt).getTime() >= before);
+        if (r) linuxRun = r.databaseId;
+      }
+      if (!linuxRun) die('The Linux build did not start on GitHub.');
+      log('Linux build started on GitHub: run ' + linuxRun);
     }
   }
   // ------------------------------------------------------------ 3. Windows build
@@ -164,9 +185,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
   }
 
+  // Linux file
+  let appImage = null;
+  if (withLinux) {
+    const dir = path.join(OUT, 'linux');
+    if (!flags.has('--no-build')) {
+      log('Waiting for the Linux build ...');
+      run('gh', ['run', 'watch', String(linuxRun), '--exit-status'], { soft: false });
+      fs.mkdirSync(dir, { recursive: true });
+      run('gh', ['run', 'download', String(linuxRun), '-D', dir]);
+    }
+    if (!DRY) {
+      (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.AppImage$/.test(e.name)) appImage = p; } })(dir);
+      if (!appImage) die(`The Linux .AppImage was not found in ${dir}.`);
+    }
+  }
+
   // ------------------------------------------------------------ 5. upload (as .part first, renamed when everything arrived)
   const files = withWin ? [{ local: portable, name: 'Alternate-Total-Commander-Portable.exe' }] : [];
   if (withMac) files.push({ local: dmgs.arm, name: 'Alternate-Total-Commander-macOS-AppleSilicon.dmg' }, { local: dmgs.intel, name: 'Alternate-Total-Commander-macOS-Intel.dmg' });
+  if (withLinux) files.push({ local: appImage, name: 'Alternate-Total-Commander-Linux.AppImage' });
   const info = {};
   for (const f of files) {
     log(`Uploading ${f.name} ...`);
@@ -185,7 +223,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let old = null;
     for (let i = 0; i < 4 && !old; i++) old = await fetch(`${URL_BASE}/latest.json?t=${Date.now()}`).then((r) => r.json()).catch(() => null);
     if (!old) {
-      if (!(withWin && withMac)) die('Cannot read the current latest.json from the site, so the entry of the other platform would be lost. The files are uploaded as .part and not published; run again.');
+      if (!(withWin && withMac && withLinux)) die('Cannot read the current latest.json from the site, so the entry of the other platform would be lost. The files are uploaded as .part and not published; run again.');
       old = {};
     }
     const lj = { ...old, version, notes };
@@ -193,6 +231,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (withWin) lj.winPortable = { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, urls: [`${MIRROR_URL}/downloads/Alternate-Total-Commander-Portable.exe`, `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`], sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size, version };
     else if (old.winPortable) lj.winPortable = { ...old.winPortable, version: old.winPortable.version || old.version };
     if (lj.winPortable && !lj.winPortable.urls) lj.winPortable.urls = [`${MIRROR_URL}/downloads/Alternate-Total-Commander-Portable.exe`, lj.winPortable.url]; // the entry of an older release gets the mirror too
+    if (withLinux) { const n = 'Alternate-Total-Commander-Linux.AppImage'; lj.linux = { url: `${URL_BASE}/downloads/${n}`, urls: [`${MIRROR_URL}/downloads/${n}`, `${URL_BASE}/downloads/${n}`], sha256: info[n].sha, size: info[n].size, version }; }
+    else if (old.linux) lj.linux = old.linux;
     lj.mac = { ...(old.mac || {}), version: withMac ? version : (old.mac && old.mac.version) || old.version || version };
     const tmp = path.join(os.tmpdir(), 'commander-latest.json');
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
@@ -209,7 +249,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await sleep(4000);
     }
     if (!j || j.version !== version) die('latest.json on the site does not show the new version after 30 seconds: check the server (the files are already uploaded).');
-    for (const n of files.filter((f) => /Portable\.exe$/.test(f.name)).map((f) => f.name)) {
+    for (const n of files.filter((f) => /Portable\.exe$|\.AppImage$/.test(f.name)).map((f) => f.name)) {
       // GET and stop reading (the server resets a HEAD request from Node's fetch); the size must be the size that was uploaded
       let h = null;
       for (let i = 0; i < 3 && !h; i++) h = await fetch(`${URL_BASE}/downloads/${n}`).catch(() => null);

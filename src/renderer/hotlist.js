@@ -21,20 +21,50 @@ function openHotlist(sel = 0) {
   box.style.left = Math.max(4, r.left) + 'px';
   box.style.top = r.bottom + 'px';
 
+  let edit = false; // "Configure": show the paths and the editing keys
   function render() {
     box.innerHTML =
       (list.length
         ? list
             .map(
               (h, i) =>
-                `<div class="it${i === cur ? ' on' : ''}" data-i="${i}"><span class="hk">${i < 9 ? i + 1 : ''}</span>` +
-                `<span class="nm">${esc(h.name)}</span><span class="pth">${esc(h.path)}</span></div>`
+                `<div class="it${i === cur ? ' on' : ''}" data-i="${i}" title="${esc(h.path)}"><span class="hk">${i < 9 ? i + 1 : ''}</span>` +
+                `<span class="nm">${esc(h.name)}</span>${edit ? `<span class="pth">${esc(h.path)}</span>` : ''}</div>`
             )
             .join('')
-        : '<div class="empty">No folders yet. Press Insert to add the current folder.</div>') +
-      '<div class="hint">Enter: go &nbsp; Ins: add current folder &nbsp; Del: remove &nbsp; F2: rename &nbsp; Esc: close</div>';
+        : '<div class="empty">No favourite folders yet.</div>') +
+      '<div class="sep"></div>' +
+      '<div class="it act" data-act="add"><span class="hk">+</span><span class="nm2">Add current dir</span></div>' +
+      '<div class="it act" data-act="cfg"><span class="hk">*</span><span class="nm2">Configure...</span></div>' +
+      (edit
+        ? '<div class="it act" data-act="tc"><span class="hk"></span><span class="nm2">Import from Total Commander</span></div>' +
+          '<div class="hint">Enter: go &nbsp; Ins: add current folder &nbsp; Del: remove &nbsp; F2: rename &nbsp; Esc: close</div>'
+        : '');
     const on = box.querySelector('.it.on');
     if (on) on.scrollIntoView({ block: 'nearest' });
+  }
+
+  function addCurrent() {
+    const path = panel.realDir();
+    const i = list.findIndex((h) => hotSame(h.path, path));
+    if (i >= 0) cur = i;
+    else {
+      list.push({ name: P.basename(path) || path, path });
+      hotlistSave(list);
+      cur = list.length - 1;
+    }
+    render();
+  }
+
+  /** favourites of Total Commander (wincmd.ini [DirMenu]); only entries that are not in the list yet are added */
+  async function importTC(quiet) {
+    const r = await api.hotlistImportTC();
+    const fresh = (r.items || []).filter((x) => !list.some((h) => hotSame(h.path, x.path)));
+    list.push(...fresh);
+    if (fresh.length) hotlistSave(list);
+    render();
+    if (!quiet && !fresh.length) await msg('Directory Hotlist', r.file ? 'Nothing new to import from Total Commander.' : 'The Total Commander configuration (wincmd.ini) was not found.');
+    return fresh.length;
   }
 
   const close = () => {
@@ -86,17 +116,9 @@ function openHotlist(sel = 0) {
     else if (k === 'ArrowUp') { cur = Math.max(0, cur - 1); render(); }
     else if (k === 'Home') { cur = 0; render(); }
     else if (k === 'End') { cur = Math.max(0, list.length - 1); render(); }
-    else if (k === 'Insert') {
-      const path = panel.realDir();
-      const i = list.findIndex((h) => hotSame(h.path, path));
-      if (i >= 0) cur = i;
-      else {
-        list.push({ name: P.basename(path) || path, path });
-        hotlistSave(list);
-        cur = list.length - 1;
-      }
-      render();
-    } else if (k === 'Delete') {
+    else if (k === 'Insert' || k === '+') addCurrent();
+    else if (k === '*') { edit = !edit; render(); }
+    else if (k === 'Delete') {
       if (!list.length) return;
       list.splice(cur, 1);
       hotlistSave(list);
@@ -108,12 +130,23 @@ function openHotlist(sel = 0) {
 
   box.addEventListener('mousedown', (e) => {
     const it = e.target.closest('.it');
-    if (it) { e.preventDefault(); go(+it.dataset.i); }
+    if (!it) return;
+    e.preventDefault();
+    const act = it.dataset.act;
+    if (act === 'add') addCurrent();
+    else if (act === 'cfg') { edit = !edit; render(); }
+    else if (act === 'tc') importTC(false);
+    else go(+it.dataset.i);
   });
 
   modalCount++;
   document.body.appendChild(box);
   render();
+  // first use: bring the favourites over from Total Commander if there is a configuration (once)
+  if (!list.length && !store.get('hotlistTcDone', false)) {
+    store.set('hotlistTcDone', true);
+    importTC(true);
+  }
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('mousedown', onOutside, true);
 }

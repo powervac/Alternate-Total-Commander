@@ -969,6 +969,9 @@ ipcMain.handle('file:write', async (_e, { file, data }) => {
 });
 
 /** first `max` bytes of a file (viewer) */
+// documents (docx / xlsx / pptx / odt / ods / odp) rendered to HTML by our own code, no Office needed
+ipcMain.handle('doc:render', async (_e, { file, ext }) => require('./docview').render(file, ext));
+
 ipcMain.handle('view:read', async (_e, { file, max }) => {
   try {
     const st = await fsp.stat(file);
@@ -1520,120 +1523,112 @@ ipcMain.handle('fs:renameBatch', async (_e, { dir, pairs }) => {
   return { errors };
 });
 
-// ---------------------------------------------------------------- search
+// ---------------------------------------------------------------- search (engine in searchengine.js)
 
-function maskToRegex(mask) {
-  const m = mask.trim();
-  if (!m) return /^.*$/;
-  const wild = /[*?]/.test(m);
-  const body = m.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
-  return new RegExp(wild ? '^' + body + '$' : body, 'i'); // no wildcard = "contains"
-}
-
-/** does the file contain the text (UTF-8, UTF-16 and Windows-1251 are tried)? */
-async function fileContains(file, text, caseSens, ctx) {
-  const needle = caseSens ? text : text.toLowerCase();
-  const keep = Math.max(needle.length * 4, 16);
-  const dec1251 = new TextDecoder('windows-1251');
-  const fh = await fsp.open(file, 'r');
-  try {
-    const chunk = Buffer.allocUnsafe(1 << 20);
-    let carry = Buffer.alloc(0);
-    for (;;) {
-      if (ctx.cancel) return false;
-      const { bytesRead } = await fh.read(chunk, 0, chunk.length, null);
-      if (!bytesRead) return false;
-      const data = Buffer.concat([carry, chunk.subarray(0, bytesRead)]);
-      const views = [data.toString('utf8'), data.toString('utf16le'), data.subarray(1).toString('utf16le'), dec1251.decode(data)];
-      for (const v of views) if ((caseSens ? v : v.toLowerCase()).includes(needle)) return true;
-      carry = Buffer.from(data.subarray(Math.max(0, data.length - keep)));
-    }
-  } finally {
-    await fh.close();
-  }
-}
-
-ipcMain.handle('search:run', async (e, { id, root, masks, text, caseSens, subdirs, archives }) => {
+ipcMain.handle('search:run', async (e, { id, params }) => {
   const ctx = { cancel: false };
   jobs.set(id, ctx);
-  const started = Date.now();
-  const matchers = String(masks || '*').split(';').map(maskToRegex);
-  const nameOk = (n) => matchers.some((r) => r.test(n));
-  let batch = [];
-  let lastFlush = Date.now();
-  let count = 0;
-  const flush = (cur) => {
-    e.sender.send('search:batch', { id, items: batch, cur });
-    batch = [];
-    lastFlush = Date.now();
-  };
-  const push = (it) => {
-    batch.push(it);
-    count++;
-    if (batch.length >= 50 || Date.now() - lastFlush > 150) flush();
-  };
   try {
-    const queue = [root];
-    for (let head = 0; head < queue.length && !ctx.cancel; head++) {
-      const dir = queue[head];
-      if (Date.now() - lastFlush > 150) flush(dir);
-      let ents;
-      try {
-        ents = await fsp.readdir(dir, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-      for (const d of ents) {
-        if (ctx.cancel) break;
-        const full = path.join(dir, d.name);
-        try {
-          if (d.isDirectory()) {
-            if (!text && nameOk(d.name)) {
-              const st = await fsp.stat(full);
-              push({ dir, name: d.name, isDir: true, size: -1, mtime: st.mtimeMs });
-            }
-            if (subdirs) queue.push(full);
-            continue;
-          }
-          if (!d.isFile()) continue;
-          if (nameOk(d.name)) {
-            if (!text || (await fileContains(full, text, caseSens, ctx))) {
-              const st = await fsp.stat(full);
-              push({ dir, name: d.name, isDir: false, size: st.size, mtime: st.mtimeMs });
-            }
-          }
-          if (archives && !text && /\.zip$/i.test(d.name)) {
-            const { z, entries } = await listZip(full);
-            z.close();
-            for (const en of entries) {
-              const n = normName(en.fileName);
-              if (!n || isDirEntry(en)) continue;
-              const i = n.lastIndexOf('/');
-              const base = n.slice(i + 1);
-              if (!nameOk(base)) continue;
-              const inner = i < 0 ? '' : n.slice(0, i);
-              push({
-                dir: inner ? path.join(full, ...inner.split('/')) : full,
-                name: base,
-                isDir: false,
-                size: en.uncompressedSize,
-                mtime: en.getLastModDate().getTime(),
-                arc: { file: full, inner },
-              });
-            }
-          }
-        } catch {
-          /* unreadable entry: skip */
+    const res = await require('./searchengine').run(params, {
+      cancelled: () => ctx.cancel,
+      emit: (items, cur) => e.sender.send('search:batch', { id, items, cur }),
+      zipEntries: async (file) => {
+        const { z, entries } = await listZip(file);
+        z.close();
+        const out = [];
+        for (const en of entries) {
+          const n = normName(en.fileName);
+          if (!n || isDirEntry(en)) continue;
+          const i = n.lastIndexOf('/');
+          out.push({ name: n.slice(i + 1), inner: i < 0 ? '' : n.slice(0, i), size: en.uncompressedSize, mtime: en.getLastModDate().getTime() });
         }
-      }
-    }
-    flush('');
-    return { count, cancelled: ctx.cancel, ms: Date.now() - started };
+        return out;
+      },
+    });
+    return res;
   } catch (err) {
-    return { count, error: err.message, cancelled: ctx.cancel, ms: Date.now() - started };
+    return { count: 0, error: err.message, cancelled: ctx.cancel, ms: 0 };
   } finally {
     jobs.delete(id);
   }
+});
+
+ipcMain.handle('op:delete', async (_e, { sources, permanent }) => {
+  const errors = [];
+  for (const s of sources) {
+    try {
+      if (permanent) await fsp.rm(s, { recursive: true, force: true });
+      else await shell.trashItem(s);
+    } catch (err) {
+      errors.push(`${s}: ${err.message}`);
+    }
+  }
+  return { errors };
+});
+
+ipcMain.handle('op:mkdir', async (_e, p) => {
+  try {
+    await fsp.mkdir(p, { recursive: true });
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('shell:open', async (_e, p) => {
+  const r = await shell.openPath(p);
+  return r || null;
+});
+
+ipcMain.handle('shell:run', (_e, cmd, cwd) => {
+  try {
+    if (isWin) {
+      spawn('cmd.exe', ['/d', '/s', '/c', `"start "" cmd.exe /k ${cmd}"`], {
+        cwd,
+        detached: true,
+        stdio: 'ignore',
+        windowsVerbatimArguments: true,
+      }).unref();
+    } else if (isMac) {
+      const esc = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const line = `cd '${cwd.replace(/'/g, "'\\''")}'; ${cmd}`;
+      spawn('osascript', ['-e', 'tell application "Terminal" to activate', '-e', `tell application "Terminal" to do script "${esc(line)}"`], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+    }
+    return null;
+  } catch (err) {
+    return err.message;
+  }
+});
+
+// favourite folders of Total Commander (wincmd.ini, section [DirMenu]): menuN=name / cmdN=cd path
+ipcMain.handle('hotlist:importTC', async () => {
+  const cands = [process.env.COMMANDER_TC_INI, process.env.APPDATA && path.join(process.env.APPDATA, 'GHISLER', 'wincmd.ini')].filter(Boolean);
+  for (const f of cands) {
+    let txt;
+    try { txt = await fsp.readFile(f); } catch { continue; }
+    const lines = new TextDecoder('windows-1251').decode(txt).split(/\r?\n/);
+    const kv = {};
+    let inSec = false;
+    for (const line of lines) {
+      const h = /^\s*\[(.*)\]\s*$/.exec(line);
+      if (h) { inSec = h[1].toLowerCase() === 'dirmenu'; continue; }
+      const i = line.indexOf('=');
+      if (inSec && i > 0) kv[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+    }
+    const items = [];
+    for (let n = 1; kv['menu' + n] !== undefined; n++) {
+      const name = kv['menu' + n].replace(/^&/, '');
+      const mm = /^cd\s+(.+)$/i.exec(kv['cmd' + n] || '');
+      if (!mm || !name || name === '-') continue;
+      const p = mm[1].trim().replace(/^"|"$/g, '').replace(/%([^%]+)%/g, (_x, v) => process.env[v] || process.env[v.toUpperCase()] || '');
+      items.push({ name, path: p });
+    }
+    return { items, file: f };
+  }
+  return { items: [], file: null };
 });
 
 ipcMain.handle('app:quit', () => app.quit());

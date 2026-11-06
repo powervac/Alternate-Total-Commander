@@ -542,6 +542,7 @@ class Panel {
       if (it.isDir) return this.loadRem(this.rem, full);
       if (isArc(it.name)) return openRemoteArchive(this, it); // a zip on the NAS / SSH server opens like a folder
       if (isAudioFile(it.name)) return playerStart(this, it);
+      if (isDocFile(it.name)) return openViewer(); // our own document viewer
       const t = await api.nasTemp({ id: this.rem.id, path: full });
       if (t.error) return msg('NAS', t.error);
       const err = await api.open(t.file);
@@ -552,6 +553,7 @@ class Panel {
       const { file, inner } = this.arc;
       if (it.isDir) return this.loadArc(file, inner ? inner + '/' + it.name : it.name);
       if (isAudioFile(it.name)) return playerStart(this, it);
+      if (isDocFile(it.name)) return openViewer();
       const err = await api.zipOpen({ archive: file, inner, name: it.name });
       if (err) msg('Error', err);
       return;
@@ -560,6 +562,7 @@ class Panel {
     if (it.isDir) return this.load(full);
     if (isArc(it.name)) return this.loadArc(full, '');
     if (isAudioFile(it.name)) return playerStart(this, it); // music: our player (F3 = viewer, Alt+Enter-like: "Open With Default Application" in Files menu)
+    if (isDocFile(it.name)) return openViewer(); // docx / xlsx / pptx / odf: built-in viewer, no Office required (Files > Open With Default Application for the system one)
     const err = await api.open(full);
     if (err) msg('Error', err);
   }
@@ -1108,6 +1111,7 @@ async function deleteSel(permanent) {
 const OKCANCEL = [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }];
 const isZip = (n) => /\.zip$/i.test(n);
 const isSevenArc = (n) => /\.(7z|tar|cab|tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i.test(n); // browsed read-only through 7za
+const isDocFile = (n) => typeof V_DOC !== 'undefined' && !!V_DOC[splitExt(n)[1].toLowerCase()];
 const isArc = (n) => isZip(n) || isSevenArc(n);
 const arcReadOnly = (a) => !!(a.remote || isSevenArc(a.file));
 

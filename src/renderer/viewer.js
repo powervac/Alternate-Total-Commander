@@ -5,6 +5,8 @@
 const V_IMG = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif' };
 const V_VIDEO = Object.fromEntries('mp4 m4v mov webm mkv ogv avi wmv flv mpg mpeg 3gp ts m2ts'.split(' ').map((e) => [e, 1]));
 const V_AUDIO = Object.fromEntries('mp3 wav wave flac ogg oga m4a aac opus wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
+/** documents rendered by our own code (main/docview.js), no Office needed */
+const V_DOC = Object.fromEntries('docx docm dotx xlsx xlsm pptx pptm odt ods odp'.split(' ').map((e) => [e, 1]));
 /** file:// URL of a local path (Windows or POSIX) */
 const vFileUrl = (p) => 'file://' + (p.startsWith('/') ? '' : '/') + encodeURI(p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F');
 const vDur = (s) => (isFinite(s) ? `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ':' : ''}${String(Math.floor((s % 3600) / 60)).padStart(Math.floor(s / 3600) ? 2 : 1, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
@@ -175,6 +177,22 @@ function openViewer() {
     img.onerror = () => { $body.className = 'v-body msg'; $body.textContent = 'Cannot display this image.'; };
     img.onclick = () => img.classList.toggle('fit');
     img.src = blobUrl;
+    setInfo();
+  }
+
+  /** Office documents: converted to HTML in the main process and shown right here */
+  async function showDoc() {
+    vv = null;
+    $pos.textContent = '';
+    const tok = loadToken;
+    $body.className = 'v-body msg';
+    $body.textContent = 'Rendering...';
+    const r = await api.docRender({ file, ext: ext() });
+    if (tok !== loadToken || mode !== 'doc') return;
+    if (r.error) { $body.className = 'v-body msg'; $body.textContent = r.error + '\nPress O to open it with the default application.'; return; }
+    $body.className = 'v-body doc';
+    $body.innerHTML = r.html;
+    $body.scrollTop = 0;
     setInfo();
   }
 
@@ -358,6 +376,7 @@ function openViewer() {
     if (m === 'text') showText(false);
     else if (m === 'hex') showHex();
     else if (m === 'pdf') showPdf();
+    else if (m === 'doc') showDoc();
     else showImage();
   }
 
@@ -444,6 +463,7 @@ function openViewer() {
     } else path = P.join(panel.dir, f.name);
     file = path;
     const isImg = !!V_IMG[ext()];
+    const isDoc = !!V_DOC[ext()];
     const r0 = await api.viewRead({ file: path, max: 8 });
     // a PDF is recognised by its extension or by the %PDF- signature
     const isPdf = ext() === 'pdf' || (!r0.error && r0.data && r0.data.length >= 5 && String.fromCharCode(...r0.data.subarray(0, 5)) === '%PDF-');
@@ -455,10 +475,11 @@ function openViewer() {
     truncated = r.size > bytes.length;
     const opts = isImg ? [['image', 'Image'], ['text', 'Text'], ['hex', 'Hex']]
       : isPdf ? [['pdf', 'PDF'], ['text', 'Text'], ['hex', 'Hex']]
+      : isDoc ? [['doc', 'Document'], ['hex', 'Hex']]
       : [['text', 'Text'], ['hex', 'Hex']];
     $mode.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
     if ((isImg || isPdf) && truncated) return message(`This file is too large to display here (over 64 MB).\nPress O to open it with the default application.`);
-    setMode(isImg ? 'image' : isPdf ? 'pdf' : vIsBinary(bytes) ? 'hex' : 'text');
+    setMode(isImg ? 'image' : isPdf ? 'pdf' : isDoc ? 'doc' : vIsBinary(bytes) ? 'hex' : 'text');
   }
 
   // ---------------------------------------------------------------- find (text mode)

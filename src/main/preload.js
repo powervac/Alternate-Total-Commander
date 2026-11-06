@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('api', {
   zipOpen: inv('zip:open'),
   zipTemp: inv('zip:temp'),
   viewRead: inv('view:read'),
+  docRender: inv('doc:render'),
+  hotlistImportTC: inv('hotlist:importTC'),
   writeFile: inv('file:write'),
   mkTemp: inv('fs:mktemp'),
   del: inv('op:delete'),

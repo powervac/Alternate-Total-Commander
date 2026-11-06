@@ -5,7 +5,7 @@
 const SEARCH_DEFAULTS = {
   masks: '*', regexName: false, dirs: '', depth: -1, archives: false, selectedOnly: false,
   useText: false, text: '', whole: false, caseSens: false, regex: false, hex: false, not: false,
-  utf8: true, ansi: true, dos: false, utf16: true, office: true,
+  utf8: true, ansi: true, dos: false, utf16: true, office: true, skipBinary: true,
   useDate: false, dateFrom: '', dateTo: '', useNotOlder: false, notOlderN: 1, notOlderU: 'day', useOlder: false, olderN: 1, olderU: 'day',
   useSize: false, sizeOp: '>', sizeVal: 1, sizeUnit: 'mb', attrRo: null, attrHidden: null, attrDir: null,
   dupName: false, dupSize: false, dupContent: false,
@@ -38,7 +38,7 @@ function openSearch() {
     '<input class="s-text" spellcheck="false" placeholder="text, regular expression or hex bytes (de ad be ef)">' +
     '<div class="s-cols">' +
     '<div><label class="s-chk"><input type="checkbox" class="s-whole"> Whole words only</label><label class="s-chk"><input type="checkbox" class="s-case"> Case sensitive</label><label class="s-chk"><input type="checkbox" class="s-rx"> RegEx</label><label class="s-chk"><input type="checkbox" class="s-hex"> Hex</label><label class="s-chk"><input type="checkbox" class="s-not"> Find files NOT containing the text</label></div>' +
-    '<div><label class="s-chk"><input type="checkbox" class="s-e-ansi"> ANSI (Windows-1251)</label><label class="s-chk"><input type="checkbox" class="s-e-dos"> ASCII (DOS, CP866)</label><label class="s-chk"><input type="checkbox" class="s-e-u16"> Unicode UTF-16</label><label class="s-chk"><input type="checkbox" class="s-e-u8"> UTF-8</label><label class="s-chk"><input type="checkbox" class="s-office"> Office XML (docx, xlsx, pptx, odt...)</label></div>' +
+    '<div><label class="s-chk"><input type="checkbox" class="s-e-ansi"> ANSI (Windows-1251)</label><label class="s-chk"><input type="checkbox" class="s-e-dos"> ASCII (DOS, CP866)</label><label class="s-chk"><input type="checkbox" class="s-e-u16"> Unicode UTF-16</label><label class="s-chk"><input type="checkbox" class="s-e-u8"> UTF-8</label><label class="s-chk"><input type="checkbox" class="s-office"> Office XML (docx, xlsx, pptx, odt...)</label><label class="s-chk"><input type="checkbox" class="s-skipbin"> Skip binary files (video, images, programs)</label></div>' +
     '</div></fieldset></div>' +
     // ---------------- Advanced
     '<div class="s-pane" data-p="a" hidden>' +
@@ -79,7 +79,7 @@ function openSearch() {
     return {
       masks: $mask.value, regexName: q('.s-rxn').checked, dirs: $dir.value, depth: +$depth.value, archives: q('.s-arc').checked, selectedOnly: q('.s-selonly').checked && hasSel,
       useText: q('.s-usetext').checked, text: $text.value, whole: q('.s-whole').checked, caseSens: q('.s-case').checked, regex: q('.s-rx').checked, hex: q('.s-hex').checked, not: q('.s-not').checked,
-      utf8: q('.s-e-u8').checked, ansi: q('.s-e-ansi').checked, dos: q('.s-e-dos').checked, utf16: q('.s-e-u16').checked, office: q('.s-office').checked,
+      utf8: q('.s-e-u8').checked, ansi: q('.s-e-ansi').checked, dos: q('.s-e-dos').checked, utf16: q('.s-e-u16').checked, office: q('.s-office').checked, skipBinary: q('.s-skipbin').checked,
       useDate: q('.s-usedate').checked, dateFrom: q('.s-df').value, dateTo: q('.s-dt').value,
       useNotOlder: q('.s-usenew').checked, notOlderN: +q('.s-nn').value || 1, notOlderU: q('.s-nu').value,
       useOlder: q('.s-useold').checked, olderN: +q('.s-on').value || 1, olderU: q('.s-ou').value,
@@ -91,7 +91,7 @@ function openSearch() {
   function writeForm(s) {
     $mask.value = s.masks; q('.s-rxn').checked = s.regexName; $dir.value = s.dirs || panel.realDir(); $depth.value = String(s.depth); q('.s-arc').checked = s.archives; q('.s-selonly').checked = s.selectedOnly && hasSel;
     q('.s-usetext').checked = s.useText; $text.value = s.text; q('.s-whole').checked = s.whole; q('.s-case').checked = s.caseSens; q('.s-rx').checked = s.regex; q('.s-hex').checked = s.hex; q('.s-not').checked = s.not;
-    q('.s-e-u8').checked = s.utf8; q('.s-e-ansi').checked = s.ansi; q('.s-e-dos').checked = s.dos; q('.s-e-u16').checked = s.utf16; q('.s-office').checked = s.office;
+    q('.s-e-u8').checked = s.utf8; q('.s-e-ansi').checked = s.ansi; q('.s-e-dos').checked = s.dos; q('.s-e-u16').checked = s.utf16; q('.s-office').checked = s.office; q('.s-skipbin').checked = s.skipBinary;
     q('.s-usedate').checked = s.useDate; q('.s-df').value = s.dateFrom; q('.s-dt').value = s.dateTo;
     q('.s-usenew').checked = s.useNotOlder; q('.s-nn').value = s.notOlderN; q('.s-nu').value = s.notOlderU;
     q('.s-useold').checked = s.useOlder; q('.s-on').value = s.olderN; q('.s-ou').value = s.olderU;
@@ -103,15 +103,15 @@ function openSearch() {
   /** grey out what the checked boxes do not use */
   function syncEnabled() {
     const t = q('.s-usetext').checked;
-    for (const c of ['.s-text', '.s-whole', '.s-case', '.s-rx', '.s-hex', '.s-not', '.s-e-ansi', '.s-e-dos', '.s-e-u16', '.s-e-u8', '.s-office']) q(c).disabled = !t;
-    if (t && q('.s-hex').checked) for (const c of ['.s-whole', '.s-case', '.s-rx', '.s-e-ansi', '.s-e-dos', '.s-e-u16', '.s-e-u8', '.s-office']) q(c).disabled = true;
+    for (const c of ['.s-text', '.s-whole', '.s-case', '.s-rx', '.s-hex', '.s-not', '.s-e-ansi', '.s-e-dos', '.s-e-u16', '.s-e-u8', '.s-office', '.s-skipbin']) q(c).disabled = !t;
+    if (t && q('.s-hex').checked) for (const c of ['.s-whole', '.s-case', '.s-rx', '.s-e-ansi', '.s-e-dos', '.s-e-u16', '.s-e-u8', '.s-office', '.s-skipbin']) q(c).disabled = true;
     q('.s-df').disabled = q('.s-dt').disabled = !q('.s-usedate').checked;
     q('.s-nn').disabled = q('.s-nu').disabled = !q('.s-usenew').checked;
     q('.s-on').disabled = q('.s-ou').disabled = !q('.s-useold').checked;
     q('.s-sop').disabled = q('.s-sv').disabled = q('.s-su').disabled = !q('.s-usesize').checked;
     q('.s-dir').disabled = q('.s-cur').disabled = q('.s-selonly').checked;
   }
-  writeForm(saved);
+  writeForm({ ...saved, dirs: '' }); // "Search in" always starts at the current folder of the active panel
   box.addEventListener('change', syncEnabled);
 
   // ---------------- tabs
@@ -165,7 +165,7 @@ function openSearch() {
 
   /** form -> engine parameters (throws a readable message on bad input) */
   function buildParams(s) {
-    const t = { whole: s.whole, caseSens: s.caseSens, regex: s.regex, hex: s.hex, not: s.not, utf8: s.utf8, ansi: s.ansi, dos: s.dos, utf16: s.utf16, office: s.office };
+    const t = { whole: s.whole, caseSens: s.caseSens, regex: s.regex, hex: s.hex, not: s.not, utf8: s.utf8, ansi: s.ansi, dos: s.dos, utf16: s.utf16, office: s.office, skipBinary: s.skipBinary };
     if (s.useText && !s.hex && !(s.utf8 || s.ansi || s.dos || s.utf16 || s.office)) throw new Error('Choose at least one text encoding.');
     const day = (v, end) => (v ? new Date(v + (end ? 'T23:59:59.999' : 'T00:00:00')).getTime() : null);
     const p = {
@@ -298,7 +298,7 @@ function openSearch() {
       const a = document.activeElement;
       if (a instanceof HTMLButtonElement || (a instanceof HTMLSelectElement) || (a && a.closest && a.closest('.s-tpl'))) return;
       e.preventDefault();
-      if (inList) gotoFile(); else start();
+      if (inList) gotoFile(); else if (!runningId) start(); // Enter never stops a running search by accident (Esc / the Stop button do)
     } else if (inList && (k === 'ArrowDown' || k === 'ArrowUp' || k === 'PageDown' || k === 'PageUp' || k === 'Home' || k === 'End')) {
       e.preventDefault();
       const page = Math.max(1, Math.floor($list.clientHeight / 18) - 1);

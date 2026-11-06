@@ -22,8 +22,9 @@ const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ------------------------------------------------------------------ names
 function maskToRegex(mask) {
-  const m = mask.trim();
+  let m = mask.trim();
   if (!m) return null;
+  if (m === '*.*') m = '*'; // like Total Commander: all files, also those without an extension
   const wild = /[*?]/.test(m);
   const body = escRe(m).replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
   return new RegExp(wild ? '^' + body + '$' : body, 'i'); // no wildcard = "name contains"
@@ -98,6 +99,56 @@ async function searchFileDecoded(file, label, match, ctx) {
   }
 }
 
+/** all decoders over ONE read of the file (big videos are read once, not once per encoding) */
+async function searchFileMulti(file, labels, match, ctx) {
+  const st = labels.map((label) => ({ dec: new TextDecoder(label), carry: '', lineNo: 0 }));
+  const fh = await fsp.open(file, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(CHUNK);
+    for (;;) {
+      if (ctx.cancelled()) return null;
+      const { bytesRead } = await fh.read(buf, 0, CHUNK, null);
+      const last = !bytesRead;
+      for (const s of st) {
+        const str = s.carry + s.dec.decode(last ? new Uint8Array(0) : buf.subarray(0, bytesRead), { stream: !last });
+        const parts = str.split(/\r\n|\n|\r/);
+        s.carry = last ? '' : parts.pop();
+        if (s.carry.length > MAX_LINE) { parts.push(s.carry); s.carry = ''; }
+        if (last && !parts.length) continue;
+        for (const p of parts) { s.lineNo++; if (match(p)) return { line: s.lineNo, snippet: snip(p) }; }
+      }
+      if (last) return null;
+    }
+  } finally {
+    await fh.close();
+  }
+}
+
+/**
+ * Fast rejection for a plain ASCII needle: native latin1 / utf-16 views of every chunk are compared, no line splitting.
+ * true = the file certainly does not contain the text (any of UTF-8, ANSI, DOS, UTF-16 LE/BE).
+ */
+async function quickMiss(file, needle, caseSens, ctx) {
+  const n = caseSens ? needle : needle.toLowerCase();
+  const fh = await fsp.open(file, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(CHUNK + 64);
+    let carry = 0;
+    for (;;) {
+      if (ctx.cancelled()) return false;
+      const { bytesRead } = await fh.read(buf, carry, CHUNK, null);
+      if (!bytesRead) return true;
+      const view = buf.subarray(0, carry + bytesRead);
+      const forms = [view.toString('latin1'), view.toString('utf16le'), view.subarray(1).toString('utf16le')];
+      for (const f of forms) if ((caseSens ? f : f.toLowerCase()).includes(n)) return false;
+      carry = Math.min(view.length, needle.length * 2 + 2);
+      view.copy(buf, 0, view.length - carry);
+    }
+  } finally {
+    await fh.close();
+  }
+}
+
 async function searchFileHex(file, needle, ctx) {
   const fh = await fsp.open(file, 'r');
   try {
@@ -121,6 +172,27 @@ async function searchFileHex(file, needle, ctx) {
 
 const htmlToText = (h) => h.replace(/<\/(p|h\d|tr|div|section|li)>|<br>/gi, '\n').replace(/<\/t[dh]>/gi, '\t').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&bull;/g, '*').replace(/&emsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
+/** first 8 KB: NUL bytes that do not look like UTF-16 text = binary file */
+async function isBinaryFile(file) {
+  let fh;
+  try {
+    fh = await fsp.open(file, 'r');
+    const b = Buffer.alloc(8192);
+    const { bytesRead } = await fh.read(b, 0, 8192, 0);
+    if (bytesRead >= 2 && ((b[0] === 0xff && b[1] === 0xfe) || (b[0] === 0xfe && b[1] === 0xff))) return false; // UTF-16 BOM
+    let zero = 0, even = 0, odd = 0;
+    for (let i = 0; i < bytesRead; i++) if (b[i] === 0) { zero++; if (i % 2) odd++; else even++; }
+    if (!zero) return false;
+    const pairs = bytesRead / 2;
+    if ((odd > pairs * 0.3 && even < pairs * 0.05) || (even > pairs * 0.3 && odd < pairs * 0.05)) return false; // UTF-16 without BOM
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (fh) await fh.close();
+  }
+}
+
 /** does the file satisfy the text condition? -> { ok, line?, snippet? } */
 async function contentCheck(file, ext, t, matcher, hexNeedle, ctx) {
   let hit = null;
@@ -131,8 +203,12 @@ async function contentCheck(file, ext, t, matcher, hexNeedle, ctx) {
     if (t.ansi) labels.push('windows-1251');
     if (t.dos) labels.push('ibm866');
     if (t.utf16) labels.push('utf-16le', 'utf-16be');
-    for (const l of labels) { hit = await searchFileDecoded(file, l, matcher, ctx); if (hit || ctx.cancelled()) break; }
-    if (!hit && t.office && docview.SUPPORTED.has(ext)) {
+    const plainAscii = t.text && !t.regex && !t.whole && /^[\x20-\x7e]+$/.test(t.text);
+    const office = t.office && docview.SUPPORTED.has(ext);
+    // videos, images, executables ... are skipped (like ripgrep); Hex mode and the Office option still look into them
+    const skip = t.skipBinary && (await isBinaryFile(file));
+    if (labels.length && !skip && !(plainAscii && (await quickMiss(file, t.text, t.caseSens, ctx)))) hit = await searchFileMulti(file, labels, matcher, ctx);
+    if (!hit && office) {
       const r = await docview.render(file, ext);
       if (r.html) hit = searchString(htmlToText(r.html), matcher);
     }
@@ -207,7 +283,7 @@ async function run(p, hooks) {
     const full = path.join(dir, name);
     const item = { dir, name, isDir: false, size: st.size, mtime: st.mtimeMs };
     if (needContent) {
-      const r = await contentCheck(full, path.extname(name).slice(1).toLowerCase(), t, matcher, hexNeedle, ctx);
+      const r = await contentCheck(full, path.extname(name).slice(1).toLowerCase(), { ...t, text }, matcher, hexNeedle, ctx);
       if (!r.ok) return;
       if (r.line !== undefined) { item.line = r.line; item.snippet = r.snippet; }
     }

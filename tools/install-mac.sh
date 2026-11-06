@@ -7,10 +7,9 @@
 set -e
 
 BASE="https://total.gieldowa.keenetic.link/downloads"
-VERSION="0.1.0"
 case "$(uname -m)" in
-  arm64) FILE="Alternate-Total-Commander-$VERSION-macOS-AppleSilicon.dmg" ;;
-  *)     FILE="Alternate-Total-Commander-$VERSION-macOS-Intel.dmg" ;;
+  arm64) FILE="Alternate-Total-Commander-macOS-AppleSilicon.dmg" ;;
+  *)     FILE="Alternate-Total-Commander-macOS-Intel.dmg" ;;
 esac
 
 TMP="$(mktemp -d)"

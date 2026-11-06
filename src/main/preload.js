@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('api', {
   runOp: inv('op:run'),
   cancelOp: inv('op:cancel'),
   pauseOp: inv('op:pause'),
+  autorunsList: inv('autoruns:list'),
+  autorunsAct: inv('autoruns:act'),
   puttyFind: inv('putty:find'),
   puttyOpen: inv('putty:open'),
   indexInit: inv('index:init'),

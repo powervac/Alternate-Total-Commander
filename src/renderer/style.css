@@ -449,3 +449,23 @@ body.no-toolbar #toolbar { display: none; }
 .nas-folder:hover { background: #e8f1fb; }
 .nas-tw { display: inline-block; width: 12px; color: #666; }
 .ft-line[hidden] { display: none !important; }
+
+/* Autostart programs (autoruns.js) */
+.dlg.ar { width: 1040px; max-width: 96vw; }
+.ar-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+.ar-tabs button { padding: 3px 12px; border: 1px solid #adadad; background: #e8e8e8; font: inherit; }
+.ar-tabs button.on { background: #fff; border-bottom-color: #fff; font-weight: 600; }
+.ar-bar { display: flex; gap: 14px; align-items: center; margin-bottom: 6px; }
+.ar-filter { flex: 1; height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; }
+.ar-head, .ar-row { display: grid; grid-template-columns: 26px 190px 210px 150px 1fr 120px; gap: 0 8px; align-items: center; }
+.ar-head { background: #f0f0f0; border: 1px solid #c8c8c8; border-bottom: 0; font-weight: 600; padding: 3px 4px; }
+.ar-list { height: 380px; overflow: auto; background: #fff; border: 1px solid #b4b4b4; }
+.ar-loc { background: #dcdcf4; padding: 2px 6px; font-weight: 600; position: sticky; top: 0; }
+.ar-row { padding: 2px 4px; white-space: nowrap; }
+.ar-row > div { overflow: hidden; text-overflow: ellipsis; }
+.ar-row:hover { background: #eef5fc; }
+.ar-row.on { background: #cde6f9; }
+.ar-row.missing { background: #fff36b; }
+.ar-row.missing.on { background: #f3dc2c; }
+.ar-wait { padding: 20px; color: #666; }
+.ar-status { margin-top: 6px; min-height: 18px; color: #444; }

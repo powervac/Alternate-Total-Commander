@@ -17,6 +17,16 @@ def mac_key():
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # Every connection has its own thread, and the TLS handshake is done here (not in the thread that accepts connections):
+    # a client that connects and then says nothing (scanners do this all day) used to block the whole site until it gave up.
+    timeout = 120  # seconds without data on a connection
+
+    def setup(self):
+        self.request.settimeout(10)  # a quick handshake or nothing
+        self.request.do_handshake()
+        self.request.settimeout(self.timeout)
+        super().setup()
+
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
 
@@ -53,10 +63,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_HEAD()
 
 
+class QuietServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = 128
+
+    def handle_error(self, request, client_address):
+        pass  # handshake failures and dropped connections
+
+
 if __name__ == "__main__":
     os.chdir(ROOT)
-    s = http.server.ThreadingHTTPServer(("0.0.0.0", 5006), Handler)
+    s = QuietServer(("0.0.0.0", 5006), Handler)
     c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     c.load_cert_chain(os.path.expanduser("~/total-tls/cert.pem"), os.path.expanduser("~/total-tls/key.pem"))
-    s.socket = c.wrap_socket(s.socket, server_side=True)
+    s.socket = c.wrap_socket(s.socket, server_side=True, do_handshake_on_connect=False)
     s.serve_forever()

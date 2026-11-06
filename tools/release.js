@@ -166,8 +166,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     if (!j || j.version !== version) die('latest.json on the site does not show the new version after 30 seconds: check the server (the files are already uploaded).');
     for (const n of ['Alternate-Total-Commander-Portable.exe']) {
-      const h = await fetch(`${URL_BASE}/downloads/${n}`, { method: 'HEAD' });
-      if (!h.ok) die(`${n} is not reachable on the site (HTTP ${h.status}).`);
+      // GET and stop reading (the server resets a HEAD request from Node's fetch); the size must be the size that was uploaded
+      let h = null;
+      for (let i = 0; i < 3 && !h; i++) h = await fetch(`${URL_BASE}/downloads/${n}`).catch(() => null);
+      if (!h || !h.ok) die(`${n} is not reachable on the site (${h ? 'HTTP ' + h.status : 'no answer'}); the upload itself finished, check the server.`);
+      const len = +h.headers.get('content-length');
+      if (h.body) await h.body.cancel().catch(() => {});
+      if (len && info[n] && len !== info[n].size) die(`${n} on the site has the size ${len}, but ${info[n].size} bytes were uploaded.`);
     }
   }
   log(`Done: ${version} is on the site. Programs offer the update at their next start (Configuration > Check for Updates...).`);

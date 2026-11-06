@@ -1963,6 +1963,7 @@ ipcMain.handle('putty:open', (_e, { host, port, user, keyPath }) => {
   return { ok: true };
 });
 
+require('./autoruns').register(ipcMain); // Autostart programs
 require('./sshkeys').register(ipcMain, app); // protected folder for SSH key files (WinSCP import, settings sync)
 require('./filetools').register(ipcMain, jobs); // Files menu tools: attributes, properties, checksums, split / combine, compare ...
 

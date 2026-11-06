@@ -1527,6 +1527,7 @@ const MENUS = [
   ['Commands', [
     { l: 'Search...', k: 'Alt+F7', f: () => openSearch() },
     { l: 'Synchronize Dirs...', f: () => openSync() },
+    { l: 'Autostart Programs...', f: () => openAutoruns() },
     { l: 'Directory Hotlist', k: M + '+D', f: () => openHotlist() },
     { l: 'Music Player: Play / Pause', k: isMac ? 'Option+Space' : 'Ctrl+Space', f: () => playerToggle() },
     { l: 'Music Player: Next Track', k: M + '+Shift+Right', f: () => playerStep(1) },

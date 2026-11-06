@@ -24,6 +24,7 @@ const TB_ICONS = {
   newfolder: '<path d="M2 5.5h5.5l2 2H18V16H2z"/><path d="M10 9.5v4.5M7.8 11.8h4.4"/>',
   nas: '<path d="M5.5 15.5h9a3.5 3.5 0 0 0 .4-7A5 5 0 0 0 5.4 7.6 4 4 0 0 0 5.5 15.5z"/>',
   ssh: '<path d="M3 4.5h14v11H3z"/><path d="M6 8l3 2-3 2M10.5 12.5H14"/>',
+  autorun: '<path d="M10 3v6.5"/><path d="M5.6 5.6a6 6 0 1 0 8.8 0"/>',
   music: '<path d="M8 15V5l8-2v10"/><circle cx="6" cy="15" r="2"/><circle cx="14" cy="13" r="2"/>',
 };
 
@@ -45,6 +46,7 @@ const TB_ITEMS = [
   ['ssh', 'SSH server (console + files)', 'Ctrl+Shift+F', () => openConnections(undefined, 'ssh')],
   ['music', 'Music player: play the audio files of this folder / pause', isMac ? 'Option+Space' : 'Ctrl+Space', () => playerButton(), 'pl'],
   '-',
+  ['autorun', 'Autostart programs', '', () => openAutoruns()],
   ['find', 'Find files', 'Alt+F7', () => openSearch()],
   ['compare', 'Compare directories', 'Shift+F2', () => compareDirectories()],
   ['sync', 'Synchronize directories', '', () => openSync()],

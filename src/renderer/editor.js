@@ -352,11 +352,38 @@ async function openEditor() {
   q('.e-all').onclick = replaceAll;
   for (const b of box.querySelectorAll('button')) b.onmousedown = (e) => e.preventDefault();
 
+  /** copy / cut / paste in a text field via the main process clipboard */
+  async function clipKey(field, what) {
+    const s = field.selectionStart, en = field.selectionEnd;
+    if (what === 'v') {
+      const t = await api.clipRead();
+      if (!t) return;
+      field.focus();
+      if (!document.execCommand('insertText', false, t)) field.setRangeText(t, field.selectionStart, field.selectionEnd, 'end');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+    if (s === en) return;
+    await api.clipWrite(field.value.slice(s, en));
+    if (what === 'x') {
+      field.focus();
+      if (!document.execCommand('delete')) field.setRangeText('', s, en, 'end');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
   box.addEventListener('keydown', (e) => {
     e.stopPropagation();
     const k = e.key;
     const mod = e.ctrlKey || (isMac && e.metaKey);
-    const l = k.length === 1 ? k.toLowerCase() : k;
+    const l = k.length === 1 || /^Key[A-Z]$/.test(e.code || '') ? keyLetter(e) : k;
+    // clipboard through Electron itself (works even when the system paste path does not), with any keyboard layout
+    const field = e.target === $ta || e.target === $find || e.target === $repl ? e.target : null;
+    if (field && mod && !e.altKey && (l === 'c' || l === 'x' || l === 'v')) {
+      e.preventDefault();
+      clipKey(field, l);
+      return;
+    }
     if (e.target === $find || e.target === $repl) {
       if (k === 'Enter') { e.preventDefault(); if (e.target === $repl) replaceOne(); else findNext(e.shiftKey ? -1 : 1); return; }
       if (k === 'Escape') { e.preventDefault(); $ta.focus(); return; }

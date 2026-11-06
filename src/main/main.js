@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, dialog, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -29,6 +29,16 @@ function createWindow() {
   win.webContents.on('console-message', (_e, lvl, m, l, src) => console.log('[renderer]', m, src + ':' + l));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
+  // Electron has no right-click menu of its own: give every text field and every selected text the usual Cut / Copy / Paste
+  win.webContents.on('context-menu', (_e, params) => {
+    if (process.env.COMMANDER_DEBUG) console.log('[main] context-menu: editable=' + params.isEditable + ' selection=' + JSON.stringify(params.selectionText));
+    if (!params.isEditable && !params.selectionText) return;
+    const tpl = params.isEditable
+      ? [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { type: 'separator' }, { role: 'selectAll' }]
+      : [{ role: 'copy' }];
+    Menu.buildFromTemplate(tpl).popup({ window: win });
+  });
+
   // dev helpers: COMMANDER_SHOT=<png path> takes a screenshot and quits;
   // COMMANDER_SCRIPT=<js file> is executed in the page before the shot.
   if (process.env.COMMANDER_SHOT) {
@@ -41,6 +51,24 @@ function createWindow() {
           console.error('script error', e);
         }
         await new Promise((r) => setTimeout(r, 800));
+      }
+      if (process.env.COMMANDER_RIGHTCLICK) { const [x, y] = process.env.COMMANDER_RIGHTCLICK.split(',').map(Number); win.webContents.focus(); win.webContents.sendInputEvent({ type: 'mouseDown', x, y, button: 'right', clickCount: 1 }); win.webContents.sendInputEvent({ type: 'mouseUp', x, y, button: 'right', clickCount: 1 }); await new Promise((r) => setTimeout(r, 600)); }
+      // test helper: COMMANDER_KEYS="ctrl+a,ctrl+c,x" sends real key events, then COMMANDER_SCRIPT2 runs in the page
+      if (process.env.COMMANDER_KEYS) {
+        win.webContents.focus();
+        for (const spec of process.env.COMMANDER_KEYS.split(',')) {
+          const parts = spec.trim().split('+');
+          const keyCode = parts.pop().toUpperCase();
+          const modifiers = parts.map((m) => m.toLowerCase());
+          win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
+          if (keyCode.length === 1) win.webContents.sendInputEvent({ type: 'char', keyCode, modifiers });
+          win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
+          await new Promise((r) => setTimeout(r, 200));
+        }
+        if (process.env.COMMANDER_SCRIPT2) {
+          try { await win.webContents.executeJavaScript(fs.readFileSync(process.env.COMMANDER_SCRIPT2, 'utf8')); } catch (e) { console.error('script2 error', e); }
+          await new Promise((r) => setTimeout(r, 300));
+        }
       }
       win.show(); win.focus(); await new Promise((r) => setTimeout(r, 500));
       const img = await win.webContents.capturePage();
@@ -1532,6 +1560,31 @@ ipcMain.handle('search:run', async (e, { id, params }) => {
     const res = await require('./searchengine').run(params, {
       cancelled: () => ctx.cancel,
       emit: (items, cur) => e.sender.send('search:batch', { id, items, cur }),
+      // every file of a zip, one at a time, with a reader for its contents
+      zipEach: async (file, cb) => {
+        const { z, entries } = await listZip(file);
+        try {
+          for (const en of entries) {
+            if (ctx.cancel) break;
+            const n = normName(en.fileName);
+            if (!n || isDirEntry(en)) continue;
+            const i = n.lastIndexOf('/');
+            const meta = { name: n.slice(i + 1), inner: i < 0 ? '' : n.slice(0, i), size: en.uncompressedSize, mtime: en.getLastModDate().getTime() };
+            const read = () => new Promise((res) => {
+              z.openReadStream(en, (err, s) => {
+                if (err) return res(null);
+                const c = [];
+                s.on('data', (d) => c.push(d));
+                s.on('end', () => res(Buffer.concat(c)));
+                s.on('error', () => res(null));
+              });
+            });
+            await cb(meta, read);
+          }
+        } finally {
+          z.close();
+        }
+      },
       zipEntries: async (file) => {
         const { z, entries } = await listZip(file);
         z.close();
@@ -1630,6 +1683,23 @@ ipcMain.handle('hotlist:importTC', async () => {
   }
   return { items: [], file: null };
 });
+
+// thumbnails for the thumbnail view: the system's own (video frames, images, PDF, documents) via Electron; null when there is none
+const thumbCache = new Map();
+ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  let url = null;
+  try {
+    const img = await require('electron').nativeImage.createThumbnailFromPath(file, { width: size, height: size });
+    if (img && !img.isEmpty()) url = img.toDataURL();
+  } catch { /* no thumbnail handler / unsupported platform */ }
+  if (thumbCache.size > 4000) thumbCache.clear();
+  thumbCache.set(key, url);
+  return url;
+});
+
+ipcMain.handle('clip:read', () => clipboard.readText());
+ipcMain.handle('clip:write', (_e, text) => { clipboard.writeText(String(text)); return true; });
 
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('shell:reveal', (_e, p) => shell.showItemInFolder(p));

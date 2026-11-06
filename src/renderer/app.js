@@ -44,6 +44,37 @@ function requestIcon(key, fullPath) {
   });
 }
 
+// ------------------------------------------------------------------ thumbnails (grid view)
+const thumbCache = new Map(); // "path|mtime|size" -> dataURL | null
+const thumbQueue = [];
+let thumbBusy = 0;
+function thumbLoad(panel, cell) {
+  const it = panel.view[+cell.dataset.i];
+  if (!it) return;
+  const file = P.join(panel.dir, it.name);
+  const key = `${file}|${it.mtime}|${it.size}`;
+  thumbQueue.push({ panel, cell, it, file, key });
+  thumbPump();
+}
+function thumbPump() {
+  while (thumbBusy < 3 && thumbQueue.length) {
+    const job = thumbQueue.shift();
+    if (!job.cell.isConnected) continue; // scrolled away / re-rendered
+    thumbBusy++;
+    const done = (url) => {
+      thumbBusy--;
+      if (url && job.cell.isConnected && job.panel.view[+job.cell.dataset.i] === job.it) {
+        const img = job.cell.querySelector('img.th');
+        const box = job.cell.querySelector('.th-box');
+        if (img) { img.src = url; if (box) box.classList.add('real'); }
+      }
+      thumbPump();
+    };
+    if (thumbCache.has(job.key)) done(thumbCache.get(job.key));
+    else api.thumb({ file: job.file, size: 192, key: job.key }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
+  }
+}
+
 // ------------------------------------------------------------------ dialogs
 let modalCount = 0;
 function openModal(box) {
@@ -59,6 +90,9 @@ function openModal(box) {
   };
 }
 /** buttons: [{label, value, primary?, cancel?}] -> {value, input} */
+/** letter of a key by its position on the keyboard, so shortcuts also work with a Russian (or any other) layout: Ctrl+С = Ctrl+C */
+const keyLetter = (e) => (/^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : String(e.key).toLowerCase());
+
 function dialog({ title, text, input, buttons }) {
   return new Promise((resolve) => {
     const box = document.createElement('div');
@@ -162,6 +196,7 @@ class Panel {
     this.sel = new Set();
     this.sortKey = store.get(`sortKey${idx}`, 'name');
     this.sortRev = store.get(`sortRev${idx}`, false);
+    this.thumbs = store.get(`thumbs${idx}`, false);
     this.hist = [];
     this.hi = -1;
     this.lastDirOnDrive = new Map();
@@ -427,7 +462,61 @@ class Panel {
     return (it.ro ? 'r' : '-') + (it.isDir ? '-' : 'a') + (it.hidden ? 'h' : '-') + '-';
   }
 
+  /** thumbnail view (Ctrl+Shift+F4): a grid of big pictures instead of the detail list */
+  setThumbs(on) {
+    this.thumbs = !!on;
+    store.set(`thumbs${this.idx}`, this.thumbs);
+    this.render();
+  }
+  /** number of cells in one grid row */
+  thumbCols() {
+    const cells = this.$list.children;
+    if (!cells.length) return 1;
+    const top = cells[0].offsetTop;
+    let n = 0;
+    while (n < cells.length && cells[n].offsetTop === top) n++;
+    return Math.max(1, n);
+  }
+
+  renderThumbs() {
+    const cells = [];
+    this.view.forEach((it, i) => {
+      const [base, ext] = it.isDir ? [it.name, ''] : splitExt(it.name);
+      const src = it.up ? UP_ICON : it.isDir ? FOLDER_ICON : FILE_ICON;
+      const cls = `row thumb${this.sel.has(it.name) ? ' sel' : ''}${i === this.cursor ? ' cur' : ''}`;
+      cells.push(
+        `<div class="${cls}" data-i="${i}" title="${esc(it.name)}"><div class="th-box${it.isDir || it.up ? ' icon' : ''}"><img class="th" src="${src}"></div>` +
+        `<div class="th-name"><span class="n">${esc(it.up ? '[..]' : it.isDir ? '[' + base + ']' : base)}</span><span class="e">${esc(ext)}</span></div></div>`
+      );
+    });
+    this.$list.innerHTML = cells.join('');
+    if (this._io) this._io.disconnect();
+    if (this.arc || this.rem) return; // thumbnails need real files
+    this._io = new IntersectionObserver((entries) => {
+      for (const en of entries) if (en.isIntersecting) { this._io.unobserve(en.target); thumbLoad(this, en.target); }
+    }, { root: this.$list, rootMargin: '240px' });
+    for (const c of this.$list.children) {
+      const it = this.view[+c.dataset.i];
+      if (it && !it.isDir && !it.up) this._io.observe(c);
+    }
+  }
+
   render() {
+    this.$list.classList.toggle('thumbs', !!this.thumbs);
+    this.$head.classList.toggle('thumbs', !!this.thumbs);
+    if (this.thumbs) {
+      this.renderThumbs();
+      this.$head.querySelectorAll('[data-k]').forEach((h) => {
+        const on = h.dataset.k === this.sortKey;
+        h.classList.toggle('sorted', on);
+        const label = { name: 'Name', ext: 'Ext', size: 'Size', time: 'Date', attr: 'Attr' }[h.dataset.k];
+        h.textContent = (on ? (this.sortRev ? '▲ ' : '▼ ') : '') + label;
+      });
+      this.updateStatus();
+      this.scrollToCursor();
+      if (qvIdx !== null && this.idx !== qvIdx) qvSchedule();
+      return;
+    }
     const rows = [];
     this.view.forEach((it, i) => {
       const [base, ext] = it.isDir ? [it.name, ''] : splitExt(it.name);
@@ -479,7 +568,13 @@ class Panel {
   }
 
   move(d) { this.setCursor(this.cursor + d); }
-  page() { return Math.max(1, Math.floor(this.$list.clientHeight / ROW_H) - 1); }
+  page() {
+    if (this.thumbs) {
+      const c = this.$list.children[0];
+      return Math.max(1, Math.floor(this.$list.clientHeight / (c ? c.offsetHeight : 120)) - 1) * this.thumbCols();
+    }
+    return Math.max(1, Math.floor(this.$list.clientHeight / ROW_H) - 1);
+  }
 
   toggleSel(i, advance = true) {
     const it = this.view[i];
@@ -1309,6 +1404,7 @@ const MENUS = [
     '-',{ l: 'FTP Connect...', k: M + '+F', f: soon, dis: true }]],
   ['Show', [
     { l: 'Quick View Panel', k: 'Ctrl+Q', f: () => qvToggle() },
+    { l: 'Thumbnails', k: M + '+Shift+F4', f: () => A().setThumbs(!A().thumbs) },
     '-',
     { l: 'New Folder Tab', k: M + '+T', f: () => A().newTab() },
     { l: 'Close Tab', k: M + '+W', f: () => A().closeTab() },
@@ -1431,7 +1527,7 @@ document.addEventListener('keydown', async (e) => {
   }
   // focus inside the SSH console: every key belongs to the remote shell, except Ctrl+O (back to the file list)
   if (e.target instanceof Element && e.target.closest('.termbox')) {
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && k.toLowerCase() === 'o') { e.preventDefault(); sshToggleConsole(A()); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && keyLetter(e) === 'o') { e.preventDefault(); sshToggleConsole(A()); }
     return;
   }
   const mod = e.ctrlKey || (isMac && e.metaKey);
@@ -1447,6 +1543,7 @@ document.addEventListener('keydown', async (e) => {
       openDrivePicker(panels[k === 'F1' ? 0 : 1]);
       return;
     }
+    if (k === 'F4' && mod && e.shiftKey) { p.setThumbs(!p.thumbs); return; } // Ctrl+Shift+F4: thumbnail view of the panel
     if (k === 'F3' || k === 'F4') {
       if (mod && k === 'F3') p.setSort('name');
       else if (mod && k === 'F4') p.setSort('ext');
@@ -1488,12 +1585,12 @@ document.addEventListener('keydown', async (e) => {
       if (e.altKey) return;
       if (mod && k === 'ArrowUp') { openInNewTab(p); return; } // Ctrl+Up: folder under the cursor in a new tab
       if (e.shiftKey) p.toggleSel(p.cursor, false);
-      p.move(k === 'ArrowUp' ? -1 : 1);
-      if (e.shiftKey && k === 'ArrowUp') {}
+      p.move((k === 'ArrowUp' ? -1 : 1) * (p.thumbs ? p.thumbCols() : 1)); // in the thumbnail grid up / down jump a whole row
       return;
     case 'ArrowLeft':
     case 'ArrowRight':
       if (e.altKey) { e.preventDefault(); p.back(k === 'ArrowLeft' ? -1 : 1); }
+      else if (p.thumbs && !typing && !mod) { e.preventDefault(); if (e.shiftKey) p.toggleSel(p.cursor, false); p.move(k === 'ArrowLeft' ? -1 : 1); }
       return;
     case 'PageUp': e.preventDefault(); p.move(-p.page()); return;
     case 'PageDown': e.preventDefault(); p.move(p.page()); return;
@@ -1517,7 +1614,7 @@ document.addEventListener('keydown', async (e) => {
     return;
   }
   if (mod) {
-    const l = k.toLowerCase();
+    const l = keyLetter(e);
     if (l === 'r') { e.preventDefault(); p.refresh(); }
     else if (l === 'u') { e.preventDefault(); swapPanels(); }
     else if (l === 'a') { e.preventDefault(); p.selectWhere(() => true, true); }

@@ -17,6 +17,7 @@ const SIZE_UNIT = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 };
 const POOL = 6; // files whose contents are read at the same time
 const CHUNK = 1 << 20;
 const MAX_LINE = 1 << 16;
+const ZIP_MAX = 64 * 1024 * 1024; // largest zip entry read for a text search
 
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -172,7 +173,35 @@ async function searchFileHex(file, needle, ctx) {
 
 const htmlToText = (h) => h.replace(/<\/(p|h\d|tr|div|section|li)>|<br>/gi, '\n').replace(/<\/t[dh]>/gi, '\t').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&bull;/g, '*').replace(/&emsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
-/** first 8 KB: NUL bytes that do not look like UTF-16 text = binary file */
+/** NUL bytes that do not look like UTF-16 text = binary data */
+function isBinaryBytes(b, bytesRead) {
+  if (bytesRead >= 2 && ((b[0] === 0xff && b[1] === 0xfe) || (b[0] === 0xfe && b[1] === 0xff))) return false;
+  let zero = 0, even = 0, odd = 0;
+  for (let i = 0; i < bytesRead; i++) if (b[i] === 0) { zero++; if (i % 2) odd++; else even++; }
+  if (!zero) return false;
+  const pairs = bytesRead / 2;
+  return !((odd > pairs * 0.3 && even < pairs * 0.05) || (even > pairs * 0.3 && odd < pairs * 0.05));
+}
+
+/** text condition on data that is already in memory (an entry of a zip) */
+function bufferCheck(buf, t, matcher, hexNeedle) {
+  let hit = null;
+  if (t.hex) {
+    const i = buf.indexOf(hexNeedle);
+    if (i >= 0) hit = { line: 0, snippet: 'offset ' + i.toString(16).padStart(8, '0') };
+  } else if (!(t.skipBinary && isBinaryBytes(buf, Math.min(buf.length, 8192)))) {
+    const labels = [];
+    if (t.utf8) labels.push('utf-8');
+    if (t.ansi) labels.push('windows-1251');
+    if (t.dos) labels.push('ibm866');
+    if (t.utf16) labels.push('utf-16le', 'utf-16be');
+    for (const l of labels) { hit = searchString(new TextDecoder(l).decode(buf), matcher); if (hit) break; }
+  }
+  if (t.not) return { ok: !hit };
+  return hit ? { ok: true, ...hit } : { ok: false };
+}
+
+/** first 8 KB of a file */
 async function isBinaryFile(file) {
   let fh;
   try {
@@ -207,6 +236,7 @@ async function contentCheck(file, ext, t, matcher, hexNeedle, ctx) {
     const office = t.office && docview.SUPPORTED.has(ext);
     // videos, images, executables ... are skipped (like ripgrep); Hex mode and the Office option still look into them
     const skip = t.skipBinary && (await isBinaryFile(file));
+    if (skip && ctx.stats) ctx.stats.binary++;
     if (labels.length && !skip && !(plainAscii && (await quickMiss(file, t.text, t.caseSens, ctx)))) hit = await searchFileMulti(file, labels, matcher, ctx);
     if (!hit && office) {
       const r = await docview.render(file, ext);
@@ -236,7 +266,8 @@ function hashFile(file, ctx) {
  */
 async function run(p, hooks) {
   const started = Date.now();
-  const ctx = { cancelled: hooks.cancelled };
+  const stats = { dirs: 0, files: 0, binary: 0 };
+  const ctx = { cancelled: hooks.cancelled, stats };
   const names = parseMasks(p.masks, p.regexName);
   const nameOk = (n) => (!names.inc.length || names.inc.some((r) => r.test(n))) && !names.exFile.some((r) => r.test(n));
   const dirExcluded = (n) => names.exDir.some((r) => r.test(n));
@@ -300,9 +331,11 @@ async function run(p, hooks) {
     const queue = [{ dir: root, d: 0 }];
     for (let head = 0; head < queue.length && !ctx.cancelled(); head++) {
       const { dir, d } = queue[head];
-      const key = path.resolve(dir).toLowerCase();
+      // the real path decides whether a folder was visited: links / junctions are followed, loops are not
+      const key = (await fsp.realpath(dir).catch(() => path.resolve(dir))).toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
+      stats.dirs++;
       if (Date.now() - last > 150) flush(dir);
       let ents;
       try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { continue; }
@@ -310,19 +343,35 @@ async function run(p, hooks) {
         if (ctx.cancelled()) break;
         const full = path.join(dir, de.name);
         try {
-          if (de.isDirectory()) {
+          let isDir = de.isDirectory(), isFile = de.isFile();
+          if (de.isSymbolicLink()) { const t2 = await fsp.stat(full); isDir = t2.isDirectory(); isFile = t2.isFile(); } // link or junction: what does it point to?
+          if (isDir) {
             if (dirExcluded(de.name)) continue;
             if (!needContent && !dups && !(sz) && nameOk(de.name)) {
               const st = await fsp.stat(full);
               if (dateOk(st.mtimeMs) && attrOk(de.name, st, true) && (attrs.dir !== false)) push({ dir, name: de.name, isDir: true, size: -1, mtime: st.mtimeMs });
             }
-            if ((p.depth < 0 || d < p.depth) && !de.isSymbolicLink()) queue.push({ dir: full, d: d + 1 });
+            if (p.depth < 0 || d < p.depth) queue.push({ dir: full, d: d + 1 });
             continue;
           }
-          if (!de.isFile()) continue;
+          if (!isFile) continue;
+          stats.files++;
           if (attrs.dir === true) continue;
           const nameMatches = nameOk(de.name);
           if (nameMatches) await visitFile(dir, de.name, await fsp.stat(full));
+          if (p.archives && needContent && !dups && /\.zip$/i.test(de.name)) {
+            // text inside the files of a zip: each entry is read into memory (entries over 64 MB are skipped)
+            await hooks.zipEach(full, async (en, read) => {
+              if (ctx.cancelled() || !nameOk(en.name) || !sizeOk(en.size) || !dateOk(en.mtime)) return;
+              stats.files++;
+              if (en.size > ZIP_MAX) return;
+              const buf = await read();
+              if (!buf) return;
+              const r = bufferCheck(buf, { ...t, text }, matcher, hexNeedle);
+              if (!r.ok) return;
+              push({ dir: en.inner ? path.join(full, ...en.inner.split('/')) : full, name: en.name, isDir: false, size: en.size, mtime: en.mtime, arc: { file: full, inner: en.inner }, line: r.line, snippet: r.snippet });
+            });
+          }
           if (p.archives && !needContent && !dups && /\.zip$/i.test(de.name)) {
             for (const en of await hooks.zipEntries(full)) {
               if (!nameOk(en.name) || !sizeOk(en.size) || !dateOk(en.mtime)) continue;
@@ -371,7 +420,7 @@ async function run(p, hooks) {
     }
   }
   flush('');
-  return { count, groups, cancelled: ctx.cancelled(), ms: Date.now() - started };
+  return { count, groups, stats, cancelled: ctx.cancelled(), ms: Date.now() - started };
 }
 
 module.exports = { run, parseMasks, lineMatcher, searchString };

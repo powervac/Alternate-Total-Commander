@@ -3,6 +3,7 @@
 // Uses helpers from app.js (A, O, panels, api, store, openMenu helpers) and the feature files loaded before this one.
 
 const TB_ICONS = {
+  thumbs: '<rect x="3" y="3" width="6" height="6"/><rect x="11" y="3" width="6" height="6"/><rect x="3" y="11" width="6" height="6"/><rect x="11" y="11" width="6" height="6"/>',
   refresh: '<path d="M16 10a6 6 0 1 1-2-4.5"/><path d="M16 3.5V7.5h-4"/>',
   back: '<path d="M12 4l-6 6 6 6"/>',
   forward: '<path d="M8 4l6 6-6 6"/>',
@@ -38,6 +39,7 @@ const TB_ITEMS = [
   ['targetsource', 'Target = Source', '', () => O().go(A().snap())],
   ['newtab', 'New tab', 'Ctrl+T', () => A().newTab()],
   ['quickview', 'Quick view panel', 'Ctrl+Q', () => qvToggle(), 'qv'],
+  ['thumbs', 'Thumbnail view', 'Ctrl+Shift+F4', () => A().setThumbs(!A().thumbs)],
   ['hotlist', 'Directory hotlist', 'Ctrl+D', () => openHotlist()],
   ['nas', 'Synology NAS', 'Ctrl+F', () => openConnections(undefined, 'nas')],
   ['ssh', 'SSH server (console + files)', 'Ctrl+Shift+F', () => openConnections(undefined, 'ssh')],
@@ -65,7 +67,7 @@ function buildToolbar() {
     }
     const [icon, tip, key, fn, toggle] = it;
     const b = document.createElement('button');
-    b.className = 'tb-btn';
+    b.className = 'tb-btn i-' + icon;
     if (toggle) b.dataset.toggle = toggle;
     b.title = key ? `${tip} (${key})` : tip;
     b.innerHTML = `<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">${TB_ICONS[icon]}</svg>`;

@@ -526,7 +526,7 @@ function openViewer() {
     }
     if (e.target instanceof HTMLSelectElement && k !== 'Escape') return; // let an open select use the keyboard
     const page = Math.max(V_LH, $body.clientHeight - V_LH * 2);
-    const lower = k.length === 1 ? k.toLowerCase() : k;
+    const lower = k.length === 1 || /^Key[A-Z]$/.test(e.code || '') ? keyLetter(e) : k;
     e.preventDefault();
     if (k !== 'Escape' && lower !== 'q' && mediaKey(e, k, lower)) return;
     if (k === 'Escape' || lower === 'q') close();

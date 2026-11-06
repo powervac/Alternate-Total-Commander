@@ -11,6 +11,8 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 - **Find Files** (Alt+F7), like Total Commander: several masks with exclusions (`*.js;*.ts|node_modules/`), regular expressions, several folders or only the selected items, depth limit, zip names; text search with whole words / case / regex / hex / "not containing", ANSI, DOS, UTF-8 and UTF-16 encodings and text inside docx, xlsx, pptx and OpenDocument files, with the first matching line shown; filters by date, "not older / older than", size and attributes; duplicate finder (same name / size / contents); sortable results; saved searches (Load/Save tab).
 
+- **Thumbnail view** (Ctrl+Shift+F4, Show menu or the toolbar button): the panel shows a grid of pictures - images, video frames, PDFs and documents use the thumbnails of the operating system. Arrow keys move through the grid (up / down jump a whole row). Chosen per panel and remembered.
+
 ## Features
 
 - **Two panels**, tabs per panel, history, drive list with network drives and standard folders (Alt+F1 / Alt+F2), directory hotlist, quick view panel, toolbar.

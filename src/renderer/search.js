@@ -31,7 +31,7 @@ function openSearch() {
     '<div class="s-grid">' +
     '<label>Search for:</label><span class="s-line"><input class="s-mask" list="s-hist" spellcheck="false" placeholder="*.txt;*.md   exclude: *.txt|*.bak|node_modules/   (no wildcard = name contains)"><label class="s-chk"><input type="checkbox" class="s-rxn"> RegEx</label></span>' +
     '<label>Search in:</label><span class="s-line"><input class="s-dir" spellcheck="false" placeholder="folders separated by ;"><button class="s-cur" type="button" title="Folders of both panels">Panels</button></span>' +
-    '<span></span><span class="s-line"><label class="s-chk"><input type="checkbox" class="s-selonly"> Only in selected items</label><label class="s-chk"><input type="checkbox" class="s-arc"> Search in zip archives (names)</label><label class="s-chk">Depth <select class="s-depth"></select></label></span>' +
+    '<span></span><span class="s-line"><label class="s-chk"><input type="checkbox" class="s-selonly"> Only in selected items</label><label class="s-chk"><input type="checkbox" class="s-arc"> Search in zip archives (names and text)</label><label class="s-chk">Depth <select class="s-depth"></select></label></span>' +
     '</div>' +
     '<datalist id="s-hist">' + history.map((h) => `<option value="${esc(h)}">`).join('') + '</datalist>' +
     '<fieldset class="s-fs"><legend><label class="s-chk"><input type="checkbox" class="s-usetext"> Find text</label></legend>' +
@@ -219,7 +219,7 @@ function openSearch() {
     $start.textContent = 'Start search';
     $status.textContent = res.error
       ? 'Error: ' + res.error
-      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.length} found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(1)} s`;
+      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.length} found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(1)} s` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
     if (results.length && !res.cancelled) $list.focus();
   }
 

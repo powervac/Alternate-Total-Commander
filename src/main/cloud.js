@@ -92,11 +92,25 @@ class Dropbox {
     this.appKey = '';
   }
 
-  static startAuth(appKey) {
+  /**
+   * one-button sign-in: browser opens, the user approves, the answer returns to a loopback address (it must be listed once in the
+   * app's "Redirect URIs" in the Dropbox App Console: http://127.0.0.1:53682). Resolves with the refresh token.
+   */
+  static async signIn({ appKey, openUrl }) {
+    if (!appKey) throw new Error('This program has no Dropbox app key yet.');
     const { verifier, challenge } = pkce();
-    // no redirect_uri: Dropbox shows the code on the page and the user pastes it into the program
-    const url = `${DBX.auth}/oauth2/authorize?` + form({ client_id: appKey, response_type: 'code', code_challenge: challenge, code_challenge_method: 'S256', token_access_type: 'offline' });
-    return { url, verifier };
+    const { code, redirect } = await loopbackCode({
+      port: +process.env.COMMANDER_OAUTH_PORT || 53682,
+      openUrl,
+      what: 'Dropbox',
+      buildUrl: (redirectUri, state) =>
+        `${DBX.auth}/oauth2/authorize?` + form({ client_id: appKey, response_type: 'code', redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: 'S256', token_access_type: 'offline', state }),
+    });
+    const d = new Dropbox();
+    d.appKey = appKey;
+    await d.tokenRequest({ code, grant_type: 'authorization_code', code_verifier: verifier, client_id: appKey, redirect_uri: redirect });
+    if (!d.refreshToken) throw new Error('Dropbox did not return a refresh token.');
+    return { refreshToken: d.refreshToken };
   }
 
   async tokenRequest(params) {
@@ -508,37 +522,65 @@ class GDrive {
     this.cache.clear();
   }
 
-  /** interactive sign-in in the system browser (loopback redirect + PKCE). Resolves with the refresh token. */
+  /** one-button sign-in: the system browser opens, the user approves, the answer returns to a loopback address. Resolves with the refresh token. */
   static async signIn({ clientId, clientSecret, openUrl }) {
-    if (!clientId) throw new Error('Enter the client ID of your Google OAuth client.');
+    if (!clientId) throw new Error('This program has no Google app key yet.');
     const { verifier, challenge } = pkce();
-    const state = b64u(crypto.randomBytes(12));
-    const server = http.createServer();
-    await new Promise((res, rej) => { server.once('error', rej); server.listen(+process.env.COMMANDER_OAUTH_PORT || 0, '127.0.0.1', res); });
-    const redirect = `http://127.0.0.1:${server.address().port}`;
-    const code = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Sign-in timed out (no answer from the browser within 3 minutes).')), 180000);
-      server.on('request', (req, res) => {
-        const u = new URL(req.url, redirect);
-        if (u.searchParams.get('state') !== state && !u.searchParams.get('error')) { res.writeHead(404); return res.end(); }
-        const ok = !!u.searchParams.get('code');
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<html><body style="font-family:sans-serif;padding:40px"><h2>${ok ? 'Signed in.' : 'Sign-in was not completed.'}</h2><p>You can close this tab and return to the program.</p></body></html>`);
-        clearTimeout(timer);
-        if (ok) resolve(u.searchParams.get('code'));
-        else reject(new Error('Google sign-in was cancelled: ' + (u.searchParams.get('error') || 'no code')));
-      });
-      const url =
-        `${GGL.auth}?` +
-        form({ client_id: clientId, redirect_uri: redirect, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive', code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent', state });
-      openUrl(url);
-    }).finally(() => server.close());
+    const { code, redirect } = await loopbackCode({
+      port: +process.env.COMMANDER_OAUTH_PORT || 0,
+      openUrl,
+      what: 'Google',
+      buildUrl: (redirectUri, state) =>
+        `${GGL.auth}?` + form({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive', code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent', state }),
+    });
     const g = new GDrive();
     g.clientId = clientId;
     g.clientSecret = clientSecret || '';
     const data = await g.tokenRequest({ grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier });
     if (!data.refresh_token) throw new Error('Google did not return a refresh token. Remove the access of this app at myaccount.google.com/permissions and sign in again.');
     return { refreshToken: data.refresh_token };
+  }
+}
+
+// ------------------------------------------------------------------ browser sign-in (shared by Dropbox and Google)
+let activeSignIn = null; // cancel function of the sign-in that is waiting for the browser
+const cancelSignIn = () => { if (activeSignIn) activeSignIn(); };
+GDrive.cancelSignIn = cancelSignIn;
+Dropbox.cancelSignIn = cancelSignIn;
+
+/**
+ * Start a local listener on 127.0.0.1, open buildUrl(redirect, state) in the browser and wait for the answer.
+ * Resolves with { code, redirect }.
+ */
+async function loopbackCode({ port, openUrl, buildUrl, what }) {
+  const state = b64u(crypto.randomBytes(12));
+  const server = http.createServer();
+  await new Promise((res, rej) => {
+    server.once('error', (e) => rej(e.code === 'EADDRINUSE' ? new Error(`${what}: the sign-in port ${port} is busy (is another sign-in running?).`) : e));
+    server.listen(port, '127.0.0.1', res);
+  });
+  const redirect = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const code = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Sign-in timed out (no answer from the browser within 3 minutes).')), 180000);
+      if (activeSignIn) activeSignIn(); // only one sign-in at a time
+      activeSignIn = () => { clearTimeout(timer); reject(new Error('Sign-in was cancelled.')); };
+      server.on('request', (req, res) => {
+        const u = new URL(req.url, redirect);
+        if (u.searchParams.get('state') !== state && !u.searchParams.get('error')) { res.writeHead(404); return res.end(); }
+        const ok = !!u.searchParams.get('code');
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<html><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>${ok ? 'You are signed in.' : 'Sign-in was not completed.'}</h2><p>You can close this tab and go back to the program.</p></body></html>`);
+        clearTimeout(timer);
+        if (ok) resolve(u.searchParams.get('code'));
+        else reject(new Error(`${what} sign-in was cancelled: ` + (u.searchParams.get('error') || 'no code')));
+      });
+      openUrl(buildUrl(redirect, state));
+    });
+    return { code, redirect };
+  } finally {
+    activeSignIn = null;
+    server.close();
   }
 }
 

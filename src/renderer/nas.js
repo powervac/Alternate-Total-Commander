@@ -1,8 +1,9 @@
 'use strict';
 // Connection windows, one per kind, each showing only its own saved connections:
 //   Ctrl+F  Synology NAS   Ctrl+Shift+F  SSH server   Net menu: Dropbox..., Google Drive...
-// Uses helpers from app.js (A, panels, store, dialog, msg, openModal, modalCount, esc, api, REM_ICON, RECORD_REM, remTitle)
-// and ssh.js (console).
+// The cloud windows are meant to be ONE button ("Sign in with Google" / "Sign in with Dropbox"): when the app key of the service
+// is known (shipped in src/main/oauth-defaults.json, or entered once) everything else is hidden.
+// Uses helpers from app.js (A, panels, store, dialog, msg, openModal, modalCount, esc, api, RECORD_REM) and ssh.js (console).
 
 function nasLoad() {
   const v = store.get('nas', null);
@@ -45,17 +46,17 @@ async function nasDisconnect(p = A()) {
 
 const CLOUD_HELP = {
   dropbox:
-    'One-time setup (free, 2 minutes):\n' +
+    'This program needs its own Dropbox "app key" once (free, 2 minutes). Anyone who gets a build that already contains the key sees only the button.\n' +
     '1. Open the Dropbox App Console, press "Create app", choose "Scoped access", then "Full Dropbox", give it any name.\n' +
-    '2. On the Permissions tab tick files.metadata.read, files.metadata.write, files.content.read, files.content.write and press Submit.\n' +
-    '3. On the Settings tab copy the "App key" into the field above.\n' +
-    'Then: Sign in with Dropbox (a browser page opens), approve, paste the code it shows here, press Connect.',
+    '2. Permissions tab: tick files.metadata.read, files.metadata.write, files.content.read, files.content.write and press Submit.\n' +
+    '3. Settings tab: under "Redirect URIs" add   http://127.0.0.1:53682   and press Add. Copy the "App key" into the field above.\n' +
+    'Then press "Sign in with Dropbox": your browser opens, you press Allow, and you are back here.',
   gdrive:
-    'One-time setup (free, 5 minutes):\n' +
+    'This program needs its own Google "Client ID" once (free, 5 minutes). Anyone who gets a build that already contains it sees only the button.\n' +
     '1. In the Google Cloud Console create a project and enable the "Google Drive API" (APIs & Services > Library).\n' +
-    '2. OAuth consent screen: type External, add your own Google account as a test user. To keep the login longer than 7 days press "Publish app" there (Google then shows an "unverified app" warning once; that is fine for your own use).\n' +
+    '2. OAuth consent screen: type External, add your own Google account as a test user. Press "Publish app" there so the login does not expire after 7 days (Google then shows an "unverified app" notice once; that is fine).\n' +
     '3. Credentials > Create credentials > OAuth client ID > application type "Desktop app". Copy the Client ID and Client secret into the fields above.\n' +
-    'Then press Connect: your browser opens, you approve, and you are back here.',
+    'Then press "Sign in with Google": your browser opens, you press Allow, and you are back here.',
 };
 const CLOUD_LINKS = {
   dropbox: ['Open the Dropbox App Console', 'https://www.dropbox.com/developers/apps'],
@@ -71,21 +72,25 @@ const KIND_TITLE = {
 /**
  * kind: 'nas' | 'ssh' | 'dropbox' | 'gdrive'. selectId (optional): a saved connection to select; its kind wins.
  */
-function openConnections(selectId, kind) {
+async function openConnections(selectId, kind) {
   if (modalCount > 0) return;
   const all = nasLoad(); // every saved record of all kinds
   const sel = selectId && all.find((c) => c.id === selectId);
   kind = sel ? connType(sel) : kind || 'nas';
   const ssh = kind === 'ssh';
   const cloud = kind === 'dropbox' || kind === 'gdrive';
+  // app keys of the cloud services: shipped defaults (oauth-defaults.json) or what the user entered once (shared by all accounts of the kind)
+  const shipped = cloud ? ((await api.cloudDefaults()) || {})[kind === 'gdrive' ? 'google' : 'dropbox'] || {} : {};
+  const appWide = () => (store.get('cloudApp', {}) || {})[kind] || {};
+  if (modalCount > 0) return;
   let list = all.filter((c) => connType(c) === kind); // what this window shows
   let cur = (sel && connType(sel) === kind ? sel : null) || list[0] || null;
   const saveAll = () => nasSave([...all.filter((c) => connType(c) !== kind), ...list]);
-  let pending = null; // Dropbox: { verifier } between "Sign in" and "Connect"
 
   const box = document.createElement('div');
   box.className = 'dlg nas';
   const row = (ks, html) => `<div class="nas-row" data-k="${ks}">${html}</div>`;
+  const signInLabel = kind === 'gdrive' ? '<span class="g-logo">G</span> Sign in with Google' : 'Sign in with Dropbox';
   box.innerHTML =
     `<div class="dlg-title">${esc(KIND_TITLE[kind])}</div>` +
     '<div class="dlg-body"><div class="nas-wrap"><div class="nas-list"></div>' +
@@ -99,13 +104,12 @@ function openConnections(selectId, kind) {
     row('nas', '<label>2-step code:</label><input class="n-otp" spellcheck="false" autocomplete="off" placeholder="only if 2-step verification is on">') +
     row('nas', '<span></span><label class="n-chk"><input type="checkbox" class="n-insecure"> Allow an untrusted certificate (self-signed)</label>') +
     row('dropbox', '<label>App key:</label><input class="n-appkey" spellcheck="false" autocomplete="off">') +
-    row('dropbox', '<label>Sign in:</label><span class="n-keyrow"><button class="n-signin" type="button">Sign in with Dropbox</button><input class="n-code" spellcheck="false" autocomplete="off" placeholder="paste the code from the browser here"></span>') +
     row('gdrive', '<label>Client ID:</label><input class="n-clientid" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client secret:</label><input class="n-secret" type="password" autocomplete="off">') +
-    row('gdrive', '<span></span><button class="n-signin" type="button">Sign in again</button>') +
-    row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (the login is saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
+    row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
+    row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +
-    (cloud ? `<div class="nas-help"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div>` : '') +
+    (cloud ? `<div class="nas-help"><button class="n-adv" type="button">Settings and setup help...</button><div class="n-helpbody"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div></div>` : '') +
     '<div class="nas-status"></div></div>' +
     '<div class="dlg-btns"><button class="n-connect primary">Connect</button><button class="n-save">Save</button><button class="n-new">New</button><button class="n-del">Delete</button><button class="n-close">Close</button></div>';
   for (const r of box.querySelectorAll('.nas-row')) r.hidden = !r.dataset.k.split(' ').includes(kind);
@@ -113,12 +117,44 @@ function openConnections(selectId, kind) {
   const $list = q('.nas-list'), $status = q('.nas-status');
   const $name = q('.n-name'), $url = q('.n-url'), $port = q('.n-port'), $user = q('.n-user');
   const $key = q('.n-key'), $pass = q('.n-pass'), $otp = q('.n-otp'), $insecure = q('.n-insecure'), $remember = q('.n-remember');
-  const $appkey = q('.n-appkey'), $code = q('.n-code'), $clientid = q('.n-clientid'), $secret = q('.n-secret');
+  const $appkey = q('.n-appkey'), $clientid = q('.n-clientid'), $secret = q('.n-secret');
   const buttons = box.querySelectorAll('.dlg-btns button');
   let closeModal;
+  let closed = false;
+  let busy = false; // connecting / waiting for the browser
+  let showAdvanced = false; // cloud: show the app key fields, the name and the setup help
   if (cloud) q('.n-help-text').textContent = CLOUD_HELP[kind];
+  /** Close stays usable while connecting; it also cancels a pending browser sign-in */
+  const closeWindow = () => {
+    if (closed) return;
+    closed = true;
+    if (cloud) api.cloudCancelSignIn();
+    closeModal();
+  };
+  const setBusy = (on) => { busy = on; buttons.forEach((b) => (b.disabled = on && !b.classList.contains('n-close'))); };
 
   const applyPassLabel = () => { if (ssh) q('.n-pass-label').textContent = $key.value.trim() ? 'Key passphrase:' : 'Password:'; };
+
+  // ---- cloud windows: the simple view is only the sign-in button
+  const keysKnown = () => (kind === 'dropbox' ? !!$appkey.value.trim() : !!$clientid.value.trim());
+  const hideRow = (el, on) => { if (el) el.closest('.nas-row').hidden = on; };
+  function applyCloudUi() {
+    if (!cloud) return;
+    const simple = keysKnown() && !showAdvanced;
+    const saved = !!(cur && cur.pw);
+    for (const el of [$appkey, $clientid, $secret]) hideRow(el, simple);
+    hideRow($name, simple);
+    hideRow($remember, simple);
+    // simple view: a saved login -> "Connect"; nothing saved -> the big sign-in button
+    q('.n-signin').closest('.nas-row').hidden = simple && saved;
+    q('.n-connect').hidden = simple && !saved;
+    for (const b of [q('.n-save'), q('.n-new'), q('.n-del')]) b.hidden = simple;
+    $list.hidden = simple;
+    q('.n-helpbody').hidden = simple;
+    q('.n-adv').textContent = simple ? 'Settings and setup help...' : keysKnown() ? 'Hide settings' : 'Settings and setup help...';
+    q('.n-adv').hidden = !keysKnown() && !showAdvanced ? false : false;
+    q('.nas-wrap').style.display = simple && !cur ? 'block' : '';
+  }
 
   function renderList() {
     $list.innerHTML = list.length
@@ -135,13 +171,12 @@ function openConnections(selectId, kind) {
     if ($pass) { $pass.value = ''; $pass.placeholder = c.pw ? '(saved)' : ''; }
     if ($otp) $otp.value = '';
     if ($insecure) $insecure.checked = !!c.insecure;
-    if ($appkey) $appkey.value = c.appKey || '';
-    if ($code) { $code.value = ''; $code.placeholder = c.pw ? '(signed in - no code needed)' : 'paste the code from the browser here'; }
-    if ($clientid) $clientid.value = c.clientId || '';
-    if ($secret) { $secret.value = ''; $secret.placeholder = c.sec ? '(saved)' : ''; }
+    if ($appkey) $appkey.value = c.appKey || appWide().appKey || shipped.appKey || '';
+    if ($clientid) $clientid.value = c.clientId || appWide().clientId || shipped.clientId || '';
+    if ($secret) { $secret.value = ''; $secret.placeholder = c.sec || appWide().sec || shipped.clientSecret ? '(saved)' : ''; }
     $remember.checked = !!c.remember;
-    pending = null;
     applyPassLabel();
+    applyCloudUi();
   }
   const setStatus = (t, bad) => { $status.textContent = t; $status.classList.toggle('bad', !!bad); };
 
@@ -175,7 +210,16 @@ function openConnections(selectId, kind) {
       if (enc) conn.pw = enc;
       else { conn.pw = ''; conn.remember = false; setStatus('The system cannot encrypt secrets here, so the login was not saved.', true); }
     } else if (!conn.remember) conn.pw = '';
-    if (kind === 'gdrive' && $secret.value) conn.sec = await encrypt($secret.value); // Google client secret
+    if (kind === 'gdrive') {
+      if ($secret.value) conn.sec = await encrypt($secret.value); // Google client secret
+      else if (!conn.sec) conn.sec = appWide().sec || '';
+    }
+    if (cloud) {
+      // the app key is shared by all accounts of this service: asked once, remembered
+      const aw = store.get('cloudApp', {}) || {};
+      aw[kind] = kind === 'dropbox' ? { appKey: conn.appKey } : { clientId: conn.clientId, sec: conn.sec };
+      store.set('cloudApp', aw);
+    }
     const i = list.findIndex((c) => c.id === conn.id);
     if (i >= 0) list[i] = conn; else list.push(conn);
     cur = conn;
@@ -191,37 +235,35 @@ function openConnections(selectId, kind) {
     setStatus('Saved.');
   }
 
-  /** Dropbox: open the sign-in page (the code it shows goes into the "code" field) */
-  async function dropboxSignIn() {
-    const appKey = $appkey.value.trim();
-    if (!appKey) { $appkey.focus(); return setStatus('Enter the app key of your Dropbox app first.', true); }
-    const r = await api.cloudDropboxStart({ appKey });
-    if (r.error) return setStatus(r.error, true);
-    pending = { verifier: r.verifier };
-    setStatus('A browser page was opened. Approve the access, copy the code Dropbox shows, paste it into the field and press Connect.');
-    $code.focus();
+  /** no app key yet: show the fields and the short setup guide instead of a bare error */
+  function needKeys() {
+    showAdvanced = true;
+    applyCloudUi();
+    (kind === 'gdrive' ? $clientid : $appkey).focus();
+    setStatus(
+      kind === 'gdrive'
+        ? 'One-time step: Google needs this program\'s "Client ID". Follow the short guide below, paste the Client ID and secret above, then press the button again.'
+        : 'One-time step: Dropbox needs this program\'s "App key". Follow the short guide below, paste the key above, then press the button again.',
+      true
+    );
+    return null;
   }
 
-  /** the refresh token this connection should use, or null if the user must sign in */
+  /** what main needs to connect: a saved login, or a fresh browser sign-in (one click) */
   async function cloudCredentials(conn, forceSignIn) {
-    if (kind === 'dropbox') {
-      if (!conn.appKey) { $appkey.focus(); setStatus('Enter the app key of your Dropbox app.', true); return null; }
-      const code = $code.value.trim();
-      if (code) {
-        if (!pending) { setStatus('Press "Sign in with Dropbox" first, then paste the code.', true); return null; }
-        return { appKey: conn.appKey, code, verifier: pending.verifier };
-      }
-      const saved = forceSignIn ? '' : await decrypt(cur && cur.pw);
-      if (saved) return { appKey: conn.appKey, refreshToken: saved };
-      setStatus('Press "Sign in with Dropbox", approve in the browser, paste the code here and press Connect.', true);
-      return null;
-    }
-    // Google
-    if (!conn.clientId) { $clientid.focus(); setStatus('Enter the client ID of your Google OAuth client.', true); return null; }
-    const clientSecret = $secret.value || (await decrypt(cur && cur.sec));
     const saved = forceSignIn ? '' : await decrypt(cur && cur.pw);
+    if (kind === 'dropbox') {
+      if (!conn.appKey) return needKeys();
+      if (saved) return { appKey: conn.appKey, refreshToken: saved };
+      setStatus('Your browser is opening: sign in to Dropbox and press Allow ...');
+      const r = await api.cloudDropboxSignIn({ appKey: conn.appKey });
+      if (r.error) { setStatus(r.error, true); return null; }
+      return { appKey: conn.appKey, refreshToken: r.refreshToken };
+    }
+    if (!conn.clientId) return needKeys();
+    const clientSecret = $secret.value || (await decrypt(cur && cur.sec)) || (await decrypt(appWide().sec)) || shipped.clientSecret || '';
     if (saved) return { clientId: conn.clientId, clientSecret, refreshToken: saved };
-    setStatus('Waiting for you in the browser: sign in to Google and press Allow ...');
+    setStatus('Your browser is opening: sign in to Google and press Allow ...');
     const r = await api.cloudGoogleSignIn({ clientId: conn.clientId, clientSecret });
     if (r.error) { setStatus(r.error, true); return null; }
     return { clientId: conn.clientId, clientSecret, refreshToken: r.refreshToken };
@@ -231,7 +273,8 @@ function openConnections(selectId, kind) {
     const conn = formConn();
     let res;
     let secret = '';
-    buttons.forEach((b) => (b.disabled = true));
+    if (busy) return;
+    setBusy(true);
     try {
       if (cloud) {
         const creds = await cloudCredentials(conn, forceSignIn);
@@ -253,7 +296,12 @@ function openConnections(selectId, kind) {
           : await api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass, otp: $otp.value.trim(), insecure: conn.insecure });
       }
     } finally {
-      buttons.forEach((b) => (b.disabled = false));
+      if (!closed) setBusy(false);
+    }
+    if (closed) {
+      // the window was closed meanwhile: do not open anything, drop a session that was just established
+      if (res && !res.error) api.nasDisconnect({ id: conn.id });
+      return;
     }
     if (!res) return;
     if (res.error) {
@@ -263,6 +311,7 @@ function openConnections(selectId, kind) {
       return;
     }
     await persist(conn, secret);
+    closed = true;
     closeModal();
     const type = RECORD_REM[kind];
     liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/' });
@@ -292,7 +341,9 @@ function openConnections(selectId, kind) {
   }
   if (cloud) {
     q('.n-link').onclick = () => api.openUrl(CLOUD_LINKS[kind][1]);
-    q('.n-signin').onclick = () => (kind === 'dropbox' ? dropboxSignIn() : connect(true));
+    q('.n-signin').onclick = () => connect(true);
+    q('.n-adv').onclick = () => { showAdvanced = !showAdvanced; applyCloudUi(); };
+    for (const el of [$appkey, $clientid]) el.addEventListener('input', applyCloudUi);
   }
   q('.n-connect').onclick = () => connect();
   q('.n-save').onclick = save;
@@ -312,15 +363,17 @@ function openConnections(selectId, kind) {
     renderList();
     fill();
   };
-  q('.n-close').onclick = () => closeModal();
+  q('.n-close').onclick = closeWindow;
   box.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeWindow(); }
     else if (e.key === 'Enter' && !(document.activeElement instanceof HTMLButtonElement)) { e.preventDefault(); connect(); }
   });
 
   closeModal = openModal(box);
   renderList();
   fill();
-  (cloud ? (cur ? $code || $secret : $name) : cur && !cur.user ? $user : cur ? $pass : $name).focus();
+  // simple cloud view: put the focus on the one button that matters
+  if (cloud && keysKnown() && !showAdvanced) (cur && cur.pw ? q('.n-connect') : q('.n-signin')).focus();
+  else (cloud ? $name : cur && !cur.user ? $user : cur ? $pass : $name).focus();
 }

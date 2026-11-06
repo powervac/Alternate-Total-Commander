@@ -65,6 +65,14 @@ body.no-toolbar #toolbar { display: none; }
 .nas-form { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .nas-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
 .nas-row[hidden] { display: none; }
+.n-bigbtn { height: 34px; font: inherit; font-weight: 600; padding: 0 22px; border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; justify-self: start; }
+.n-dropbox { border-color: #0061fe; color: #0061fe; }
+.n-dropbox:hover { background: #eef4ff; }
+.n-adv { font: inherit; height: 22px; padding: 0 10px; border: 1px solid #adadad; background: #e1e1e1; margin-bottom: 6px; }
+.n-helpbody[hidden], .n-adv[hidden] { display: none; }
+.n-google { height: 30px; font: inherit; font-weight: 600; padding: 0 18px; border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; justify-self: start; }
+.n-google:hover { background: #f0f4ff; border-color: #4285f4; }
+.g-logo { font-weight: 800; font-size: 16px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc05 50% 75%, #34a853 75% 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .nas-help { margin-top: 10px; }
 .nas-help .n-link { font: inherit; height: 22px; padding: 0 10px; border: 1px solid #adadad; background: #e1e1e1; margin-bottom: 6px; }
 .n-help-text { white-space: pre-wrap; color: #555; font-size: 11px; line-height: 1.45; max-height: 118px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; padding: 6px 8px; user-select: text; -webkit-user-select: text; }

@@ -1298,18 +1298,28 @@ const openBrowser = (url) => {
   else shell.openExternal(url);
 };
 
-/** Dropbox step 1: open the sign-in page; the user pastes the code it shows into the program */
-ipcMain.handle('cloud:dropboxStart', nasWrap(async (_e, { appKey }) => {
-  if (!appKey) throw new Error('Enter the app key of your Dropbox app first.');
-  const { url, verifier } = Dropbox.startAuth(appKey);
-  openBrowser(url);
-  return { url, verifier };
-}));
+/** Dropbox: sign in through the browser (the answer comes back to a local loopback address); returns the refresh token */
+ipcMain.handle('cloud:dropboxSignIn', nasWrap(async (_e, { appKey }) => Dropbox.signIn({ appKey, openUrl: openBrowser })));
 
 /** Google: sign in through the browser (the answer comes back to a local loopback address); returns the refresh token */
 ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret }) => {
   return GDrive.signIn({ clientId, clientSecret, openUrl: openBrowser });
 }));
+
+/**
+ * Ready-made app keys: if src/main/oauth-defaults.json exists, the sign-in buttons work without any setup by the user.
+ * { "google": { "clientId": "...", "clientSecret": "..." }, "dropbox": { "appKey": "..." } }
+ */
+ipcMain.handle('cloud:defaults', () => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, 'oauth-defaults.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+});
+
+/** the user closed the window while the browser sign-in was pending */
+ipcMain.handle('cloud:cancelSignIn', () => { GDrive.cancelSignIn(); });
 
 /** connect: kind 'dropbox' {appKey, refreshToken | code+verifier}  or  'gdrive' {clientId, clientSecret, refreshToken} */
 ipcMain.handle('cloud:connect', nasWrap(async (_e, { id, kind, ...creds }) => {

@@ -72,9 +72,9 @@ The first time the app reads Documents, Downloads or Desktop, macOS asks for per
 
 ## Cloud drives (Dropbox, Google Drive)
 
-Dropbox and Google require every program to identify itself with its own API key, so you create one (free, one time). The connection window shows these steps next to the fields.
+Dropbox and Google require every program to identify itself with its own API key. Builds that contain the key (file `src/main/oauth-defaults.json`, format: `{"google":{"clientId":"...","clientSecret":"..."},"dropbox":{"appKey":"..."}}`) show just one button: *Sign in with Google* / *Sign in with Dropbox*. Without it, create your own key once (free); the window shows the steps. The key is remembered for all accounts.
 
-**Dropbox:** [App Console](https://www.dropbox.com/developers/apps) > Create app > Scoped access > Full Dropbox. Permissions: `files.metadata.read`, `files.metadata.write`, `files.content.read`, `files.content.write` > Submit. Copy the **App key** into Net > Dropbox..., press *Sign in with Dropbox*, approve in the browser, paste the code, press *Connect*.
+**Dropbox:** [App Console](https://www.dropbox.com/developers/apps) > Create app > Scoped access > Full Dropbox. Permissions: `files.metadata.read`, `files.metadata.write`, `files.content.read`, `files.content.write` > Submit. Copy the **App key** into Net > Dropbox..., add the Redirect URI `http://127.0.0.1:53682` (Settings tab), press *Sign in with Dropbox* and approve in the browser.
 
 **Google Drive:** [Cloud Console](https://console.cloud.google.com/apis/credentials): create a project, enable the *Google Drive API*, configure the OAuth consent screen (External; add yourself as a test user, or press *Publish app* so the login does not expire after 7 days), then Credentials > OAuth client ID > *Desktop app*. Copy the **Client ID** and **Client secret** into Net > Google Drive... and press *Connect*; the browser opens and you approve.
 

@@ -33,7 +33,7 @@ async function ftWithBusy(title, text, fn) {
 }
 
 /** a form window: fields is HTML, returns the box and a promise-like helper */
-function ftForm(title, bodyHtml, okLabel = 'OK') {
+function ftForm(title, bodyHtml, okLabel = 'OK', init) {
   return new Promise((resolve) => {
     const box = document.createElement('div');
     box.className = 'dlg ft';
@@ -48,6 +48,7 @@ function ftForm(title, bodyHtml, okLabel = 'OK') {
       else if (e.key === 'Enter' && !(document.activeElement instanceof HTMLButtonElement) && !(document.activeElement instanceof HTMLSelectElement)) { e.preventDefault(); box.__ok = true; finish(true); }
     });
     close = openModal(box);
+    if (init) init(box);
     const first = box.querySelector('input:not([type=checkbox]),select');
     (first || box.querySelector('.ft-ok')).focus();
   });

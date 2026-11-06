@@ -103,6 +103,11 @@ process.on('uncaughtException', (err) => {
   console.error('[main] uncaught exception:', err && err.stack ? err.stack : err);
 });
 
+// the portable exe (electron-builder "portable" target) keeps its data next to itself: nothing is installed or written elsewhere
+if (process.env.PORTABLE_EXECUTABLE_DIR && !process.env.COMMANDER_USER_DATA) {
+  try { app.setPath('userData', path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'Commander-data')); } catch { /* keep the default */ }
+}
+
 app.whenReady().then(() => {
   emulator.handleProtocol(protocol);
   // running from source on a Mac: show our icon in the Dock instead of the Electron one
@@ -337,6 +342,7 @@ async function planCopy(src, target, tasks, ctx) {
   } else {
     tasks.push({ t: 'file', src, target, size: st.size, mtime: st.mtime, mode: st.mode });
     ctx.total += st.size;
+    ctx.filesTotal = (ctx.filesTotal || 0) + 1;
   }
 }
 
@@ -347,13 +353,16 @@ async function copyFileWithProgress(t, ctx) {
     wr = await fsp.open(t.target, 'w');
     const buf = Buffer.allocUnsafe(1 << 20);
     let pos = 0;
+    ctx.curSrc = t.src; ctx.curDst = t.target; ctx.fileTotal = t.size; ctx.fileDone = 0;
     for (;;) {
+      while (ctx.paused && !ctx.cancel) { ctx.tick(true); await new Promise((r) => setTimeout(r, 150)); }
       if (ctx.cancel) break;
       const { bytesRead } = await rd.read(buf, 0, buf.length, pos);
       if (!bytesRead) break;
       await wr.write(buf, 0, bytesRead);
       pos += bytesRead;
       ctx.done += bytesRead;
+      ctx.fileDone = pos;
       ctx.current = t.src;
       ctx.tick();
     }
@@ -393,10 +402,12 @@ async function execTasks(tasks, ctx, overwrite) {
           if (overwrite !== 'all') {
             ctx.skipped++;
             ctx.done += t.size;
+            ctx.filesDone = (ctx.filesDone || 0) + 1;
             continue;
           }
         }
         await copyFileWithProgress(t, ctx);
+        ctx.filesDone = (ctx.filesDone || 0) + 1;
       }
     } catch (err) {
       ctx.errors.push(`${t.src}: ${err.message}`);
@@ -421,7 +432,11 @@ ipcMain.handle('op:run', async (e, { id, kind, sources, destDir, rename, overwri
     const now = Date.now();
     if (!force && now - ctx.last < 80) return;
     ctx.last = now;
-    e.sender.send('op:progress', { id, done: ctx.done, total: ctx.total, current: path.basename(ctx.current || '') });
+    e.sender.send('op:progress', {
+      id, done: ctx.done, total: ctx.total, current: path.basename(ctx.current || ''),
+      from: ctx.curSrc || '', to: ctx.curDst || '', fdone: ctx.fileDone || 0, ftotal: ctx.fileTotal || 0,
+      n: ctx.filesDone || 0, nt: ctx.filesTotal || 0, pausable: true, paused: !!ctx.paused,
+    });
   };
   jobs.set(id, ctx);
   try {
@@ -474,6 +489,11 @@ ipcMain.handle('op:run', async (e, { id, kind, sources, destDir, rename, overwri
   } finally {
     jobs.delete(id);
   }
+});
+
+ipcMain.handle('op:pause', (_e, { id, paused }) => {
+  const c = jobs.get(id);
+  if (c) { c.paused = !!paused; if (c.tick) c.tick(true); }
 });
 
 ipcMain.handle('op:cancel', (_e, id) => {
@@ -1446,12 +1466,12 @@ ipcMain.handle('nas:crypt', nasWrap(async (_e, { text, decrypt }) => {
 }));
 
 // settings kept in Dropbox (/Commander/settings.json); the saved Dropbox login is decrypted here, in the main process only
-ipcMain.handle('settings:cloud', async (_e, { action, appKey, enc, text }) => {
+ipcMain.handle('settings:cloud', async (_e, { action, appKey, enc, text, secrets, password }) => {
   try {
     if (!safeStorage.isEncryptionAvailable()) return { error: 'The system cannot decrypt the saved login here.' };
     const token = safeStorage.decryptString(Buffer.from(enc, 'base64'));
     const ss = require('./settingsync');
-    return action === 'pull' ? await ss.pull(appKey, token) : await ss.push(appKey, token, text);
+    return action === 'pull' ? await ss.pull(appKey, token, password) : await ss.push(appKey, token, text, secrets, password);
   } catch (err) {
     return { error: err.message };
   }
@@ -1809,10 +1829,11 @@ ipcMain.handle('update:check', async () => {
 ipcMain.handle('update:install', async (e, { info }) => {
   try {
     if (process.platform === 'win32') {
-      const w = info && info.win;
+      const portable = !!process.env.PORTABLE_EXECUTABLE_FILE;
+      const w = portable ? (info && (info.winPortable || null)) : info && info.win;
       const urlOk = w && (/^https:\/\//.test(w.url) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(w.url))); // http only for a local test server
-      if (!urlOk) return { error: 'No Windows installer in the update information' };
-      const file = path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
+      if (!urlOk) return { error: portable ? 'No portable version in the update information' : 'No Windows installer in the update information' };
+      const file = portable ? process.env.PORTABLE_EXECUTABLE_FILE + '.new' : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
       const r = await fetch(w.url, { headers: { 'User-Agent': 'Commander-updater' } });
       if (!r.ok) return { error: `Download failed: HTTP ${r.status}` };
       const total = +r.headers.get('content-length') || w.size || 0;
@@ -1829,6 +1850,13 @@ ipcMain.handle('update:install', async (e, { info }) => {
       if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); return { error: 'The downloaded installer is damaged (checksum mismatch)' }; }
       // silent install over the current one; the new version starts itself
       if (process.env.COMMANDER_UPDATE_DRYRUN) return { ok: true, dry: true, file };
+      if (portable) {
+        // replace the running exe after it has quit, then start the new one
+        const exe = process.env.PORTABLE_EXECUTABLE_FILE;
+        spawn('cmd.exe', ['/d', '/c', `ping -n 4 127.0.0.1 >nul & move /y "${file}" "${exe}" >nul & start "" "${exe}"`], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true }).unref();
+        setTimeout(() => app.quit(), 400);
+        return { ok: true };
+      }
       spawn(file, ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
       setTimeout(() => app.quit(), 400);
       return { ok: true };

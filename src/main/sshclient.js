@@ -38,12 +38,24 @@ class Sshfs {
       tryKeyboard: !!pass,
     };
     if (keyPath) {
+      let raw;
       try {
-        cfg.privateKey = fs.readFileSync(keyPath);
+        raw = fs.readFileSync(keyPath);
       } catch (e) {
         throw new Error('Cannot read the key file: ' + e.message);
       }
-      if (passphrase) cfg.passphrase = passphrase;
+      const ppk = require('./ppk');
+      if (ppk.isPpk(raw.toString('latin1', 0, 40))) {
+        // a PuTTY / WinSCP key (.ppk, version 2 or 3): converted in memory, the file stays as it is
+        try {
+          cfg.privateKey = (await ppk.pemFromPpk(raw.toString('utf8'), passphrase)).pem;
+        } catch (e) {
+          throw new Error(e.needPassphrase ? 'This key is protected: enter its passphrase in the "Key passphrase" field.' : e.message);
+        }
+      } else {
+        cfg.privateKey = raw;
+        if (passphrase) cfg.passphrase = passphrase;
+      }
     } else if (pass) cfg.password = pass;
     else throw new Error('Enter the password, or choose a key file.');
     this.client = new Client();

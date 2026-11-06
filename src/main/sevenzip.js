@@ -73,4 +73,4 @@ async function extract(archive, paths, destDir) {
   await run(['x', '-y', '-spd', '-o' + destDir, '--', file, ...paths]);
 }
 
-module.exports = { isSevenArchive, list, extract };
+module.exports = { isSevenArchive, list, extract, run };

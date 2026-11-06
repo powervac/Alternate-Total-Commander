@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   conflicts: inv('op:conflicts'),
   runOp: inv('op:run'),
   cancelOp: inv('op:cancel'),
+  pauseOp: inv('op:pause'),
   zipPack: inv('zip:pack'),
   zipInspect: inv('zip:inspect'),
   zipUnpack: inv('zip:unpack'),

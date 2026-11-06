@@ -116,7 +116,9 @@ function dialog({ title, text, input, buttons }) {
     }
     box.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.key === 'Escape') { e.preventDefault(); done(cancel); }
+      const hot = buttons.find((b) => b.key && b.key === e.key);
+      if (hot) { e.preventDefault(); done(hot); }
+      else if (e.key === 'Escape') { e.preventDefault(); done(cancel); }
       else if (e.key === 'Enter' && (!(e.target instanceof HTMLButtonElement))) { e.preventDefault(); done(primary); }
       else if (e.key === 'Tab') {
         const f = [...box.querySelectorAll('input,button')];
@@ -141,15 +143,30 @@ function dialog({ title, text, input, buttons }) {
 }
 const msg = (title, text) => dialog({ title, text, buttons: [{ label: 'OK', value: 'ok', primary: true }] });
 
-function progressDialog(title, onCancel) {
-  let box, close, timer, closed = false;
+function progressDialog(title, onCancel, onBackground, onPause) {
+  let box, close, timer, closed = false, paused = false;
+  const t0 = Date.now();
+  let lastT = t0, lastDone = 0, speed = 0; // bytes per second, smoothed
+  const mb = (n) => (n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' G' : (n / 1048576).toFixed(1) + ' M');
+  const rate = (n) => (n >= 1073741824 ? (n / 1073741824).toFixed(1) + ' G/s' : (n / 1048576).toFixed(1) + ' M/s');
+  const secs = (n) => (n >= 3600 ? Math.floor(n / 3600) + ' h ' + Math.floor((n % 3600) / 60) + ' min' : n >= 60 ? Math.floor(n / 60) + ' min ' + Math.round(n % 60) + ' s' : Math.round(n) + ' s');
   const show = () => {
     if (closed) return;
     box = document.createElement('div');
-    box.className = 'dlg';
+    box.className = 'dlg pg';
     box.innerHTML =
-      `<div class="dlg-title">${esc(title)}</div><div class="dlg-body"><div class="dlg-text" id="pg-text">&nbsp;</div><div class="bar"><i></i></div><div class="dlg-text" id="pg-pct">0 %</div></div><div class="dlg-btns"><button class="primary">Cancel</button></div>`;
-    const btn = $('button', box);
+      `<div class="dlg-title">${esc(title)}</div><div class="dlg-body"><div class="dlg-text pg-head">&nbsp;</div>` +
+      '<div class="pg-paths"><div>From: <span class="pg-from"></span></div><div>To: <span class="pg-to"></span></div></div>' +
+      '<div class="pg-line"><div class="bar"><i class="pg-f"></i></div><span class="pg-fp">0 %</span></div>' +
+      '<div class="pg-line"><div class="bar bar2"><i class="pg-t"></i></div><span class="pg-tp">0 %</span></div>' +
+      '<div class="pg-row"><span class="pg-n"></span><span class="pg-size"></span><span class="pg-speed"></span></div></div>' +
+      `<div class="dlg-btns">${onPause ? '<button class="pg-pause" style="display:none">Pause</button>' : ''}<button class="primary pg-cancel">Cancel</button>${onBackground ? '<button class="pg-bg">Background</button>' : ''}</div>`;
+    const btn = $('.pg-cancel', box);
+    if (onBackground) $('.pg-bg', box).onclick = () => onBackground();
+    if (onPause) {
+      const pb = $('.pg-pause', box);
+      pb.onclick = () => { paused = !paused; pb.textContent = paused ? 'Resume' : 'Pause'; onPause(paused); };
+    }
     btn.onclick = () => { onCancel(); btn.disabled = true; btn.textContent = 'Cancelling...'; };
     box.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') btn.click(); });
     close = openModal(box);
@@ -158,11 +175,27 @@ function progressDialog(title, onCancel) {
   timer = setTimeout(show, 250);
   return {
     update(p) {
+      const now = Date.now();
+      if (now - lastT >= 500) {
+        const inst = ((p.done - lastDone) * 1000) / (now - lastT);
+        speed = speed ? speed * 0.6 + inst * 0.4 : inst;
+        lastT = now; lastDone = p.done;
+      }
       if (!box) return;
       const pct = p.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
-      $('#pg-text', box).textContent = p.current;
-      $('i', box).style.width = pct + '%';
-      $('#pg-pct', box).textContent = `${pct} %   (${fmtK(p.done)} k / ${fmtK(p.total)} k)`;
+      const fpct = p.ftotal ? Math.min(100, Math.round((p.fdone / p.ftotal) * 100)) : pct;
+      $('.pg-head', box).textContent = `${title.replace(/ .*/, '')}: ${paused ? 'paused' : speed > 0 ? (speed / 1024).toFixed(0).replace(/\B(?=(\d{3})+$)/g, ',') + ' kbytes/s' : ''}${paused ? '' : ', ' + secs((now - t0) / 1000)}`;
+      $('.pg-from', box).textContent = p.from || p.current || '';
+      $('.pg-to', box).textContent = p.to || '';
+      $('.pg-f', box).style.width = fpct + '%';
+      $('.pg-fp', box).textContent = fpct + ' %';
+      $('.pg-t', box).style.width = pct + '%';
+      $('.pg-tp', box).textContent = pct + ' %';
+      $('.pg-n', box).textContent = p.nt ? `${p.n} / ${p.nt}` : '';
+      $('.pg-size', box).textContent = `${mb(p.done)} / ${mb(p.total)}` + (speed > 0 && p.total > p.done && !paused ? `   (${secs((p.total - p.done) / speed)} left)` : '');
+      $('.pg-speed', box).textContent = speed > 0 && !paused ? rate(speed) : '';
+      const pb = $('.pg-pause', box);
+      if (pb && p.pausable) pb.style.display = '';
     },
     close() {
       closed = true;
@@ -1106,6 +1139,7 @@ async function copyMove(kind, opts = {}) {
   const label = kind === 'copy' ? 'Copy' : 'Move';
   const names = items.map((i) => i.name);
   let destDir, rename = null;
+  let inBackground = false; // F2 Queue: no progress window, the job waits in the queue window
 
   if (opts.renameOnly) {
     const r = await dialog({
@@ -1124,10 +1158,11 @@ async function copyMove(kind, opts = {}) {
       title: label,
       text,
       input: P.join(dst.dir, '*.*'),
-      buttons: [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }],
+      buttons: [{ label: 'OK', value: 'ok', primary: true }, { label: 'F2 Queue', value: 'queue', key: 'F2' }, { label: 'Cancel', value: 'cancel', cancel: true }],
     });
     const val = r.input && r.input.trim();
-    if (r.value !== 'ok' || !val) return;
+    if ((r.value !== 'ok' && r.value !== 'queue') || !val) return;
+    inBackground = r.value === 'queue';
     if (/[\\/]?\*\.\*$/.test(val)) {
       destDir = P.resolve(src.realDir(), val.replace(/\*\.\*$/, '') || '.');
     } else {
@@ -1157,26 +1192,22 @@ async function copyMove(kind, opts = {}) {
     overwrite = r.value;
   }
 
-  const id = Date.now();
-  const dlg = progressDialog(kind === 'copy' ? 'Copying' : 'Moving', () => api.cancelOp(id));
-  const off = api.onProgress((p) => { if (p.id === id) dlg.update(p); });
-  let res;
-  try {
+  const label2 = (kind === 'copy' ? 'Copying' : 'Moving') + ' ' + (names.length === 1 ? names[0] : names.length + ' items');
+  const res = await runJob(label2, async (id) => {
+    let r;
     if (src.rem) {
-      res = await api.nasDownload({
+      r = await api.nasDownload({
         id: src.rem.id, jobId: id, base: src.rem.path, destDir, rename, overwrite,
         items: items.map((i) => ({ name: i.name, isDir: i.isDir, size: i.size, mtime: i.mtime })),
       });
-      if (res.error) res = { errors: [res.error], cancelled: false, skipped: 0 };
+      if (r.error) r = { errors: [r.error], cancelled: false, skipped: 0 };
     } else {
-      res = src.arc
+      r = src.arc
         ? await api.zipExtract({ id, archive: src.arc.file, inner: src.arc.inner, names, destDir, rename, overwrite })
         : await api.runOp({ id, kind, sources, destDir, rename, overwrite });
     }
-  } finally {
-    off();
-    dlg.close();
-  }
+    return r;
+  }, { bg: inBackground });
   await Promise.all(panels.map((p) => p.refresh()));
   if (res.errors.length) {
     await msg('Error', res.errors.slice(0, 8).join('\n') + (res.errors.length > 8 ? `\n... and ${res.errors.length - 8} more` : ''));
@@ -1242,15 +1273,7 @@ const arcReadOnly = (a) => !!(a.remote || isSevenArc(a.file));
 
 /** run a main-process job with a progress dialog */
 async function withProgress(title, start) {
-  const id = Date.now() + Math.floor(Math.random() * 1000);
-  const dlg = progressDialog(title, () => api.cancelOp(id));
-  const off = api.onProgress((p) => { if (p.id === id) dlg.update(p); });
-  try {
-    return await start(id);
-  } finally {
-    off();
-    dlg.close();
-  }
+  return runJob(title, start);
 }
 const showErrors = (errors) =>
   errors.length && msg('Error', errors.slice(0, 8).join('\n') + (errors.length > 8 ? `\n... and ${errors.length - 8} more` : ''));

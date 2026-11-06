@@ -14,8 +14,9 @@ function inspect(text) {
   const ppk = /^PuTTY-User-Key-File-(\d+): (\S+)/.exec(t);
   if (ppk) {
     const ver = +ppk[1], algo = ppk[2];
-    const supported = ver === 2 && (algo === 'ssh-rsa' || algo === 'ssh-dss');
-    return { format: 'ppk' + ver, supported, reason: supported ? '' : `PuTTY key version ${ver} / ${algo} is not supported: convert it to OpenSSH format with PuTTYgen (Conversions > Export OpenSSH key)` };
+    // version 2 and 3 of RSA, ed25519 and ECDSA keys are converted by the program (ppk.js); DSA only in the old version 2 that the SSH library reads itself
+    const supported = require('./ppk').SUPPORTED.includes(algo) || (ver === 2 && algo === 'ssh-dss');
+    return { format: 'ppk' + ver, supported, reason: supported ? '' : `The key type ${algo} is not supported: convert it to OpenSSH format with PuTTYgen (Conversions > Export OpenSSH key)` };
   }
   if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(t)) return { format: 'openssh/pem', supported: true, reason: '' };
   return { format: 'unknown', supported: false, reason: 'This does not look like a private key file' };

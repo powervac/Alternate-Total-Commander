@@ -340,6 +340,7 @@ async function checkForUpdates(silent) {
   const res = await api.updateInstall({ info: r.info });
   off();
   if (res.error) { close(); msg('Update', res.error); return; }
+  if (res.saved) { close(); msg('Update', 'The program is now a single portable exe, so it cannot install itself over this copy.\n\nThe new version was saved here (the folder is open):\n' + res.saved + '\n\nClose this window and run that file. Your settings, passwords and keys are copied on its first start.'); return; }
   box.querySelector('.up-text').textContent = res.terminal ? 'Follow the Terminal window ...' : 'Installing the new version, the program restarts ...';
   if (res.terminal) setTimeout(close, 2500);
 }

@@ -433,7 +433,7 @@ body.no-toolbar #toolbar { display: none; }
 .panel .sshmode { height: 20px; min-width: 120px; font: inherit; font-size: 12px; border: 1px solid #adadad; background: #fff; padding: 0 2px; }
 .panel .sshmode[hidden] { display: none; }
 
-.drivemenu .it .dl { display: inline-block; width: 22px; font-weight: 600; }
+.drivemenu .it .dl { display: inline-block; min-width: 22px; margin-right: 10px; font-weight: 600; }
 .drivemenu .it .dn { color: #222; }
 .drivemenu { min-width: 200px; }
 .dlg.ix { width: 640px; max-width: 94vw; }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// One-command release: version bump, commit + push, Windows build (installer + portable), macOS build on GitHub Actions,
+// One-command release: version bump, commit + push, Windows build (the portable exe), macOS build on GitHub Actions,
 // upload to the download site and latest.json (the program offers the update by itself afterwards).
 //
 //   npm run release -- 0.1.7 "What is new in this version"
@@ -102,14 +102,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
   }
   // ------------------------------------------------------------ 3. Windows build
-  const setup = path.join(OUT, `Commander Setup ${version}.exe`);
   const portable = path.join(OUT, `Commander-Portable-${version}.exe`);
   if (!flags.has('--no-build')) {
     if (!DRY) fs.rmSync(OUT, { recursive: true, force: true });
-    log('Building the Windows installer and the portable exe ...');
+    log('Building the Windows portable exe ...');
     run('npx', ['electron-builder', '--win', `-c.directories.output=${OUT}`]);
   }
-  if (!DRY && (!fs.existsSync(setup) || !fs.existsSync(portable))) die(`The Windows files were not found in ${OUT} (expected version ${version}).`);
+  if (!DRY && !fs.existsSync(portable)) die(`The Windows files were not found in ${OUT} (expected version ${version}).`);
 
   // ------------------------------------------------------------ 4. macOS files
   const dmgs = {};
@@ -131,10 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   // ------------------------------------------------------------ 5. upload (as .part first, renamed when everything arrived)
-  const files = [
-    { local: setup, name: 'Alternate-Total-Commander-Setup.exe' },
-    { local: portable, name: 'Alternate-Total-Commander-Portable.exe' },
-  ];
+  const files = [{ local: portable, name: 'Alternate-Total-Commander-Portable.exe' }];
   if (withMac) files.push({ local: dmgs.arm, name: 'Alternate-Total-Commander-macOS-AppleSilicon.dmg' }, { local: dmgs.intel, name: 'Alternate-Total-Commander-macOS-Intel.dmg' });
   const info = {};
   for (const f of files) {
@@ -152,7 +148,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // latest.json goes last: only now the program starts to offer the new version
     const lj = {
       version, notes,
-      win: { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Setup.exe`, sha256: info['Alternate-Total-Commander-Setup.exe'].sha, size: info['Alternate-Total-Commander-Setup.exe'].size },
       winPortable: { url: `${URL_BASE}/downloads/Alternate-Total-Commander-Portable.exe`, sha256: info['Alternate-Total-Commander-Portable.exe'].sha, size: info['Alternate-Total-Commander-Portable.exe'].size },
     };
     const tmp = path.join(os.tmpdir(), 'commander-latest.json');
@@ -161,9 +156,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ssh(`cd ${SITE} && mv -f latest.json.part latest.json`);
     fs.rmSync(tmp, { force: true });
     // check from outside
-    const j = await fetch(`${URL_BASE}/latest.json`).then((r) => r.json()).catch(() => null);
-    if (!j || j.version !== version) die('latest.json on the site does not show the new version: check the server.');
-    for (const n of ['Alternate-Total-Commander-Setup.exe', 'Alternate-Total-Commander-Portable.exe']) {
+    // (the router / proxy in front of the server may serve the old file for a few seconds: try again, with a changing address)
+    let j = null;
+    for (let i = 0; i < 8; i++) {
+      j = await fetch(`${URL_BASE}/latest.json?t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } }).then((r) => r.json()).catch(() => null);
+      if (j && j.version === version) break;
+      log('latest.json on the site still shows ' + (j ? j.version : 'nothing') + ', waiting ...');
+      await sleep(4000);
+    }
+    if (!j || j.version !== version) die('latest.json on the site does not show the new version after 30 seconds: check the server (the files are already uploaded).');
+    for (const n of ['Alternate-Total-Commander-Portable.exe']) {
       const h = await fetch(`${URL_BASE}/downloads/${n}`, { method: 'HEAD' });
       if (!h.ok) die(`${n} is not reachable on the site (HTTP ${h.status}).`);
     }

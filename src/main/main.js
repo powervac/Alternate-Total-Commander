@@ -105,7 +105,16 @@ process.on('uncaughtException', (err) => {
 
 // the portable exe (electron-builder "portable" target) keeps its data next to itself: nothing is installed or written elsewhere
 if (process.env.PORTABLE_EXECUTABLE_DIR && !process.env.COMMANDER_USER_DATA) {
-  try { app.setPath('userData', path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'Commander-data')); } catch { /* keep the default */ }
+  try {
+    const data = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'Commander-data');
+    const installed = app.getPath('userData'); // %APPDATA%\Commander of an installed copy, if there ever was one
+    // first start of the portable exe: take over the settings, passwords and keys of the installed copy (the caches stay behind)
+    if (!fs.existsSync(data) && fs.existsSync(path.join(installed, 'Local Storage'))) {
+      const skip = new Set(['Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'GrShaderCache', 'ShaderCache', 'Crashpad', 'blob_storage', 'Service Worker', 'Network']);
+      fs.cpSync(installed, data, { recursive: true, filter: (src) => !skip.has(path.basename(src)) });
+    }
+    app.setPath('userData', data);
+  } catch { /* keep the default */ }
 }
 
 app.whenReady().then(() => {
@@ -1877,10 +1886,12 @@ ipcMain.handle('update:install', async (e, { info }) => {
   try {
     if (process.platform === 'win32') {
       const portable = !!process.env.PORTABLE_EXECUTABLE_FILE;
-      const w = portable ? (info && (info.winPortable || null)) : info && info.win;
+      // an installed copy of an older version: when the site no longer has an installer, the portable exe is saved to Downloads
+      const toDownloads = !portable && !(info && info.win) && !!(info && info.winPortable);
+      const w = portable || toDownloads ? (info && (info.winPortable || null)) : info && info.win;
       const urlOk = w && (/^https:\/\//.test(w.url) || (process.env.COMMANDER_UPDATE_URL && /^http:\/\/127\.0\.0\.1[:\/]/.test(w.url))); // http only for a local test server
       if (!urlOk) return { error: portable ? 'No portable version in the update information' : 'No Windows installer in the update information' };
-      const file = portable ? process.env.PORTABLE_EXECUTABLE_FILE + '.new' : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
+      const file = portable ? process.env.PORTABLE_EXECUTABLE_FILE + '.new' : toDownloads ? path.join(app.getPath('downloads'), `Commander-Portable-${info.version || 'new'}.exe`) : path.join(os.tmpdir(), 'Commander-Update-Setup.exe');
       const r = await fetch(w.url, { headers: { 'User-Agent': 'Commander-updater' } });
       if (!r.ok) return { error: `Download failed: HTTP ${r.status}` };
       const total = +r.headers.get('content-length') || w.size || 0;
@@ -1897,6 +1908,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
       if (w.sha256 && hash.digest('hex').toLowerCase() !== String(w.sha256).toLowerCase()) { await fsp.rm(file, { force: true }); return { error: 'The downloaded installer is damaged (checksum mismatch)' }; }
       // silent install over the current one; the new version starts itself
       if (process.env.COMMANDER_UPDATE_DRYRUN) return { ok: true, dry: true, file };
+      if (toDownloads) { shell.showItemInFolder(file); return { ok: true, saved: file }; }
       if (portable) {
         // replace the running exe after it has quit, then start the new one
         const exe = process.env.PORTABLE_EXECUTABLE_FILE;

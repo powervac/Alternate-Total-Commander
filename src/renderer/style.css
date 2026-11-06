@@ -65,6 +65,7 @@ body.no-toolbar #toolbar { display: none; }
 .nas-form { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .nas-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
 .nas-row[hidden] { display: none; }
+.nas-form .n-switch { justify-self: start; border: 0; background: none; color: #0b57d0; font: inherit; text-decoration: underline; cursor: pointer; padding: 2px 0; height: auto; }
 .n-bigbtn { height: 34px; font: inherit; font-weight: 600; padding: 0 22px; border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; justify-self: start; }
 .n-dropbox { border-color: #0061fe; color: #0061fe; }
 .n-dropbox:hover { background: #eef4ff; }

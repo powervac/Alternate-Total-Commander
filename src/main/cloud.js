@@ -96,7 +96,7 @@ class Dropbox {
    * one-button sign-in: browser opens, the user approves, the answer returns to a loopback address (it must be listed once in the
    * app's "Redirect URIs" in the Dropbox App Console: http://127.0.0.1:53682). Resolves with the refresh token.
    */
-  static async signIn({ appKey, openUrl }) {
+  static async signIn({ appKey, openUrl, switchAccount }) {
     if (!appKey) throw new Error('This program has no Dropbox app key yet.');
     const { verifier, challenge } = pkce();
     const { code, redirect } = await loopbackCode({
@@ -104,7 +104,7 @@ class Dropbox {
       openUrl,
       what: 'Dropbox',
       buildUrl: (redirectUri, state) =>
-        `${DBX.auth}/oauth2/authorize?` + form({ client_id: appKey, response_type: 'code', redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: 'S256', token_access_type: 'offline', state }),
+        `${DBX.auth}/oauth2/authorize?` + form({ client_id: appKey, response_type: 'code', redirect_uri: redirectUri, code_challenge: challenge, code_challenge_method: 'S256', token_access_type: 'offline', state, ...(switchAccount ? { force_reauthentication: 'true' } : {}) }),
     });
     const d = new Dropbox();
     d.appKey = appKey;
@@ -523,7 +523,7 @@ class GDrive {
   }
 
   /** one-button sign-in: the system browser opens, the user approves, the answer returns to a loopback address. Resolves with the refresh token. */
-  static async signIn({ clientId, clientSecret, openUrl }) {
+  static async signIn({ clientId, clientSecret, openUrl, switchAccount }) {
     if (!clientId) throw new Error('This program has no Google app key yet.');
     const { verifier, challenge } = pkce();
     const { code, redirect } = await loopbackCode({
@@ -531,7 +531,7 @@ class GDrive {
       openUrl,
       what: 'Google',
       buildUrl: (redirectUri, state) =>
-        `${GGL.auth}?` + form({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive', code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: 'consent', state }),
+        `${GGL.auth}?` + form({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive', code_challenge: challenge, code_challenge_method: 'S256', access_type: 'offline', prompt: switchAccount ? 'select_account consent' : 'consent', state }),
     });
     const g = new GDrive();
     g.clientId = clientId;

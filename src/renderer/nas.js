@@ -107,6 +107,7 @@ async function openConnections(selectId, kind) {
     row('gdrive', '<label>Client ID:</label><input class="n-clientid" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client secret:</label><input class="n-secret" type="password" autocomplete="off">') +
     row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
+    row('dropbox gdrive', '<span></span><button class="n-switch n-link" type="button">Use a different account</button>') +
     row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +
     (cloud ? `<div class="nas-help"><button class="n-adv" type="button">Settings and setup help...</button><div class="n-helpbody"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div></div>` : '') +
@@ -145,6 +146,7 @@ async function openConnections(selectId, kind) {
     for (const el of [$appkey, $clientid, $secret]) hideRow(el, simple);
     hideRow($name, simple);
     hideRow($remember, simple);
+    hideRow(q('.n-switch'), !saved); // "Use a different account" only makes sense when there is a login to replace
     // simple view: a saved login -> "Connect"; nothing saved -> the big sign-in button
     q('.n-signin').closest('.nas-row').hidden = simple && saved;
     q('.n-connect').hidden = simple && !saved;
@@ -250,13 +252,13 @@ async function openConnections(selectId, kind) {
   }
 
   /** what main needs to connect: a saved login, or a fresh browser sign-in (one click) */
-  async function cloudCredentials(conn, forceSignIn) {
+  async function cloudCredentials(conn, forceSignIn, switchAccount) {
     const saved = forceSignIn ? '' : await decrypt(cur && cur.pw);
     if (kind === 'dropbox') {
       if (!conn.appKey) return needKeys();
       if (saved) return { appKey: conn.appKey, refreshToken: saved };
       setStatus('Your browser is opening: sign in to Dropbox and press Allow ...');
-      const r = await api.cloudDropboxSignIn({ appKey: conn.appKey });
+      const r = await api.cloudDropboxSignIn({ appKey: conn.appKey, switchAccount });
       if (r.error) { setStatus(r.error, true); return null; }
       return { appKey: conn.appKey, refreshToken: r.refreshToken };
     }
@@ -264,12 +266,12 @@ async function openConnections(selectId, kind) {
     const clientSecret = $secret.value || (await decrypt(cur && cur.sec)) || (await decrypt(appWide().sec)) || shipped.clientSecret || '';
     if (saved) return { clientId: conn.clientId, clientSecret, refreshToken: saved };
     setStatus('Your browser is opening: sign in to Google and press Allow ...');
-    const r = await api.cloudGoogleSignIn({ clientId: conn.clientId, clientSecret });
+    const r = await api.cloudGoogleSignIn({ clientId: conn.clientId, clientSecret, switchAccount });
     if (r.error) { setStatus(r.error, true); return null; }
     return { clientId: conn.clientId, clientSecret, refreshToken: r.refreshToken };
   }
 
-  async function connect(forceSignIn = false) {
+  async function connect(forceSignIn = false, switchAccount = false) {
     const conn = formConn();
     let res;
     let secret = '';
@@ -277,7 +279,7 @@ async function openConnections(selectId, kind) {
     setBusy(true);
     try {
       if (cloud) {
-        const creds = await cloudCredentials(conn, forceSignIn);
+        const creds = await cloudCredentials(conn, forceSignIn, switchAccount);
         if (!creds) return;
         setStatus('Connecting...');
         res = await api.cloudConnect({ id: conn.id, kind, ...creds });
@@ -305,6 +307,11 @@ async function openConnections(selectId, kind) {
     }
     if (!res) return;
     if (res.error) {
+      // a saved login that the service no longer accepts: go straight to a fresh sign-in instead of a dead end
+      if (cloud && !forceSignIn && cur && cur.pw && /sign in again|no longer valid/i.test(res.error)) {
+        setStatus('Your saved sign-in expired. Signing in again...');
+        return connect(true, switchAccount);
+      }
       setStatus(res.error, true);
       if (res.code === 403 || res.code === 406) $otp && $otp.focus();
       else if (!cloud && (res.code === 400 || res.code === 404)) $pass.select();
@@ -342,6 +349,7 @@ async function openConnections(selectId, kind) {
   if (cloud) {
     q('.n-link').onclick = () => api.openUrl(CLOUD_LINKS[kind][1]);
     q('.n-signin').onclick = () => connect(true);
+    q('.n-switch').onclick = () => connect(true, true);
     q('.n-adv').onclick = () => { showAdvanced = !showAdvanced; applyCloudUi(); };
     for (const el of [$appkey, $clientid]) el.addEventListener('input', applyCloudUi);
   }

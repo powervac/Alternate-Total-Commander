@@ -1299,11 +1299,11 @@ const openBrowser = (url) => {
 };
 
 /** Dropbox: sign in through the browser (the answer comes back to a local loopback address); returns the refresh token */
-ipcMain.handle('cloud:dropboxSignIn', nasWrap(async (_e, { appKey }) => Dropbox.signIn({ appKey, openUrl: openBrowser })));
+ipcMain.handle('cloud:dropboxSignIn', nasWrap(async (_e, { appKey, switchAccount }) => Dropbox.signIn({ appKey, openUrl: openBrowser, switchAccount })));
 
 /** Google: sign in through the browser (the answer comes back to a local loopback address); returns the refresh token */
-ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret }) => {
-  return GDrive.signIn({ clientId, clientSecret, openUrl: openBrowser });
+ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret, switchAccount }) => {
+  return GDrive.signIn({ clientId, clientSecret, openUrl: openBrowser, switchAccount });
 }));
 
 /**

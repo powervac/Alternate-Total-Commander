@@ -1,8 +1,100 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Alternate Total Commander</title>
-<style>body{font:16px/1.5 system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 16px;color:#222}a{color:#0b57d0}</style></head><body>
-<h1>Alternate Total Commander</h1>
-<p>A free two-panel file manager for Windows and macOS in the style of Total Commander. Copy, move, zip, search, compare, SSH/SFTP, Synology NAS, Dropbox and Google Drive as disks.</p>
-<p><a href="https://github.com/powervac/Alternate-Total-Commander">Source code and downloads on GitHub</a> &middot; <a href="privacy.html">Privacy policy</a></p>
-</body></html>
+<meta name="description" content="A free two-panel file manager for Windows and macOS in the style of Total Commander, with Google Drive, Dropbox, Synology NAS and SSH built in.">
+<style>
+:root{--bg:#f6f8fb;--card:#fff;--ink:#1b2430;--mute:#5b6675;--line:#e1e6ee;--accent:#2563eb;--accent2:#1d4ed8;--hero1:#eaf1ff;--hero2:#f6f8fb;--shadow:0 10px 40px rgba(20,40,80,.14)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f141b;--card:#171e28;--ink:#e8edf4;--mute:#9aa7b8;--line:#263142;--accent:#6ea2ff;--accent2:#8ab4ff;--hero1:#16233a;--hero2:#0f141b;--shadow:0 10px 40px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+nav b{font-size:18px;letter-spacing:.2px}
+nav .links a{margin-left:20px;color:var(--mute);font-size:15px}
+.hero{background:linear-gradient(180deg,var(--hero1),var(--hero2));padding:40px 0 60px;text-align:center}
+.hero h1{font-size:clamp(34px,6vw,58px);line-height:1.1;margin:10px 0 16px;letter-spacing:-1px}
+.hero h1 span{background:linear-gradient(90deg,#2563eb,#7c3aed);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{max-width:640px;margin:0 auto 28px;color:var(--mute);font-size:19px}
+.btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:44px}
+.btn{display:inline-block;padding:13px 24px;border-radius:10px;font-weight:600;font-size:16px}
+.btn.primary{background:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent2);text-decoration:none}
+.btn.ghost{border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.shot{border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--line);width:100%;max-width:940px;display:block;margin:0 auto;background:var(--card)}
+section{padding:56px 0}
+h2{font-size:30px;margin:0 0 8px;letter-spacing:-.4px}
+.sub{color:var(--mute);margin:0 0 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+.card h3{margin:0 0 6px;font-size:18px}
+.card p{margin:0;color:var(--mute);font-size:15.5px}
+.ico{font-size:26px;margin-bottom:8px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
+@media(max-width:760px){.two{grid-template-columns:1fr}nav .links a{margin-left:12px}}
+.steps{counter-reset:s;list-style:none;padding:0;margin:18px 0 0}
+.steps li{counter-increment:s;padding-left:46px;position:relative;margin-bottom:14px}
+.steps li:before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px}
+kbd{background:var(--card);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:13px ui-monospace,Consolas,monospace}
+.keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 24px;color:var(--mute);font-size:15.5px}
+footer{border-top:1px solid var(--line);padding:30px 0;color:var(--mute);font-size:14.5px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav><b>&#128193; Alternate Total Commander</b>
+<div class="links"><a href="#features">Features</a><a href="#cloud">Cloud</a><a href="privacy.html">Privacy</a><a href="https://github.com/powervac/Alternate-Total-Commander">GitHub</a></div></nav>
+</div>
+
+<header class="hero"><div class="wrap">
+<h1>The classic <span>two-panel file manager</span>,<br>rebuilt for today</h1>
+<p class="lead">Fast, keyboard-first and free. Browse archives like folders, connect Google Drive, Dropbox, Synology NAS and SSH servers as ordinary disks, on Windows and macOS.</p>
+<div class="btns">
+<a class="btn primary" href="https://github.com/powervac/Alternate-Total-Commander/releases">Download</a>
+<a class="btn ghost" href="https://github.com/powervac/Alternate-Total-Commander">View source on GitHub</a>
+</div>
+<img class="shot" src="img/main.png" alt="Two file panels showing project and document folders">
+</div></header>
+
+<section id="features"><div class="wrap">
+<h2>Everything a power user expects</h2>
+<p class="sub">If you know Total Commander, your fingers already know this.</p>
+<div class="grid">
+<div class="card"><div class="ico">&#9000;&#65039;</div><h3>Keyboard first</h3><p>F3 view, F4 edit, F5 copy, F6 move, F7 new folder, F8 delete. Tabs, hotlist, quick view and drive switching with Alt+F1 / Alt+F2.</p></div>
+<div class="card"><div class="ico">&#128230;</div><h3>Archives as folders</h3><p>Open zip, 7z, tar and cab files like directories. Edit zip files in place, even on a remote server.</p></div>
+<div class="card"><div class="ico">&#128269;</div><h3>Search, compare, sync</h3><p>Find files by name and content, compare two folders and synchronise them, rename hundreds of files at once.</p></div>
+<div class="card"><div class="ico">&#127910;</div><h3>Built-in viewer and player</h3><p>Text, hex, images, PDF, video and audio, including FLAC, MP3 and WAV. ffmpeg is included for formats browsers cannot play.</p></div>
+<div class="card"><div class="ico">&#128187;</div><h3>SSH console and SFTP</h3><p>Connect to a server, work in a real terminal and drop a file name onto the other panel to copy it.</p></div>
+<div class="card"><div class="ico">&#127823;</div><h3>Windows and macOS</h3><p>One codebase for both. Standard folders and network drives appear in the drive list.</p></div>
+</div></div></section>
+
+<section id="cloud" style="background:var(--card);border-block:1px solid var(--line)"><div class="wrap two">
+<div>
+<h2>Cloud drives with one button</h2>
+<p class="sub" style="margin-bottom:10px">No client software and no technical setup.</p>
+<ol class="steps">
+<li>Open <b>Net &rarr; Google Drive</b> or <b>Dropbox</b>.</li>
+<li>Press <b>Sign in</b>. Your browser opens.</li>
+<li>Choose your account and press <b>Allow</b>. That is all.</li>
+</ol>
+<p style="color:var(--mute);margin-top:18px">Files go directly between your computer and the service. Nothing passes through our servers, and the login is stored encrypted by your operating system. Read the <a href="privacy.html">privacy policy</a>.</p>
+</div>
+<img class="shot" src="img/cloud.png" alt="Google Drive sign-in window with a single Sign in with Google button">
+</div></section>
+
+<section><div class="wrap">
+<h2>Handy shortcuts</h2>
+<p class="sub">A few of the keys you will use every day.</p>
+<div class="keys">
+<div><kbd>Tab</kbd> switch panel</div><div><kbd>Ctrl</kbd>+<kbd>T</kbd> new tab</div>
+<div><kbd>Alt</kbd>+<kbd>F7</kbd> search</div><div><kbd>Ctrl</kbd>+<kbd>D</kbd> hotlist</div>
+<div><kbd>Ctrl</kbd>+<kbd>Q</kbd> quick view</div><div><kbd>Ctrl</kbd>+<kbd>M</kbd> multi-rename</div>
+<div><kbd>Ctrl</kbd>+<kbd>F</kbd> Synology NAS</div><div><kbd>Ctrl</kbd>+<kbd>O</kbd> SSH console / list</div>
+</div></div></section>
+
+<footer><div class="wrap">Alternate Total Commander is free and open source. &middot; <a href="https://github.com/powervac/Alternate-Total-Commander">GitHub</a> &middot; <a href="privacy.html">Privacy policy</a></div></footer>
+</body>
+</html>

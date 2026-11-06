@@ -367,7 +367,20 @@ class Panel {
   /** browse a Synology NAS (File Station) or an SSH server (SFTP). conn = {id, name, type: 'nas'|'sftp'}; rpath '/' or '/dir/sub' */
   async loadRem(conn, rpath = '/', opts = {}) {
     const res = await api.nasList({ id: conn.id, path: rpath });
-    if (res.error) { await msg(remTitle(conn.type), res.error); return false; }
+    if (res.error) {
+      if ((conn.type === 'dropbox' || conn.type === 'gdrive') && /sign in again|no longer valid/i.test(res.error)) {
+        // the saved cloud login was revoked or has too few rights: forget it and offer the one-button sign-in again
+        liveConns.delete(conn.id);
+        api.nasDisconnect({ id: conn.id });
+        const all = nasLoad();
+        const rec = all.find((c) => c.id === conn.id);
+        if (rec) { rec.pw = ''; nasSave(all); }
+        await openConnections(conn.id, conn.type);
+        return false;
+      }
+      await msg(remTitle(conn.type), res.error);
+      return false;
+    }
     const rem = { id: conn.id, name: conn.name, type: conn.type || 'nas', path: rpath };
     return this._commit(res, `${conn.name}:${rpath}`, null, { rem }, opts, rem);
   }

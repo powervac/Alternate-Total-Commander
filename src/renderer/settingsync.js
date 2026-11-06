@@ -132,6 +132,20 @@ function syncMerge(remote, force) {
       const has = remote.data && Object.prototype.hasOwnProperty.call(remote.data, k);
       const local = syncRaw(k, undefined);
       const lts = meta[k] || 0;
+      // the list of connections is merged by id (not replaced by the newer side): a computer that only added one connection must not wipe the others
+      if (k === 'nas' && has && !force && Array.isArray(remote.data.nas) && Array.isArray(local)) {
+        const byId = new Map(local.map((c) => [c.id, c]));
+        let changed = false;
+        for (const rc of remote.data.nas) {
+          const lc = byId.get(rc.id);
+          if (!lc) { byId.set(rc.id, { ...rc, pw: '', sec: '' }); changed = true; }
+          else if (rts > lts) { byId.set(rc.id, { ...rc, pw: lc.pw || '', sec: lc.sec || '' }); changed = true; }
+        }
+        if (changed) { syncWrite('nas', [...byId.values()]); applied.push(k); }
+        if ([...byId.keys()].some((id) => !remote.data.nas.some((r) => r.id === id))) pushNeeded = true;
+        meta[k] = Math.max(rts, lts);
+        continue;
+      }
       if (has && (force || rts > lts)) { syncWrite(k, syncImport(k, remote.data[k])); meta[k] = rts; applied.push(k); }
       else if (local !== undefined && (!has || lts > rts)) pushNeeded = true;
     }
@@ -199,7 +213,7 @@ async function syncNow(quiet, mode = 'sync') {
         remoteExists = true;
         remoteInfo = `the file was written by "${remote.device || '?'}" on ${remote.updated ? new Date(remote.updated).toLocaleString() : '?'} and holds ${Object.keys(remote.data || {}).length} settings (${Object.keys(remote.data || {}).join(', ') || 'none'})`;
         result = syncMerge(remote, mode === 'pull');
-        devLog('sync', `merge: applied [${result.applied.join(', ')}], this computer has newer data: ${result.pushNeeded}; the file holds [${Object.keys(remote.data || {}).join(', ')}]`);
+        devLog('sync', `merge: applied [${result.applied.join(', ')}], this computer has newer data: ${result.pushNeeded}; the file holds [${Object.keys(remote.data || {}).join(', ')}]; connections in the file: ${Array.isArray(remote.data && remote.data.nas) ? remote.data.nas.map((c) => (c.type || 'nas') + ':' + (c.name || '?')).join(', ') || 'none' : 'no nas key'}`);
         remoteEnc = !!r.encrypted;
         remoteHasSecrets = !!r.secrets;
         if (withSecrets && r.secrets) {
@@ -221,12 +235,15 @@ async function syncNow(quiet, mode = 'sync') {
     const cfg = syncCfg();
     cfg.last = Date.now();
     syncWrite('syncCfg', cfg);
-    if (result.applied.some((k) => SYNC_RELOAD.has(k))) { location.reload(); return; }
+    const reloading = result.applied.some((k) => SYNC_RELOAD.has(k)); // the page reads these keys at start: it reloads, and the message is shown after that
+    if (reloading && quiet) { location.reload(); return; }
     if (quiet) return;
+    const say = (title, text) => { if (reloading) { try { sessionStorage.setItem('syncMsg', text); } catch { /* ignore */ } } else msg(title, text); };
     const how = (cfg0.encrypt ? 'protected with a password' : 'no password') + (!withSecrets ? ', WITHOUT passwords and keys (the option is off in this window)' : pushed ? `, with ${pushed.pw} password(s) and ${pushed.keys} key file(s)` : ', with passwords and keys');
-    if (mode === 'push') msg(SYNC_T, `Saved to ${syncWhere()}: ${syncFile()} (${how}).`);
-    else if (mode === 'pull') msg(SYNC_T, `Retrieved from ${syncWhere()}: ${result.applied.length ? result.applied.join(', ') : 'nothing new'}.` + (remoteInfo ? String.fromCharCode(10) + remoteInfo + '.' : '') + note);
-    else msg(SYNC_T, (result.applied.length ? `Updated from ${syncWhere()}: ${result.applied.join(', ')}.${mustPush ? '\nYour newer settings were uploaded too.' : ''}` : mustPush ? `Your settings were uploaded to ${syncWhere()} (${syncFile()}, ${how}).` : 'Everything is up to date.') + note);
+    if (mode === 'push') say(SYNC_T, `Saved to ${syncWhere()}: ${syncFile()} (${how}).`);
+    else if (mode === 'pull') say(SYNC_T, `Retrieved from ${syncWhere()}: ${result.applied.length ? result.applied.join(', ') : 'nothing new'}.` + (remoteInfo ? String.fromCharCode(10) + remoteInfo + '.' : '') + note);
+    else say(SYNC_T, (result.applied.length ? `Updated from ${syncWhere()}: ${result.applied.join(', ')}.${mustPush ? '\nYour newer settings were uploaded too.' : ''}` : mustPush ? `Your settings were uploaded to ${syncWhere()} (${syncFile()}, ${how}).` : 'Everything is up to date.') + note);
+    if (reloading) location.reload();
   } catch (err) {
     if (!quiet) msg(SYNC_T, 'Synchronisation failed: ' + ((err && err.message) || err));
   } finally { syncBusy = 0; }
@@ -299,3 +316,6 @@ async function openSyncDialog() {
 
 // a quiet pull a few seconds after start
 setTimeout(() => { if (syncCfg().on) syncNow(true); }, 9000);
+
+// the answer of a sync that reloaded the page
+setTimeout(() => { try { const m = sessionStorage.getItem('syncMsg'); if (m) { sessionStorage.removeItem('syncMsg'); msg(SYNC_T, m); } } catch { /* ignore */ } }, 1200);

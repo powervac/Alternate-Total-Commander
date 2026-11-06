@@ -111,6 +111,7 @@ app.on('web-contents-created', (_e, contents) => {
       action: 'allow',
       overrideBrowserWindowOptions: {
         modal: true,
+        resizable: true,
         show: true,
         minimizable: false,
         maximizable: false,
@@ -129,6 +130,16 @@ app.on('web-contents-created', (_e, contents) => {
     child.on('closed', () => popupWins.delete(child));
   });
 });
+// dragging files out of a panel into Explorer / Finder / any other program
+let dragIcon = null;
+ipcMain.on('drag:start', (e, files) => {
+  try {
+    files = (Array.isArray(files) ? files : []).filter((f) => typeof f === 'string' && path.isAbsolute(f) && fs.existsSync(f)).slice(0, 5000);
+    if (!files.length) return;
+    if (!dragIcon) dragIcon = require('electron').nativeImage.createFromPath(path.join(__dirname, '..', '..', 'build', 'icon.png')).resize({ width: 32, height: 32 });
+    e.sender.startDrag({ file: files[0], files, icon: dragIcon });
+  } catch (err) { console.error('drag out', err.message); }
+});
 const popupWins = new Set();
 const fitted = new WeakSet();
 ipcMain.handle('win:fit', (e, { w, h }) => {
@@ -137,7 +148,9 @@ ipcMain.handle('win:fit', (e, { w, h }) => {
   const wa = require('electron').screen.getDisplayMatching(bw.getBounds()).workArea;
   w = Math.max(160, Math.min(Math.round(w), wa.width - 20));
   h = Math.max(80, Math.min(Math.round(h), wa.height - 40));
+  bw.setMinimumSize(0, 0);
   bw.setContentSize(w, h);
+  { const [ow, oh] = bw.getSize(), [cw, ch] = bw.getContentSize(); const mw = Math.max(100, w + ow - cw), mh = Math.max(60, h + oh - ch); bw.setMinimumSize(mw, mh); if (process.env.COMMANDER_DEBUG_FIT) console.log('[fit] min', mw, mh, 'size', bw.getSize().join('x')); } // the window can be made bigger but not smaller than its dialog (nothing gets cut off)
   if (process.env.COMMANDER_DEBUG_FIT) console.log('[fit] asked', w + 'x' + h, '-> content', bw.getContentSize().join('x'), '| scale', require('electron').screen.getDisplayMatching(bw.getBounds()).scaleFactor);
   if (!fitted.has(bw)) { // first time: in the middle of the window it belongs to
     fitted.add(bw);
@@ -169,8 +182,11 @@ function openFindWindow(ctx) {
   if (b.x !== undefined && !screen.getAllDisplays().some((d) => b.x < d.bounds.x + d.bounds.width - 60 && b.x + b.width > d.bounds.x + 60 && b.y >= d.bounds.y - 10 && b.y < d.bounds.y + d.bounds.height - 60)) { delete b.x; delete b.y; }
   findWin = new BrowserWindow({
     ...b,
-    minWidth: 640,
-    minHeight: 460,
+    width: Math.max(b.width || 0, 780),
+    height: Math.max(b.height || 0, 560),
+    resizable: true,
+    minWidth: 780, // narrower than this the rows of the form do not fit
+    minHeight: 520,
     backgroundColor: '#f0f0f0',
     title: 'Find Files',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
@@ -2149,7 +2165,12 @@ ipcMain.handle('update:install', async (e, { info }) => {
       // the fast mirror first, then the main site: the next address is tried when one does not answer, does not have the file yet or sends a damaged one
       let lastErr = 'Download failed';
       let got = false;
-      for (const u of cands) {
+      // the mirror is checked first: when it answers it is used (whatever the order in latest.json), when it does not the main site is used at once
+      const isMirror = (u) => /\/\/nem68\.duckdns\.org\//.test(u);
+      const alive = async (u) => { try { const c = new AbortController(); const tm = setTimeout(() => c.abort(), 5000); try { const r = await fetch(u, { method: 'HEAD', headers: { 'User-Agent': 'Commander-updater' }, signal: c.signal }); return r.ok; } finally { clearTimeout(tm); } } catch { return false; } };
+      const mirrorUp = cands.some(isMirror) ? await alive(cands.find(isMirror)) : false;
+      const order = [...cands.filter((u) => isMirror(u) && mirrorUp), ...cands.filter((u) => !isMirror(u)), ...cands.filter((u) => isMirror(u) && !mirrorUp)];
+      for (const u of order) {
         try {
           const ctl = new AbortController();
           const timer = setTimeout(() => ctl.abort(), 20000); // the answer must start within 20 seconds; the body may take as long as it takes
@@ -2188,7 +2209,12 @@ ipcMain.handle('update:install', async (e, { info }) => {
       return { ok: true };
     }
     if (process.platform === 'darwin') {
-      const cmd = (info && info.mac && info.mac.command) || 'curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash';
+      let cmd = (info && info.mac && info.mac.command) || 'curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash';
+      try { // the install script comes from the mirror when it is alive
+        const c = new AbortController(); const tm = setTimeout(() => c.abort(), 5000);
+        const r = await fetch('https://nem68.duckdns.org/install-mac.sh', { method: 'HEAD', signal: c.signal }); clearTimeout(tm);
+        if (r.ok) cmd = 'curl -fsSL https://nem68.duckdns.org/install-mac.sh | bash';
+      } catch { /* the main site */ }
       if (!/^curl -fsSL https:\/\/[\w.\/-]+ \| bash$/.test(cmd)) return { error: 'Unexpected update command' };
       spawn('osascript', ['-e', 'tell application "Terminal" to activate', '-e', `tell application "Terminal" to do script "${cmd.replace(/"/g, '\\"')}"`], { detached: true, stdio: 'ignore' }).unref();
       return { ok: true, terminal: true };

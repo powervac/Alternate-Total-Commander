@@ -39,9 +39,11 @@ function dlgPopup(box) {
   dlgStack.push(entry);
   // the window takes the size of the dialog (and follows it when the dialog grows or shrinks)
   let lastFit = null;
+  var userSized = false;
   const fit = () => {
+    if (userSized) return;
     try {
-      box.style.maxHeight = Math.max(200, screen.availHeight - 80) + 'px'; // taller than the screen: the middle of the dialog scrolls, the buttons stay
+      box.style.maxHeight =Math.max(200, screen.availHeight - 80) + 'px'; // taller than the screen: the middle of the dialog scrolls, the buttons stay
       const r = box.getBoundingClientRect(); // fractions of a pixel count: the window is a whole pixel larger, so that no scroll bar can appear
       const w = Math.ceil(r.width) + 1, h = Math.ceil(r.height) + 1;
       if (!r.width || !r.height) return;
@@ -53,11 +55,33 @@ function dlgPopup(box) {
   };
   let ro = null;
   try { ro = new pw.ResizeObserver(() => fit()); ro.observe(box); } catch { ro = null; }
+  // the user drags the edge of the window: the dialog follows the window (from then on the window keeps the size the user gave it)
+  const stretch = () => {
+    if (!userSized) return;
+    box.style.setProperty('width', pw.innerWidth + 'px', 'important');
+    box.style.setProperty('height', pw.innerHeight + 'px', 'important');
+    box.style.setProperty('max-width', 'none', 'important');
+    box.style.setProperty('max-height', 'none', 'important');
+    box.style.boxSizing = 'border-box';
+    box.style.overflow = 'auto';
+  };
+  try {
+    pw.addEventListener('resize', () => {
+      if (done) return;
+      if (!userSized) {
+        if (!lastFit || (Math.abs(pw.innerWidth - lastFit.w) <= 3 && Math.abs(pw.innerHeight - lastFit.h) <= 3)) return; // our own fit, not the user
+        if (pw.innerWidth < lastFit.w - 3 || pw.innerHeight < lastFit.h - 3) { /* smaller than the dialog: it scrolls */ }
+        userSized = true;
+        if (ro) ro.disconnect();
+      }
+      stretch();
+    });
+  } catch { /* ignore */ }
   // the real size is known when the style sheets and the font are there; a few more fits catch late changes
   Promise.all(loaded).then(() => { setTimeout(fit, 30); try { doc.fonts.ready.then(() => setTimeout(fit, 30)); } catch { /* old engine */ } setTimeout(fit, 250); setTimeout(fit, 700); });
   try { pw.focus(); } catch { /* ignore */ }
 
-  let done = false;
+  var done = false;
   let poll = null;
   const finish = () => {
     if (done) return;

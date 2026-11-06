@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
   arcPack: inv('arc:pack'),
   rarFind: inv('rar:find'),
   winFit: inv('win:fit'),
+  dragOut: (files) => ipcRenderer.send('drag:start', files),
   findOpen: inv('find:open'),
   findContext: inv('find:context'),
   findAction: inv('find:action'),

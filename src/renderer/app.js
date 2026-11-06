@@ -297,6 +297,16 @@ class Panel {
         if (e.ctrlKey || (isMac && e.metaKey)) this.toggleSel(i, false);
       }
     });
+    // drag out: the files go to the program under the mouse (Explorer, a browser, a mail window...); the dragged row alone when it is not selected
+    this.$list.addEventListener('dragstart', (e) => {
+      e.preventDefault();
+      const row = e.target.closest && e.target.closest('.row');
+      if (!row || this.arc || this.rem || this.list) return;
+      const it = this.view[+row.dataset.i];
+      if (!it || it.up) return;
+      const names = this.sel.has(it.name) && this.sel.size ? [...this.sel] : [it.name];
+      api.dragOut(names.map((n) => P.join(this.dir, n)));
+    });
     this.$list.addEventListener('dblclick', (e) => {
       if (e.target.closest('.row')) this.enter();
     });
@@ -653,7 +663,7 @@ class Panel {
         if (!iconCache.has(ik) && !this.arc && !this.rem) requestIcon(ik, P.join(this.dir, it.name));
       }
       rows.push(
-        `<div class="row${this.sel.has(it.name) ? ' sel' : ''}${i === this.cursor ? ' cur' : ''}" data-i="${i}">` +
+        `<div class="row${this.sel.has(it.name) ? ' sel' : ''}${i === this.cursor ? ' cur' : ''}" data-i="${i}"${it.up || this.arc || this.rem || this.list ? '' : ' draggable="true"'}>` +
         `<div class="c-name"><img class="ic" data-ik="${esc(ik)}" src="${src}"><span>${esc(it.isDir && !it.up && store.get('dirBrackets', false) ? '[' + base + ']' : base)}</span></div>` +
         `<div>${esc(ext)}</div>` +
         `<div class="r">${it.isDir ? (this.dirSizes.has(P.join(this.dir, it.name)) ? fmtNum(this.dirSizes.get(P.join(this.dir, it.name))) : '&lt;DIR&gt;') : fmtNum(it.size)}</div>` +

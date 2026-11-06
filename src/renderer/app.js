@@ -518,8 +518,10 @@ class Panel {
       attr: byName,
     }[k] || byName;
     const rev = this.sortRev ? -1 : 1;
-    const dirs = this.items.filter((i) => i.isDir).sort((a, b) => rev * cmp(a, b));
-    const files = this.items.filter((i) => !i.isDir).sort((a, b) => rev * cmp(a, b));
+    const shown = store.get('showHidden', true) === false ? this.items.filter((i) => !i.hidden) : this.items; // Configuration > Display
+    const dcmp = store.get('dirSort', 'like') === 'name' ? byName : cmp;
+    const dirs = shown.filter((i) => i.isDir).sort((a, b) => rev * dcmp(a, b));
+    const files = shown.filter((i) => !i.isDir).sort((a, b) => rev * cmp(a, b));
     const hasParent = this.arc || this.rem ? true : P.dirname(this.dir) !== this.dir;
     this.view = [...(hasParent ? [{ name: '..', isDir: true, up: true, size: -1, mtime: 0 }] : []), ...dirs, ...files];
     let idx = focusName ? this.view.findIndex((i) => i.name === focusName) : -1;
@@ -602,7 +604,7 @@ class Panel {
       }
       rows.push(
         `<div class="row${this.sel.has(it.name) ? ' sel' : ''}${i === this.cursor ? ' cur' : ''}" data-i="${i}">` +
-        `<div class="c-name"><img class="ic" data-ik="${esc(ik)}" src="${src}"><span>${esc(base)}</span></div>` +
+        `<div class="c-name"><img class="ic" data-ik="${esc(ik)}" src="${src}"><span>${esc(it.isDir && !it.up && store.get('dirBrackets', false) ? '[' + base + ']' : base)}</span></div>` +
         `<div>${esc(ext)}</div>` +
         `<div class="r">${it.isDir ? (this.dirSizes.has(P.join(this.dir, it.name)) ? fmtNum(this.dirSizes.get(P.join(this.dir, it.name))) : '&lt;DIR&gt;') : fmtNum(it.size)}</div>` +
         `<div>${it.up ? '' : fmtDate(it.mtime)}</div>` +
@@ -1329,19 +1331,22 @@ async function makeDir() {
 }
 
 async function deleteSel(permanent) {
+  const wantPermanent = !!permanent;
+  if (!permanent && store.get('useTrash', true) === false) permanent = true; // Configuration > Copy/Delete: F8 deletes for good
   const p = A();
   if (p.rem) return deleteRemote();
   if (p.arc) return deleteFromArc();
   const items = p.targets();
   if (!items.length) return;
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} selected item(s)`;
-  const r = await dialog({
+  const ask = wantPermanent || store.get('confirmDelete', true) !== false; // Shift+F8 always asks
+  const r = ask ? await dialog({
     title: 'Delete',
     text: permanent
       ? `Permanently delete ${what}?\nThis cannot be undone.`
       : `Move ${what} to the ${isMac ? 'Trash' : 'Recycle Bin'}?`,
     buttons: [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no', cancel: true }],
-  });
+  }) : { value: 'yes' };
   if (r.value !== 'yes') return;
   const res = await api.del({ sources: items.map((i) => P.join(p.dir, i.name)), permanent });
   await Promise.all(panels.map((x) => x.refresh()));
@@ -1576,7 +1581,9 @@ const MENUS = [
     { l: 'File index (fast search)...', f: () => openIndexDialog() },
     { l: 'Language...', f: () => openLanguageDialog() },
     { l: 'Settings sync (Dropbox, Google Drive, folder)...', f: () => openSyncDialog() },
-    { l: 'Options...', f: soon, dis: true },
+    { l: 'Configuration...', f: () => openConfig() },
+    { l: 'Hotkeys...', f: () => openConfig('hotkeys') },
+    { l: 'Editor...', f: () => openConfig('editor') },
   ]],
   ['Start', [{ l: 'Open Home Folder', f: () => A().load(api.home) }]],
 ];
@@ -1617,7 +1624,8 @@ function openMenu(i) {
     if (it === '-') { dd.insertAdjacentHTML('beforeend', '<div class="sep"></div>'); continue; }
     const el = document.createElement('div');
     el.className = 'it' + (it.dis ? ' dis' : '');
-    el.innerHTML = `<span>${esc(typeof it.l === 'function' ? it.l() : it.l)}</span><span class="k">${esc(it.k || '')}</span>`;
+    const hkId = typeof it.l === 'string' ? HK_MENU_IDS[it.l] : null; // a command: show the keys it has now
+    el.innerHTML = `<span>${esc(typeof it.l === 'function' ? it.l() : it.l)}</span><span class="k">${esc(hkId ? hkLabel(hkId) : it.k || '')}</span>`;
     el.onclick = (e) => {
       e.stopPropagation();
       if (it.dis) return;
@@ -1689,57 +1697,16 @@ document.addEventListener('keydown', async (e) => {
   const p = A();
   const typing = cmdEl.value !== '';
 
-  // function keys
-  if (/^F\d+$/.test(k)) {
-    e.preventDefault();
-    if (k === 'F2' && e.shiftKey) { compareDirectories(); return; }
-    if ((k === 'F1' || k === 'F2') && e.altKey) {
-      // Alt+F1 / Alt+F2: drive list of the left / right panel
-      openDrivePicker(panels[k === 'F1' ? 0 : 1]);
-      return;
-    }
-    if (k === 'F4' && mod && e.shiftKey) { p.setThumbs(!p.thumbs); return; } // Ctrl+Shift+F4: thumbnail view of the panel
-    if (k === 'F3' || k === 'F4') {
-      if (mod && k === 'F3') p.setSort('name');
-      else if (mod && k === 'F4') p.setSort('ext');
-      else if (k === 'F4' && e.altKey) api.quit();
-      else if (k === 'F3') openViewer();
-      else if (e.shiftKey) newFileEdit();
-      else openEditor();
-    } else if (k === 'F5') {
-      if (mod) p.setSort('time');
-      else if (e.altKey) packSel();
-      else copyMove('copy');
-    } else if (k === 'F6') {
-      if (mod) p.setSort('size');
-      else if (e.shiftKey) copyMove('move', { renameOnly: true });
-      else copyMove('move');
-    } else if (k === 'F7') {
-      if (e.altKey) openSearch(); else makeDir();
-    } else if (k === 'F8') deleteSel(e.shiftKey);
-    else if (k === 'F9' && e.altKey && e.shiftKey) ftTestArchives();
-    else if (k === 'F9' && e.altKey) unpackSel();
-    else if (k === 'F9' || k === 'F10') openMenu(0);
-    return;
-  }
-
-  // music player: Ctrl+Space pause/play, Ctrl+Shift+Left/Right previous/next track
-  // (macOS: Ctrl+Space belongs to the system input-source switch, so Option+Space is used there)
-  if ((isMac ? e.altKey && !e.ctrlKey && !e.metaKey : e.ctrlKey) && k === ' ') { e.preventDefault(); playerToggle(); return; }
-  if (mod && e.shiftKey && (k === 'ArrowRight' || k === 'ArrowLeft')) { e.preventDefault(); playerStep(k === 'ArrowRight' ? 1 : -1); return; }
+  // every operation is a command with keys that can be changed (hotkeys.js, Configuration > Hotkeys...)
+  if (hkDispatch(e, typing)) return;
+  if (/^F\d+$/.test(k)) { e.preventDefault(); return; } // a function key without a command: nothing happens
 
   switch (k) {
-    case 'Tab':
-      e.preventDefault();
-      if (e.ctrlKey) p.switchTab(p.ti + (e.shiftKey ? -1 : 1));
-      else if (qvIdx === null) O().focus();
-      return;
     case 'Escape': cmdEl.value = ''; return;
     case 'ArrowUp':
     case 'ArrowDown':
       e.preventDefault();
       if (e.altKey) return;
-      if (mod && k === 'ArrowUp') { openInNewTab(p); return; } // Ctrl+Up: folder under the cursor in a new tab
       if (e.shiftKey) p.toggleSel(p.cursor, false);
       p.move((k === 'ArrowUp' ? -1 : 1) * (p.thumbs ? p.thumbCols() : 1)); // in the thumbnail grid up / down jump a whole row
       return;
@@ -1757,35 +1724,8 @@ document.addEventListener('keydown', async (e) => {
       if (e.altKey && !typing) ftProperties(); // Alt+Enter: properties
       else if (typing) runCommand(); else p.enter();
       return;
-    case 'Backspace': if (!typing) { e.preventDefault(); p.goUp(); } return;
-    case 'Delete': if (!typing) { e.preventDefault(); deleteSel(e.shiftKey); } return;
-    case 'Insert': e.preventDefault(); p.toggleSel(p.cursor); return;
-    case ' ': if (!typing) { e.preventDefault(); p.spaceSelect(); } return; // select in place (+ folder size); Insert selects and goes down
   }
-  if (e.code === 'NumpadAdd') { e.preventDefault(); e.altKey ? selectSameExt() : mod ? p.selectWhere(() => true, true) : selectGroup(true); return; }
-  if (e.code === 'NumpadSubtract') { e.preventDefault(); mod ? p.selectWhere(() => true, false) : selectGroup(false); return; }
-  if (e.code === 'NumpadMultiply') {
-    e.preventDefault();
-    p.items.forEach((i) => (p.sel.has(i.name) ? p.sel.delete(i.name) : p.sel.add(i.name)));
-    p.render();
-    return;
-  }
-  if (mod) {
-    const l = keyLetter(e);
-    if (l === 'r') { e.preventDefault(); p.refresh(); }
-    else if (l === 'u') { e.preventDefault(); swapPanels(); }
-    else if (l === 'a') { e.preventDefault(); p.selectWhere(() => true, true); }
-    else if (l === 'q' && e.ctrlKey) { e.preventDefault(); qvToggle(); }
-    else if (l === 'f') { e.preventDefault(); openConnections(undefined, e.shiftKey ? 'ssh' : 'nas'); } // Ctrl+F = Synology NAS, Ctrl+Shift+F = SSH server
-    else if (l === 'o') { e.preventDefault(); sshToggleConsole(A()); }
-    else if (l === 'm') { e.preventDefault(); openMultiRename(); }
-    else if (l === 'l') { e.preventDefault(); ftCalcSpace(); }
-    else if (l === 'z' && e.ctrlKey) { e.preventDefault(); ftComment(); }
-    else if (l === 'd') { e.preventDefault(); openHotlist(); }
-    else if (l === 't') { e.preventDefault(); p.newTab(); }
-    else if (l === 'w') { e.preventDefault(); p.closeTab(); }
-    return;
-  }
+  if (mod) return; // Ctrl combinations without a command are not typed into the command line
   // printable character -> command line
   if (k.length === 1 && !e.altKey && document.activeElement !== cmdEl) cmdEl.focus();
 });
@@ -1813,7 +1753,7 @@ document.addEventListener('keydown', async (e) => {
   panels[0].focus();
   window.__commander = { panels, A, O };
   // a quiet check for a newer version a few seconds after start (not while a test script drives the window)
-  if (typeof checkForUpdates === 'function') setTimeout(() => checkForUpdates(true), 6000);
+  if (typeof checkForUpdates === 'function' && store.get('updateAuto', true) !== false) setTimeout(() => checkForUpdates(true), 6000);
 })();
 
 /** Net > Open in PuTTY: the SSH server of the active panel (or of the other panel) in a PuTTY window */

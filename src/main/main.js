@@ -1932,6 +1932,39 @@ ipcMain.handle('update:install', async (e, { info }) => {
   }
 });
 
+// ---------------------------------------------------------------- external editor (Configuration > Options)
+/** a command line of arguments -> list ("a b" stays one argument); %F is replaced by the file */
+function splitArgs(text, file) {
+  const out = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  let m;
+  let used = false;
+  while ((m = re.exec(String(text || '')))) {
+    let a = m[1] !== undefined ? m[1] : m[2];
+    if (a.includes('%F')) { used = true; a = a.split('%F').join(file); }
+    out.push(a);
+  }
+  if (!used) out.push(file);
+  return out;
+}
+ipcMain.handle('editor:open', async (_e, { exe, args, file }) => {
+  try {
+    if (!exe || !path.isAbsolute(exe)) return { error: 'The editor program must be given with its full path.' };
+    const st = await fsp.stat(exe).catch(() => null);
+    if (!st) return { error: `The program was not found: ${exe}` };
+    if (!file || !(await fsp.stat(file).catch(() => null))) return { error: 'The file was not found.' };
+    if (isMac && st.isDirectory() && /\.app$/i.test(exe)) { spawn('open', ['-a', exe, file], { detached: true, stdio: 'ignore' }).unref(); return { ok: true }; }
+    const list = splitArgs(args, file);
+    const bat = isWin && /\.(cmd|bat)$/i.test(exe);
+    const child = spawn(exe, list, { detached: true, stdio: 'ignore', shell: bat });
+    child.on('error', () => {});
+    child.unref();
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 // ---------------------------------------------------------------- PuTTY (Open with PuTTY, when it is installed)
 let puttyPath;
 function findPutty() {

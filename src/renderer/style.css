@@ -469,3 +469,37 @@ body.no-toolbar #toolbar { display: none; }
 .ar-row.missing.on { background: #f3dc2c; }
 .ar-wait { padding: 20px; color: #666; }
 .ar-status { margin-top: 6px; min-height: 18px; color: #444; }
+
+/* Hotkeys (hotkeys.js) */
+.dlg.hk { width: 760px; max-width: 94vw; }
+.hk-bar { display: flex; gap: 10px; margin-bottom: 6px; }
+.hk-filter { flex: 1; height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; }
+.hk-bar button, .hk-row button { font: inherit; border: 1px solid #adadad; background: #e8e8e8; padding: 1px 8px; }
+.hk-list { height: 400px; overflow: auto; background: #fff; border: 1px solid #b4b4b4; }
+.hk-group { background: #dcdcf4; padding: 2px 8px; font-weight: 600; position: sticky; top: 0; }
+.hk-row { display: grid; grid-template-columns: 280px 1fr; gap: 8px; align-items: center; padding: 3px 8px; border-bottom: 1px solid #eee; }
+.hk-keys { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hk-key { display: inline-flex; align-items: center; gap: 4px; background: #eef3fb; border: 1px solid #b9cde8; padding: 0 2px 0 6px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.hk-key .hk-del { border: 0; background: transparent; padding: 0 4px; color: #a33; cursor: pointer; }
+.hk-cap { color: #0a5ab0; font-style: italic; }
+.hk-mod { color: #a56a00; font-size: 12px; }
+.hk-status { min-height: 18px; margin-top: 6px; color: #444; }
+
+/* Configuration (config.js), in the manner of Total Commander */
+.dlg.cfg { width: 820px; max-width: 96vw; }
+.cfg-wrap { display: flex; gap: 8px; padding: 10px 12px 4px; height: 470px; }
+.cfg-tree { width: 190px; flex: none; background: #fff; border: 1px solid #b4b4b4; overflow: auto; padding: 2px 0; }
+.cfg-it { padding: 1px 8px; white-space: nowrap; cursor: default; }
+.cfg-it.lvl1 { padding-left: 22px; }
+.cfg-it.on { background: #0078d7; color: #fff; }
+.cfg-right { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cfg-title { background: #9bb2c7; text-align: center; padding: 3px; border: 1px solid #8aa0b5; }
+.cfg-pages { flex: 1; overflow: auto; padding: 8px 4px; }
+.cfg-fs { border: 1px solid #c5c5c5; margin: 0 0 10px; padding: 6px 10px 8px; }
+.cfg-fs legend { padding: 0 4px; }
+.cfg-fs .ft-chk { display: block; padding: 1px 0; }
+.cfg-fs .ft-line { margin: 4px 0; }
+.cfg-fs .ft-line input[type=text], .cfg-fs .ft-line input:not([type]) { flex: 1; }
+.cfg-page .hk-list { height: 300px; }
+.cfg-page .hk-row { grid-template-columns: 220px 1fr; }
+.cfg-page[hidden] { display: none; }

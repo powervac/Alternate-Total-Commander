@@ -116,6 +116,9 @@ async function openEditor() {
     file = t.file;
   } else file = P.join(panel.dir, fname);
 
+  // the program chosen in Configuration > Options; files of archives and servers stay in the built-in editor (it writes them back)
+  if (!panel.rem && !panel.arc && (await openInExternalEditor(file))) return;
+
   const r = await api.viewRead({ file, max: ED_MAX + 1 });
   if (r.error) return msg('Error', r.error);
   const askExternal = async (why) => {

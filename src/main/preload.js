@@ -24,6 +24,19 @@ contextBridge.exposeInMainWorld('api', {
   runOp: inv('op:run'),
   cancelOp: inv('op:cancel'),
   pauseOp: inv('op:pause'),
+  puttyFind: inv('putty:find'),
+  puttyOpen: inv('putty:open'),
+  indexInit: inv('index:init'),
+  indexStatus: inv('index:status'),
+  indexBuild: inv('index:build'),
+  indexStop: inv('index:stop'),
+  indexClear: inv('index:clear'),
+  indexOff: inv('index:off'),
+  onIndexState: (cb) => {
+    const h = (_e, p) => cb(p);
+    ipcRenderer.on('index:state', h);
+    return () => ipcRenderer.removeListener('index:state', h);
+  },
   zipPack: inv('zip:pack'),
   zipInspect: inv('zip:inspect'),
   zipUnpack: inv('zip:unpack'),

@@ -328,7 +328,13 @@ class Panel {
     return nav.arc ? this.loadArc(nav.arc.file, nav.arc.inner, { ...opts, remote: nav.arc.remote }) : this.load(nav.dir, opts);
   }
 
+  /** key of a location (folder, archive folder, remote folder) for the remembered scroll position */
+  static navKey(nav) { return nav.arc ? 'a:' + nav.arc.file + '|' + (nav.arc.inner || '') : nav.rem ? 'r:' + nav.rem.id + '|' + nav.rem.path : 'd:' + nav.dir; }
+
   _commit(res, dir, arc, nav, opts, rem = null) {
+    // remember where the view of the folder we are leaving stood: scroll position and the file under the cursor
+    if (!this.posMap) this.posMap = new Map();
+    if (this.view && this.view.length) { const c = this.cur(); this.posMap.set(Panel.navKey(this.snap()), { top: this.$list.scrollTop, name: c && !c.up ? c.name : undefined }); }
     const keepSel = opts.keepSel ? new Set(this.sel) : null;
     this.arc = arc;
     this.rem = rem;
@@ -345,6 +351,11 @@ class Panel {
       this.hi = this.hist.length - 1;
     }
     this.rebuild(opts.focusName);
+    // coming back to a folder (Backspace / back): the list stands where it stood, the folder we came from is at the same place on the screen
+    if (opts.focusName !== undefined && opts.restoreTop !== false) {
+      const saved = this.posMap.get(Panel.navKey(nav));
+      if (saved) { this.$list.scrollTop = saved.top; this.scrollToCursor(); }
+    }
     this.updateHeader();
     store.set(`dir${this.idx}`, this.realDir());
     if (active === this.idx) $('#cmdprompt').textContent = this.dir + '>';
@@ -759,7 +770,11 @@ class Panel {
     const n = this.hi + d;
     if (n < 0 || n >= this.hist.length) return;
     this.hi = n;
-    return this.go(this.hist[n], { push: false, focusName: P.basename(this.dir) });
+    // back / forward: the cursor returns to the file it stood on in that folder
+    if (!this.posMap) this.posMap = new Map();
+    if (this.view && this.view.length) { const c = this.cur(); this.posMap.set(Panel.navKey(this.snap()), { top: this.$list.scrollTop, name: c && !c.up ? c.name : undefined }); }
+    const saved = this.posMap.get(Panel.navKey(this.hist[n]));
+    return this.go(this.hist[n], { push: false, focusName: saved && saved.name ? saved.name : P.basename(this.dir) });
   }
 }
 
@@ -827,12 +842,20 @@ function openDrivePicker(p) {
     };
     for (const d of drives) {
       const win = api.platform === 'win32';
-      let text = win ? d.label + ':' : d.label + '  ' + d.path;
-      if (d.net) text += '   ' + d.net;
-      if (d.off) text += '   (not connected)';
-      add(d.off ? 'off' : '', text, { drive: d });
+      // like Total Commander: the letter, then the name of the volume (or the network share)
+      let name = win ? d.vol || d.net || '' : d.path;
+      if (win && d.vol && d.net) name = d.vol + '   ' + d.net;
+      if (d.off) name += (name ? '   ' : '') + '(not connected)';
+      add(d.off ? 'off' : '', '', { drive: d });
+      const el = rows[rows.length - 1].el;
+      el.innerHTML = `<span class="dl">${esc(win ? d.label : d.label)}</span><span class="dn">${esc(name)}</span>`;
     }
     const sep = () => { const s = document.createElement('div'); s.className = 'sep'; box.appendChild(s); };
+    const docs = places.find((x) => /^documents$/i.test(x.label));
+    if (docs) {
+      add('', '', { place: docs });
+      rows[rows.length - 1].el.innerHTML = '<span class="dl">*</span><span class="dn">My Documents (directory)</span>';
+    }
     if (places.length) {
       sep();
       for (const pl of places) add('place', '\u2605  ' + pl.label + '   ' + pl.path, { place: pl });
@@ -1523,6 +1546,7 @@ const MENUS = [
     { l: 'Dropbox...', f: () => openConnections(undefined, 'dropbox') },
     { l: 'Google Drive...', f: () => openConnections(undefined, 'gdrive') },
     { l: 'SSH: Console / File List', k: M + '+O', f: () => sshToggleConsole(A()) },
+    { l: 'Open in PuTTY', f: () => openInPutty() },
     { l: 'Disconnect (NAS / SSH)', f: () => nasDisconnect() },
     '-',
     { l: 'Left drive list', k: 'Alt+F1', f: () => openDrivePicker(panels[0]) },
@@ -1548,6 +1572,7 @@ const MENUS = [
     { l: () => (document.body.classList.contains('no-toolbar') ? '    Show toolbar' : '✓  Show toolbar'), f: () => toggleToolbar() },
     '-',
     { l: 'Check for Updates...', f: () => checkForUpdates(false) },
+    { l: 'File index (fast search)...', f: () => openIndexDialog() },
     { l: 'Language...', f: () => openLanguageDialog() },
     { l: 'Settings in Dropbox...', f: () => openSyncDialog() },
     { l: 'Options...', f: soon, dis: true },
@@ -1789,3 +1814,15 @@ document.addEventListener('keydown', async (e) => {
   // a quiet check for a newer version a few seconds after start (not while a test script drives the window)
   if (typeof checkForUpdates === 'function') setTimeout(() => checkForUpdates(true), 6000);
 })();
+
+/** Net > Open in PuTTY: the SSH server of the active panel (or of the other panel) in a PuTTY window */
+async function openInPutty() {
+  const exe = await api.puttyFind();
+  if (!exe) return msg('PuTTY', 'PuTTY was not found on this computer. Install it from putty.org and try again.');
+  const p = A().rem && A().rem.type === 'sftp' ? A() : panels.find((x) => x.rem && x.rem.type === 'sftp');
+  if (!p) return msg('PuTTY', 'Connect to an SSH server first (Net > SSH server...): this opens that server in PuTTY.');
+  const c = nasLoad().find((x) => x.id === p.rem.id);
+  if (!c) return msg('PuTTY', 'The connection is not saved, so its address is not known. Save it in Net > SSH server... first.');
+  const r = await api.puttyOpen({ host: String(c.url || '').replace(/^ssh:\/\//i, ''), port: c.port, user: c.user, keyPath: c.keyPath });
+  if (r && r.error) msg('PuTTY', r.error);
+}

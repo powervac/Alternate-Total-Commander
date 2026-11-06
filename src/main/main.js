@@ -294,8 +294,30 @@ function netUseMap() {
   });
 }
 
+// volume names of the disks (the "New Volume" part of the drive list), read with PowerShell and cached
+let volLabels = new Map();
+let volAt = 0;
+let volBusy = null;
+function refreshVolumes() {
+  if (volBusy) return volBusy;
+  volBusy = new Promise((resolve) => {
+    require('child_process').execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-CimInstance Win32_LogicalDisk | ForEach-Object { $_.DeviceID + "|" + $_.VolumeName }'], { timeout: 8000, windowsHide: true, encoding: 'utf8' }, (err, out) => {
+      if (!err) {
+        const m = new Map();
+        for (const line of String(out).split(/\r?\n/)) { const i = line.indexOf('|'); if (i > 0) m.set(line[0].toUpperCase(), line.slice(i + 1).trim()); }
+        volLabels = m;
+      }
+      volAt = Date.now();
+      volBusy = null;
+      resolve();
+    });
+  });
+  return volBusy;
+}
+
 ipcMain.handle('drives:list', async () => {
   if (isWin) {
+    if (Date.now() - volAt > 60000) await Promise.race([refreshVolumes(), new Promise((r) => setTimeout(r, 2500))]);
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
     const net = await netUseMap();
     // a dead network drive can make access() hang for a long time: give each drive 2 seconds
@@ -306,7 +328,7 @@ ipcMain.handle('drives:list', async () => {
         const unc = net.get(l) || '';
         const ok = await probe(root);
         if (!ok && !unc) return null; // not there at all
-        return { path: root, label: l.toLowerCase(), net: unc, off: !ok };
+        return { path: root, label: l.toLowerCase(), net: unc, off: !ok, vol: volLabels.get(l) || '' };
       })
     );
     return found.filter(Boolean);
@@ -1657,9 +1679,30 @@ ipcMain.handle('fs:renameBatch', async (_e, { dir, pairs }) => {
 
 // ---------------------------------------------------------------- search (engine in searchengine.js)
 
+// ---------------------------------------------------------------- file name index (fileindex.js + fileindex-worker.js)
+const fileindex = require('./fileindex');
+const indexSend = (ch, payload) => { for (const w of BrowserWindow.getAllWindows()) { try { w.webContents.send(ch, payload); } catch { /* window gone */ } } };
+ipcMain.handle('index:init', async (_e, cfg) => { try { return await fileindex.init(app.getPath('userData'), indexSend, cfg); } catch (err) { return { error: err.message }; } });
+ipcMain.handle('index:status', () => fileindex.getStatus());
+ipcMain.handle('index:build', (_e, cfg) => { fileindex.start(app.getPath('userData'), indexSend); fileindex.build(cfg); return fileindex.getStatus(); });
+ipcMain.handle('index:stop', () => { fileindex.stop(); return true; });
+ipcMain.handle('index:clear', () => { fileindex.clear(); return true; });
+ipcMain.handle('index:off', () => { fileindex.stopWorker(); return true; });
+app.on('before-quit', () => fileindex.stopWorker());
+
 ipcMain.handle('search:run', async (e, { id, params }) => {
   const ctx = { cancel: false };
   jobs.set(id, ctx);
+  if (params.useIndex && fileindex.canServe(params)) {
+    // names / sizes / dates from the index: no disk access
+    ctx.abort = () => fileindex.cancel(id);
+    try {
+      const r = await fileindex.search(id, params, (items) => e.sender.send('search:batch', { id, items, cur: '' }));
+      return { count: r.count, groups: 0, stats: null, cancelled: ctx.cancel || r.cancelled, ms: r.ms, fromIndex: true };
+    } finally {
+      jobs.delete(id);
+    }
+  }
   try {
     const res = await require('./searchengine').run(params, {
       cancelled: () => ctx.cancel,
@@ -1871,6 +1914,37 @@ ipcMain.handle('update:install', async (e, { info }) => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+// ---------------------------------------------------------------- PuTTY (Open with PuTTY, when it is installed)
+let puttyPath;
+function findPutty() {
+  if (puttyPath !== undefined) return puttyPath;
+  const cands = [];
+  if (isWin) {
+    for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.ProgramW6432, process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs')]) {
+      if (base) cands.push(path.join(base, 'PuTTY', 'putty.exe'));
+    }
+    for (const dir of String(process.env.PATH || '').split(path.delimiter)) if (dir) cands.push(path.join(dir, 'putty.exe'));
+  } else {
+    for (const dir of ['/usr/bin', '/usr/local/bin', '/opt/homebrew/bin', ...String(process.env.PATH || '').split(path.delimiter)]) if (dir) cands.push(path.join(dir, 'putty'));
+  }
+  puttyPath = cands.find((c) => { try { return fs.statSync(c).isFile(); } catch { return false; } }) || null;
+  return puttyPath;
+}
+ipcMain.handle('putty:find', () => findPutty());
+ipcMain.handle('putty:open', (_e, { host, port, user, keyPath }) => {
+  const exe = findPutty();
+  if (!exe) return { error: 'PuTTY was not found on this computer.' };
+  if (!host || /[\s"]/.test(String(host)) || /^-/.test(String(host))) return { error: 'Enter the host name first.' };
+  // no password on the command line (other programs could read it): PuTTY asks for it itself
+  const args = ['-ssh'];
+  if (user && !/[\s"]/.test(user)) args.push('-l', String(user));
+  if (+port && +port !== 22) args.push('-P', String(+port));
+  if (keyPath && /\.ppk$/i.test(keyPath) && fs.existsSync(keyPath)) args.push('-i', keyPath);
+  args.push(String(host));
+  spawn(exe, args, { detached: true, stdio: 'ignore' }).unref();
+  return { ok: true };
 });
 
 require('./sshkeys').register(ipcMain, app); // protected folder for SSH key files (WinSCP import, settings sync)

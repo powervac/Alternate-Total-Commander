@@ -67,6 +67,17 @@ function openSearch() {
   const $depth = q('.s-depth');
   $depth.innerHTML = '<option value="-1">all (unlimited)</option><option value="0">current dir only</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}">${n} level${n > 1 ? 's' : ''}</option>`).join('');
   q('.s-selonly').disabled = !hasSel;
+  // the file index (Configuration > File index...): names, sizes and dates answered without reading the disks
+  const idxOn = typeof indexUsable === 'function' && indexUsable();
+  if (idxOn) {
+    const row = document.createElement('label');
+    row.className = 's-chk s-idxrow';
+    row.innerHTML = '<input type="checkbox" class="s-useidx"> Use the file index (instant; names, size and date only)';
+    q('.s-grid').appendChild(document.createElement('span'));
+    q('.s-grid').appendChild(row);
+    q('.s-useidx').checked = store.get('searchUseIndex', true) !== false;
+    q('.s-useidx').onchange = () => store.set('searchUseIndex', q('.s-useidx').checked);
+  }
 
   // tri-state attribute boxes: any (indeterminate) -> yes -> no -> any
   const tri = { ro: saved.attrRo, hid: saved.attrHidden, dir: saved.attrDir };
@@ -178,6 +189,7 @@ function openSearch() {
       attrs: { ro: s.attrRo, hidden: s.attrHidden, dir: s.attrDir },
       dups: s.dupName || s.dupSize || s.dupContent ? { name: s.dupName, size: s.dupSize, content: s.dupContent } : null,
     };
+    p.useIndex = !!(box.querySelector('.s-useidx') && box.querySelector('.s-useidx').checked);
     if (s.selectedOnly) p.selected = panel.targets().map((i) => P.join(panel.dir, i.name));
     else p.roots = s.dirs.split(';').map((x) => x.trim()).filter(Boolean);
     return p;
@@ -219,7 +231,7 @@ function openSearch() {
     $start.textContent = 'Start search';
     $status.textContent = res.error
       ? 'Error: ' + res.error
-      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.length} found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(1)} s` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
+      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.length} found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(res.fromIndex ? 2 : 1)} s${res.fromIndex ? ' (from the index)' : ''}` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
     if (results.length && !res.cancelled) $list.focus();
   }
 

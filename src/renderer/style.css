@@ -65,7 +65,7 @@ body.no-toolbar #toolbar { display: none; }
 .tb-sep { width: 1px; height: 20px; background: #c4c4c4; margin: 0 5px; }
 .dlg.nas { width: 720px; max-width: 94vw; }
 .nas-wrap { display: flex; gap: 12px; }
-.nas-list { width: 190px; height: 250px; flex: none; overflow-y: auto; background: #fff; border: 1px solid #b4b4b4; }
+.nas-list { width: 250px; height: 250px; flex: none; overflow-y: auto; background: #fff; border: 1px solid #b4b4b4; }
 .nas-item { padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nas-item.on { background: #91c9f7; }
 .nas-empty { padding: 8px; color: #777; }
@@ -432,3 +432,19 @@ body.no-toolbar #toolbar { display: none; }
 .panel .top { align-items: center; }
 .panel .sshmode { height: 20px; min-width: 120px; font: inherit; font-size: 12px; border: 1px solid #adadad; background: #fff; padding: 0 2px; }
 .panel .sshmode[hidden] { display: none; }
+
+.drivemenu .it .dl { display: inline-block; width: 22px; font-weight: 600; }
+.drivemenu .it .dn { color: #222; }
+.drivemenu { min-width: 200px; }
+.dlg.ix { width: 640px; max-width: 94vw; }
+.ix-sec { margin: 8px 0 2px; font-weight: 600; }
+.dlg.ix .ft-line input, .dlg.ix .ft-line select { flex: 1; }
+.dlg.ix .ft-chk { display: block; }
+.s-idxrow input { height: auto !important; border: 0 !important; }
+.ix-bar > i.ix-run { width: 35% !important; animation: ix-slide 1.2s ease-in-out infinite alternate; position: relative; }
+@keyframes ix-slide { from { left: 0; } to { left: 65%; } }
+.ix-state { word-break: break-all; }
+
+.nas-folder { padding: 3px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; font-weight: 600; color: #333; }
+.nas-folder:hover { background: #e8f1fb; }
+.nas-tw { display: inline-block; width: 12px; color: #666; }

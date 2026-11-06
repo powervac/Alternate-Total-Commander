@@ -115,7 +115,7 @@ async function openConnections(selectId, kind) {
     '</div></div>' +
     (cloud ? `<div class="nas-help"><button class="n-adv" type="button">Settings and setup help...</button><div class="n-helpbody"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div></div>` : '') +
     '<div class="nas-status"></div></div>' +
-    '<div class="dlg-btns"><button class="n-connect primary">Connect</button><button class="n-save">Save</button><button class="n-new">New</button><button class="n-del">Delete</button><button class="n-close">Close</button></div>';
+    '<div class="dlg-btns"><button class="n-connect primary">Connect</button><button class="n-save">Save</button><button class="n-new">New</button><button class="n-del">Delete</button><button class="n-putty" hidden>Open in PuTTY</button><button class="n-close">Close</button></div>';
   for (const r of box.querySelectorAll('.nas-row')) r.hidden = !r.dataset.k.split(' ').includes(kind);
   const q = (s) => box.querySelector(s);
   const $list = q('.nas-list'), $status = q('.nas-status');
@@ -163,10 +163,44 @@ async function openConnections(selectId, kind) {
     q('.nas-wrap').style.display = simple && !cur ? 'block' : '';
   }
 
+  // folders like in WinSCP: a name "Folder / Sub / server" is shown as server inside Folder > Sub (the WinSCP import keeps its folders in the name)
+  const SEP = ' / ';
+  const closedKey = 'nasFoldersClosed';
+  const closedSet = () => new Set(store.get(closedKey, []) || []);
+  const connName = (c) => c.name || nasDefaultName(c.url || '');
   function renderList() {
-    $list.innerHTML = list.length
-      ? list.map((c, i) => `<div class="nas-item${c === cur ? ' on' : ''}" data-i="${i}">${esc(c.name || nasDefaultName(c.url || ''))}</div>`).join('')
-      : `<div class="nas-empty">No saved ${esc(KIND_TITLE[kind].split(' (')[0])} connections yet.<br>Fill in the form and press Connect or Save.</div>`;
+    if (!list.length) {
+      $list.innerHTML = `<div class="nas-empty">No saved ${esc(KIND_TITLE[kind].split(' (')[0])} connections yet.<br>Fill in the form and press Connect or Save.</div>`;
+      return;
+    }
+    const closed = closedSet();
+    const root = { kids: new Map(), items: [] };
+    list.forEach((c, i) => {
+      const parts = connName(c).split(SEP);
+      let node = root;
+      for (const f of parts.slice(0, -1)) {
+        if (!node.kids.has(f)) node.kids.set(f, { kids: new Map(), items: [] });
+        node = node.kids.get(f);
+      }
+      node.items.push({ i, label: parts[parts.length - 1] });
+    });
+    const byText = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    let html = '';
+    const walk = (node, depth, path) => {
+      for (const f of [...node.kids.keys()].sort(byText)) {
+        const key = kind + '|' + path + f;
+        const isClosed = closed.has(key);
+        html += `<div class="nas-folder" data-f="${esc(key)}" style="padding-left:${6 + depth * 14}px"><span class="nas-tw">${isClosed ? '▸' : '▾'}</span>${esc(f)}</div>`;
+        if (!isClosed) walk(node.kids.get(f), depth + 1, path + f + SEP);
+      }
+      for (const it of node.items.sort((a, b) => byText(a.label, b.label))) {
+        html += `<div class="nas-item${list[it.i] === cur ? ' on' : ''}" data-i="${it.i}" style="padding-left:${8 + depth * 14}px" title="${esc(connName(list[it.i]))}">${esc(it.label)}</div>`;
+      }
+    };
+    walk(root, 0, '');
+    $list.innerHTML = html;
+    const on = $list.querySelector('.nas-item.on');
+    if (on) on.scrollIntoView({ block: 'nearest' });
   }
   function fill() {
     const c = cur || { name: '', url: '', user: '', insecure: false, remember: cloud, pw: '' };
@@ -341,6 +375,14 @@ async function openConnections(selectId, kind) {
   }
 
   $list.addEventListener('mousedown', (e) => {
+    const fo = e.target.closest('.nas-folder');
+    if (fo) { // open / close a folder
+      const closed = closedSet();
+      if (closed.has(fo.dataset.f)) closed.delete(fo.dataset.f); else closed.add(fo.dataset.f);
+      store.set(closedKey, [...closed]);
+      renderList();
+      return;
+    }
     const it = e.target.closest('.nas-item');
     if (!it) return;
     cur = list[+it.dataset.i];
@@ -365,6 +407,14 @@ async function openConnections(selectId, kind) {
   }
   q('.n-connect').onclick = () => connect();
   q('.n-save').onclick = save;
+  // "Open in PuTTY": only for SSH connections, and only when PuTTY is installed
+  if (ssh) {
+    api.puttyFind().then((exe) => { if (exe && !closed) q('.n-putty').hidden = false; });
+    q('.n-putty').onclick = async () => {
+      const r = await api.puttyOpen({ host: $url.value.trim().replace(/^ssh:\/\//i, ''), port: $port.value.trim(), user: $user.value.trim(), keyPath: $key.value.trim() });
+      if (r && r.error) setStatus(r.error, true); else setStatus('PuTTY started.');
+    };
+  }
   q('.n-new').onclick = () => { cur = null; renderList(); fill(); setStatus(''); $name.focus(); };
   q('.n-del').onclick = async () => {
     if (!cur) return;

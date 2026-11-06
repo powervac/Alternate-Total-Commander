@@ -6,7 +6,7 @@ const V_IMG = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'i
 const V_VIDEO = Object.fromEntries('mp4 m4v mov webm mkv ogv avi wmv flv mpg mpeg 3gp ts m2ts'.split(' ').map((e) => [e, 1]));
 const V_AUDIO = Object.fromEntries('mp3 wav wave flac ogg oga m4a aac opus wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
 /** documents rendered by our own code (main/docview.js), no Office needed */
-const V_DOC = Object.fromEntries('docx docm dotx xlsx xlsm pptx pptm odt ods odp'.split(' ').map((e) => [e, 1]));
+const V_DOC = Object.fromEntries('docx docm dotx xlsx xlsm pptx pptm odt ods odp doc rtf'.split(' ').map((e) => [e, 1]));
 /** file:// URL of a local path (Windows or POSIX) */
 const vFileUrl = (p) => 'file://' + (p.startsWith('/') ? '' : '/') + encodeURI(p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F');
 const vDur = (s) => (isFinite(s) ? `${Math.floor(s / 3600) ? Math.floor(s / 3600) + ':' : ''}${String(Math.floor((s % 3600) / 60)).padStart(Math.floor(s / 3600) ? 2 : 1, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');

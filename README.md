@@ -7,7 +7,7 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 *Кратко по-русски:* двухпанельный файловый менеджер в духе Total Commander для Windows и macOS: zip как папка, Synology NAS (QuickConnect), SSH-консоль + SFTP, просмотр (текст, hex, картинки, PDF, видео, аудио), редактор, музыкальный плеер, поиск, синхронизация папок, вкладки, групповое переименование. Запуск: `npm install`, затем `npm start` (Windows: `start.bat`, macOS: `./start-mac.command`).
 
-- **Built-in document viewer** (F3 or Enter): docx, xlsx, pptx and OpenDocument (odt, ods, odp) are shown by the program itself, with headings, bold/italic, lists, tables and pictures. No Word or Office is needed and it works the same on Windows and macOS. Files > Open With Default Application still opens the system program.
+- **Built-in document viewer** (F3 or Enter): docx, xlsx, pptx, OpenDocument (odt, ods, odp) and the old Word .doc and .rtf (as plain text) are shown by the program itself, with headings, bold/italic, lists, tables and pictures. No Word or Office is needed and it works the same on Windows and macOS. Files > Open With Default Application still opens the system program.
 
 - **Find Files** (Alt+F7), like Total Commander: several masks with exclusions (`*.js;*.ts|node_modules/`), regular expressions, several folders or only the selected items, depth limit, zip names; text search with whole words / case / regex / hex / "not containing", ANSI, DOS, UTF-8 and UTF-16 encodings and text inside docx, xlsx, pptx and OpenDocument files, with the first matching line shown; filters by date, "not older / older than", size and attributes; duplicate finder (same name / size / contents); sortable results; saved searches (Load/Save tab).
 

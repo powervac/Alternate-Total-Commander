@@ -270,7 +270,37 @@ if (process.env.PORTABLE_EXECUTABLE_DIR && !process.env.COMMANDER_USER_DATA) {
   } catch { /* keep the default */ }
 }
 
+// An AppImage has no installer that would register an icon and a menu entry: the program does it itself at start (the dock and the launcher then show the real icon, not a gear)
+const DESKTOP_ID = 'alternate-total-commander';
+if (process.platform === 'linux') app.setDesktopName(DESKTOP_ID + '.desktop');
+function integrateLinux() {
+  if (process.platform !== 'linux' || !process.env.APPIMAGE) return;
+  try {
+    const home = os.homedir();
+    const iconDir = path.join(home, '.local', 'share', 'icons', 'hicolor', '256x256', 'apps');
+    fs.mkdirSync(iconDir, { recursive: true });
+    const icon = path.join(iconDir, DESKTOP_ID + '.png');
+    const src = path.join(__dirname, '..', '..', 'build', 'icon.png');
+    if (!fs.existsSync(icon) || fs.statSync(icon).size !== fs.statSync(src).size) fs.copyFileSync(src, icon);
+    const apps = path.join(home, '.local', 'share', 'applications');
+    fs.mkdirSync(apps, { recursive: true });
+    const file = path.join(apps, DESKTOP_ID + '.desktop');
+    const body = `[Desktop Entry]
+Type=Application
+Name=Alternate Total Commander
+Comment=Two-panel file manager
+Exec="${process.env.APPIMAGE}" %U
+Icon=${icon}
+Terminal=false
+Categories=Utility;FileManager;
+StartupWMClass=${app.getName()}
+`;
+    if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== body) fs.writeFileSync(file, body);
+  } catch { /* the integration is only decoration */ }
+}
+
 app.whenReady().then(() => {
+  integrateLinux();
   emulator.handleProtocol(protocol);
   // running from source on a Mac: show our icon in the Dock instead of the Electron one
   if (isMac && app.dock && !app.isPackaged) {

@@ -273,7 +273,16 @@ async function openEditor() {
         out = edEncode($ta.value, useEnc, eol).bytes;
       }
     }
-    const w = await api.writeFile({ file, data: out });
+    let w = await api.writeFile({ file, data: out });
+    if (w.readOnly) {
+      const d = await dialog({
+        title: 'Save',
+        text: `${fname} is read-only.\nSave the changes anyway? (the file stays read-only)`,
+        buttons: [{ label: 'Save anyway', value: 'yes', primary: true }, { label: 'Cancel', value: 'no', cancel: true }],
+      });
+      if (d.value !== 'yes') { $ta.focus(); return false; }
+      w = await api.writeFile({ file, data: out, overwriteReadOnly: true });
+    }
     if (w.error) { await msg('Error', w.error); $ta.focus(); return false; }
     if (panel.rem) {
       const up = await api.nasPut({ id: panel.rem.id, localFile: file, destFolder: panel.rem.path, name: fname });

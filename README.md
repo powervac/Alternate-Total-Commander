@@ -13,6 +13,8 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 - **Thumbnail view** (Ctrl+Shift+F4, Show menu or the toolbar button): the panel shows a grid of pictures - images, video frames, PDFs and documents use the thumbnails of the operating system. Arrow keys move through the grid (up / down jump a whole row). Chosen per panel and remembered.
 
+- **Files menu tools** (like Total Commander): Change Attributes (read-only, hidden, archive, system, date and time, optionally inside subfolders), Properties (Alt+Enter), Calculate Occupied Space (Ctrl+L), Edit Comment (Ctrl+Z, stored in descript.ion), Compare By Content (two files: identical / differences in a side-by-side view, F7 next difference), Test Archive(s) (zip CRC check, Alt+Shift+F9), Split File / Combine Files (name.001, name.002 ...), Encode / Decode File (MIME Base64 and UUE), Create Checksum File(s) (MD5, SHA-1, SHA-256, CRC32) and Verify Checksums. **Multi-Rename Tool** (Ctrl+M) has the Total Commander layout: mask buttons, extension mask, search and replace (1x, [E], RegEx), counter, case, Undo, result list and saved settings.
+
 ## Features
 
 - **Two panels**, tabs per panel, history, drive list with network drives and standard folders (Alt+F1 / Alt+F2), directory hotlist, quick view panel, toolbar.

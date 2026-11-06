@@ -350,3 +350,46 @@ body.no-toolbar #toolbar { display: none; }
 .th-name .n { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .th-name .e { flex: none; margin-left: 4px; }
 .i-thumbs svg { stroke: #14468f; }
+
+/* like Total Commander: only the active panel shows the cursor bar */
+.panel:not(.active) .row.cur, .panel:not(.active) .row.thumb.cur { border-color: transparent; background: transparent; }
+
+/* ---------- Multi-Rename (Total Commander layout) ---------- */
+.dlg.mr { width: 940px; max-width: 97vw; }
+.mr-top { display: grid; grid-template-columns: 1.25fr 0.8fr 1.2fr 0.75fr; gap: 8px; margin-bottom: 6px; }
+.mr-f { margin: 0; padding: 2px 8px 6px; border: 1px solid #b4b4b4; min-width: 0; }
+.mr-f legend { padding: 0 4px; }
+.mr-f > input, .mr-sr input { width: 100%; height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; user-select: text; -webkit-user-select: text; box-sizing: border-box; }
+.mr-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 5px; }
+.mr-btns button, .mr-save, .mr-pre { font: inherit; height: 22px; border: 1px solid #adadad; background: #e5e5e5; padding: 0 6px; text-align: left; }
+.mr-btns button:hover { background: #d3e4f8; border-color: #7da7d9; }
+.mr-sr { display: grid; grid-template-columns: auto 1fr; gap: 4px 6px; align-items: center; }
+.mr-chk { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+.mr-chk label { display: flex; align-items: center; gap: 3px; }
+.mr-cnt { display: flex; flex-direction: column; gap: 5px; }
+.mr-cnt input { width: 62px; height: 22px; font: inherit; border: 1px solid #7a7a7a; }
+.mr-row2 { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.mr-row2 select { font: inherit; height: 22px; }
+.mr-help { flex: 1; color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-head.mr6, .s-row.mr6 { grid-template-columns: minmax(80px, 1.1fr) 46px minmax(80px, 1.3fr) 84px 130px minmax(80px, 1fr); }
+.dlg.mr .s-list { height: 190px; }
+.s-row.mr-row.bad, .s-row.mr-row.dup, .s-row.mr-row.exists { color: #b00000; }
+.s-row.mr-row.same { color: #777; }
+.dlg.mr .s-head.mr6, .dlg.mr .s-row.mr6 { grid-template-columns: minmax(80px, 1.1fr) 46px minmax(80px, 1.3fr) 84px 130px minmax(80px, 1fr); }
+.mr-btns button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- file tools dialogs ---------- */
+.dlg.ft { min-width: 460px; }
+.ft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin: 8px 0; }
+.ft-chk { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.ft-line { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.ft-line > label:first-child { min-width: 100px; }
+.ft-line input:not([type=checkbox]) { flex: 1; height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; user-select: text; -webkit-user-select: text; }
+.ft-line select { height: 24px; font: inherit; }
+.df-head, .df-r { display: grid; grid-template-columns: 52px 1fr 1fr; }
+.df-head { background: var(--face); border-bottom: 1px solid #b8b8b8; padding: 2px 0; font-weight: 600; }
+.df-head > div { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-body { flex: 1; min-height: 0; overflow: auto; background: #fff; font: 13px/17px Consolas, "SF Mono", Menlo, monospace; user-select: text; }
+.df-l { padding: 0 6px; white-space: pre; border-left: 1px solid #e4e4e4; overflow: hidden; }
+.df-n { text-align: right; padding-right: 6px; color: #8a8a8a; background: #f4f4f4; }
+.df-r.del .df-l:nth-child(2) { background: #ffd9d9; } .df-r.add .df-l:nth-child(3) { background: #d6f5d6; }

@@ -976,22 +976,36 @@ ipcMain.handle('zip:temp', async (_e, { archive, inner, name }) => {
 ipcMain.handle('fs:mktemp', async () => fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-')));
 
 /** write a whole file (editor): to a temp file first, then moved over the original */
-ipcMain.handle('file:write', async (_e, { file, data }) => {
+ipcMain.handle('file:write', async (_e, { file, data, overwriteReadOnly }) => {
   let target = file;
   try {
     target = await fsp.realpath(file).catch(() => file); // keep symlinks intact
   } catch {}
   const tmp = target + '.cmdr-tmp';
+  let origMode = null;
   try {
+    try {
+      const st0 = await fsp.stat(target);
+      if (!(st0.mode & 0o200)) {
+        // a read-only file: ask first (the editor shows the question), then write it and keep it read-only afterwards
+        if (!overwriteReadOnly) return { error: 'The file is read-only.', readOnly: true };
+        origMode = st0.mode & 0o7777;
+        await fsp.chmod(target, origMode | 0o200);
+      }
+    } catch (e) {
+      if (e && e.code !== 'ENOENT') throw e;
+    }
     await fsp.writeFile(tmp, Buffer.from(data));
     try {
       const st = await fsp.stat(target);
-      await fsp.chmod(tmp, st.mode & 0o7777);
+      await fsp.chmod(tmp, (origMode !== null ? origMode | 0o200 : st.mode) & 0o7777);
     } catch {}
     await fsp.rename(tmp, target);
+    if (origMode !== null) await fsp.chmod(target, origMode).catch(() => {}); // read-only again
     return { ok: true };
   } catch (err) {
     await fsp.rm(tmp, { force: true }).catch(() => {});
+    if (origMode !== null) await fsp.chmod(target, origMode).catch(() => {});
     return { error: err.message };
   }
 });
@@ -1697,6 +1711,8 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
   thumbCache.set(key, url);
   return url;
 });
+
+require('./filetools').register(ipcMain, jobs); // Files menu tools: attributes, properties, checksums, split / combine, compare ...
 
 ipcMain.handle('clip:read', () => clipboard.readText());
 ipcMain.handle('clip:write', (_e, text) => { clipboard.writeText(String(text)); return true; });

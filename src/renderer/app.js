@@ -1352,14 +1352,24 @@ const MENUS = [
     { l: 'Edit', k: 'F4', f: () => openEditor() },
     { l: 'Edit New File...', k: 'Shift+F4', f: () => newFileEdit() },
     { l: 'Open With Default Application', f: () => openCurrent() },
-    { l: 'Change Attributes...', f: soon, dis: true },
+    { l: 'Change Attributes...', f: () => ftAttributes() },
     { l: 'Pack...', k: 'Alt+F5', f: () => packSel() },
-    { l: 'Unpack All Files...', k: 'Alt+F9', f: () => unpackSel() },
-    { l: 'Test Archive(s)', k: 'Alt+Shift+F9', f: soon, dis: true },
+    { l: 'Unpack Specific Files...', k: 'Alt+F9', f: () => unpackSel() },
+    { l: 'Test Archive(s)', k: 'Alt+Shift+F9', f: () => ftTestArchives() },
+    { l: 'Compare By Content...', f: () => ftCompare() },
     '-',
-    { l: 'Rename (Shift+F6)', k: 'Shift+F6', f: () => copyMove('move', { renameOnly: true }) },
-    { l: 'Calculate Occupied Space...', k: M + '+L', f: soon, dis: true },
+    { l: 'Properties...', k: 'Alt+Enter', f: () => ftProperties() },
+    { l: 'Calculate Occupied Space...', k: M + '+L', f: () => ftCalcSpace() },
     { l: 'Multi-Rename Tool...', k: M + '+M', f: () => openMultiRename() },
+    { l: 'Rename (Shift+F6)', k: 'Shift+F6', f: () => copyMove('move', { renameOnly: true }) },
+    { l: 'Edit Comment...', k: 'Ctrl+Z', f: () => ftComment() },
+    '-',
+    { l: 'Split File...', f: () => ftSplit() },
+    { l: 'Combine Files...', f: () => ftCombine() },
+    { l: 'Encode File (MIME, UUE)...', f: () => ftEncode() },
+    { l: 'Decode File (MIME, UUE)...', f: () => ftDecode() },
+    { l: 'Create Checksum File(s)...', f: () => ftChecksumCreate() },
+    { l: 'Verify Checksums...', f: () => ftChecksumVerify() },
     '-',
     { l: 'Quit', k: 'Alt+F4', f: () => api.quit() },
   ]],
@@ -1562,6 +1572,7 @@ document.addEventListener('keydown', async (e) => {
     } else if (k === 'F7') {
       if (e.altKey) openSearch(); else makeDir();
     } else if (k === 'F8') deleteSel(e.shiftKey);
+    else if (k === 'F9' && e.altKey && e.shiftKey) ftTestArchives();
     else if (k === 'F9' && e.altKey) unpackSel();
     else if (k === 'F9' || k === 'F10') openMenu(0);
     return;
@@ -1598,7 +1609,8 @@ document.addEventListener('keydown', async (e) => {
     case 'End': if (!typing) { e.preventDefault(); p.setCursor(p.view.length - 1); } return;
     case 'Enter':
       e.preventDefault();
-      if (typing) runCommand(); else p.enter();
+      if (e.altKey && !typing) ftProperties(); // Alt+Enter: properties
+      else if (typing) runCommand(); else p.enter();
       return;
     case 'Backspace': if (!typing) { e.preventDefault(); p.goUp(); } return;
     case 'Delete': if (!typing) { e.preventDefault(); deleteSel(e.shiftKey); } return;
@@ -1622,6 +1634,8 @@ document.addEventListener('keydown', async (e) => {
     else if (l === 'f') { e.preventDefault(); openConnections(undefined, e.shiftKey ? 'ssh' : 'nas'); } // Ctrl+F = Synology NAS, Ctrl+Shift+F = SSH server
     else if (l === 'o') { e.preventDefault(); sshToggleConsole(A()); }
     else if (l === 'm') { e.preventDefault(); openMultiRename(); }
+    else if (l === 'l') { e.preventDefault(); ftCalcSpace(); }
+    else if (l === 'z' && e.ctrlKey) { e.preventDefault(); ftComment(); }
     else if (l === 'd') { e.preventDefault(); openHotlist(); }
     else if (l === 't') { e.preventDefault(); p.newTab(); }
     else if (l === 'w') { e.preventDefault(); p.closeTab(); }

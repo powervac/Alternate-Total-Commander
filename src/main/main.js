@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
 const { spawn } = require('child_process');
+const sevenzip = require('./sevenzip');
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -772,6 +773,12 @@ async function zipIndex(archive) {
   const sig = st.mtimeMs + ':' + st.size;
   const c = zipCache.get(archive);
   if (c && c.sig === sig) return c.entries;
+  if (sevenzip.isSevenArchive(archive)) {
+    const list = await sevenzip.list(archive);
+    const norm = list.map((en) => ({ name: en.dir ? en.name + '/' : en.name, size: en.size, mtime: en.mtime }));
+    zipCache.set(archive, { sig, entries: norm });
+    return norm;
+  }
   const { z, entries } = await listZip(archive);
   z.close();
   const light = entries.map((en) => ({
@@ -811,10 +818,38 @@ ipcMain.handle('zip:list', async (_e, { archive, inner }) => {
   }
 });
 
+/** 7z / tar: unpack the chosen names into a temp folder, then copy them to destDir (honouring rename / overwrite) */
+async function sevenExtract(ctx, archive, inner, names, destDir, rename, overwrite) {
+  const base = inner ? inner + '/' : '';
+  const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-'));
+  try {
+    ctx.current = path.basename(archive);
+    await sevenzip.extract(archive, names.map((n) => base + n), tmp);
+    await fsp.mkdir(destDir, { recursive: true });
+    for (const n of names) {
+      if (ctx.cancel) break;
+      const target = safeTarget(destDir, rename && names.length === 1 ? rename : n);
+      const from = path.join(tmp, ...base.split('/').filter(Boolean), n);
+      if (!target || !fs.existsSync(from)) { ctx.errors.push(n + ': not found in archive'); continue; }
+      ctx.current = n;
+      if (fs.existsSync(target) && overwrite === 'skip') { ctx.skipped++; continue; }
+      await fsp.cp(from, target, { recursive: true, force: true });
+    }
+  } finally {
+    fsp.rm(tmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 /** extract selected top-level names (files or folders) of an archive folder into destDir */
 ipcMain.handle('zip:extract', async (e, { id, archive, inner, names, destDir, rename, overwrite }) => {
   const ctx = mkCtx(e, id);
   jobs.set(id, ctx);
+  if (sevenzip.isSevenArchive(archive)) {
+    try { await sevenExtract(ctx, archive, inner, names, destDir, rename, overwrite); } catch (err) { ctx.errors.push(err.message); }
+    ctx.tick(true);
+    jobs.delete(id);
+    return { errors: ctx.errors, cancelled: ctx.cancel, skipped: ctx.skipped };
+  }
   let z;
   try {
     const r = await listZip(archive);
@@ -846,6 +881,14 @@ ipcMain.handle('zip:extract', async (e, { id, archive, inner, names, destDir, re
 
 /** extract one file of an archive into a fresh temp folder, returns its path (removed on quit) */
 async function extractToTemp(archive, inner, name) {
+  if (sevenzip.isSevenArchive(archive)) {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-'));
+    const want = (inner ? inner + '/' : '') + name;
+    await sevenzip.extract(archive, [want], dir);
+    const target = path.join(dir, ...want.split('/'));
+    if (!fs.existsSync(target)) throw new Error('not found in archive');
+    return target;
+  }
   let z;
   try {
     const r = await listZip(archive);

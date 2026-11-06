@@ -527,7 +527,7 @@ class Panel {
     if (this.rem) {
       const full = remJoin(this.rem.path, it.name);
       if (it.isDir) return this.loadRem(this.rem, full);
-      if (isZip(it.name)) return openRemoteArchive(this, it); // a zip on the NAS / SSH server opens like a folder
+      if (isArc(it.name)) return openRemoteArchive(this, it); // a zip on the NAS / SSH server opens like a folder
       if (isAudioFile(it.name)) return playerStart(this, it);
       const t = await api.nasTemp({ id: this.rem.id, path: full });
       if (t.error) return msg('NAS', t.error);
@@ -545,7 +545,7 @@ class Panel {
     }
     const full = P.join(this.dir, it.name);
     if (it.isDir) return this.load(full);
-    if (isZip(it.name)) return this.loadArc(full, '');
+    if (isArc(it.name)) return this.loadArc(full, '');
     if (isAudioFile(it.name)) return playerStart(this, it); // music: our player (F3 = viewer, Alt+Enter-like: "Open With Default Application" in Files menu)
     const err = await api.open(full);
     if (err) msg('Error', err);
@@ -719,7 +719,7 @@ function openDrivePicker(p) {
 const arcPrefix = (p) => (p.arc.inner ? p.arc.inner + '/' : '');
 
 /** a zip from a NAS / SSH server is a downloaded copy: it can be browsed and extracted from, not changed */
-const remoteArcMsg = () => msg('Archive', 'This archive was downloaded from the NAS / SSH server, so it is read-only here.\nUse F5 to copy files out of it, or copy the archive to a local folder to change it.');
+const remoteArcMsg = () => msg('Archive', 'This archive is read-only here (a 7z/tar archive, or one downloaded from the NAS / SSH server).\nUse F5 to copy files out of it.');
 const remoteArchives = new Map(); // "id|path|size|mtime" -> downloaded temp file (kept until the program exits)
 
 /** Enter on a .zip in a NAS / SSH panel: download it (with progress) and show it as a folder */
@@ -753,7 +753,7 @@ const okRes = (r) => !r.errors.length && !r.cancelled;
 
 async function addToArchive(kind) {
   const src = A(), dst = O();
-  if (dst.arc.remote) return remoteArcMsg();
+  if (arcReadOnly(dst.arc)) return remoteArcMsg();
   const items = src.targets();
   if (!items.length) return;
   const label = kind === 'copy' ? 'Copy' : 'Move';
@@ -791,7 +791,7 @@ async function addToArchive(kind) {
 
 async function renameInArc() {
   const p = A();
-  if (p.arc.remote) return remoteArcMsg();
+  if (arcReadOnly(p.arc)) return remoteArcMsg();
   const it = p.cur();
   if (!it || it.up) return;
   const r = await dialog({ title: 'Rename', text: `Rename "${it.name}" to:`, input: it.name, buttons: OKCANCEL });
@@ -805,7 +805,7 @@ async function renameInArc() {
 
 async function deleteFromArc() {
   const p = A();
-  if (p.arc.remote) return remoteArcMsg();
+  if (arcReadOnly(p.arc)) return remoteArcMsg();
   const items = p.targets();
   if (!items.length) return;
   const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} selected item(s)`;
@@ -821,7 +821,7 @@ async function deleteFromArc() {
 
 async function mkdirInArc() {
   const p = A();
-  if (p.arc.remote) return remoteArcMsg();
+  if (arcReadOnly(p.arc)) return remoteArcMsg();
   const r = await dialog({ title: 'New folder', text: 'Enter new directory name:', input: '', buttons: OKCANCEL });
   const name = r.input && r.input.trim();
   if (r.value !== 'ok' || !name) return;
@@ -944,7 +944,7 @@ async function copyMove(kind, opts = {}) {
   const items = src.targets();
   if (!items.length) return;
   if (src.consoleOn) return;
-  if (kind === 'move' && src.arc && src.arc.remote) return remoteArcMsg(); // "move" would delete from the archive
+  if (kind === 'move' && src.arc && arcReadOnly(src.arc)) return remoteArcMsg(); // "move" would delete from the archive
   if (opts.renameOnly && src.rem) return renameRemote();
   if (opts.renameOnly && src.arc) return renameInArc();
   if (src.rem && dst.rem) return msg('NAS', 'Copying between two NAS panels is not supported yet.\nCopy through a local folder.');
@@ -1083,7 +1083,10 @@ async function deleteSel(permanent) {
 }
 
 const OKCANCEL = [{ label: 'OK', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }];
-const isZip = (n) => /.zip$/i.test(n);
+const isZip = (n) => /\.zip$/i.test(n);
+const isSevenArc = (n) => /\.(7z|tar|cab|tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i.test(n); // browsed read-only through 7za
+const isArc = (n) => isZip(n) || isSevenArc(n);
+const arcReadOnly = (a) => !!(a.remote || isSevenArc(a.file));
 
 /** run a main-process job with a progress dialog */
 async function withProgress(title, start) {
@@ -1304,7 +1307,7 @@ async function openInNewTab(p) {
   if (!it || it.up || p.arc || p.rem) return p.newTab();
   const full = P.join(p.dir, it.name);
   if (it.isDir) return p.newTab({ dir: full });
-  if (isZip(it.name)) return p.newTab({ arc: { file: full, inner: '' } });
+  if (isArc(it.name)) return p.newTab({ arc: { file: full, inner: '' } });
   return p.newTab();
 }
 

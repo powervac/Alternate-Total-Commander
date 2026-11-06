@@ -373,7 +373,19 @@ async function openWinscpImport(iniPath) {
   const chosen = [...box.querySelectorAll('input[type=checkbox]:checked')].map((c) => r.sessions[+c.dataset.i]);
   if (!chosen.length) return;
   const list = nasLoad();
-  for (const s of chosen) list.push({ id: nasNewId(), type: 'ssh', name: s.name, url: s.host, port: String(s.port), user: s.user, keyPath: s.keyFile, openAs: 'files', insecure: false, appKey: '', clientId: '', sec: '', remember: false, pw: '' });
+  const notes = [];
+  let keys = 0;
+  for (const s of chosen) {
+    const id = nasNewId();
+    let keyPath = s.keyFile;
+    if (s.keyFile) {
+      // the key file is copied into the program's protected key folder, so that it is not lost and can travel with the synced settings
+      const k = await api.keysStore({ path: s.keyFile, id });
+      if (k.error) notes.push(`${s.name}: key file not copied (${k.error}); the original path is kept.`);
+      else { keyPath = k.path; keys++; if (!k.supported) notes.push(`${s.name}: ${k.reason}.`); }
+    }
+    list.push({ id, type: 'ssh', name: s.name, url: s.host, port: String(s.port), user: s.user, keyPath, openAs: 'files', insecure: false, appKey: '', clientId: '', sec: '', remember: false, pw: '' });
+  }
   nasSave(list);
-  msg('Import from WinSCP', `${chosen.length} connection(s) added to Net > SSH server... (the key files are used as they are, passwords are asked at the first connection).`);
+  msg('Import from WinSCP', `${chosen.length} connection(s) added to Net > SSH server... ${keys ? `${keys} key file(s) were copied into the program's key folder (with "Settings in Dropbox" and passwords turned on they are kept in Dropbox, encrypted by your passphrase). ` : ''}Passwords are asked at the first connection.` + (notes.length ? '\n\n' + notes.join('\n') : ''));
 }

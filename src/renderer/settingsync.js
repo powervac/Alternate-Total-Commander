@@ -87,6 +87,12 @@ async function syncSecretsCollect() {
   for (const c of Array.isArray(nas) ? nas : []) { const pw = await dec(c.pw), sec = await dec(c.sec); if (pw || sec) out[c.id] = { pw, sec }; }
   const app = syncRaw('cloudApp', {}) || {};
   for (const [kind, c] of Object.entries(app)) { const sec = await dec(c && c.sec); if (sec) out['cloudApp:' + kind] = { sec }; }
+  // SSH private key files: their text goes into the same encrypted block (the sync file itself holds only the path of this computer)
+  for (const c of Array.isArray(nas) ? nas : []) {
+    if (c.type !== 'ssh' || !c.keyPath) continue;
+    const k = await api.keysRead({ path: c.keyPath });
+    if (!k.error && k.b64) out['key:' + c.id] = { name: k.name, b64: k.b64 };
+  }
   return out;
 }
 /** put the secrets of a snapshot into this computer (encrypted for it): all of them, or only where this computer has none */
@@ -100,6 +106,16 @@ async function syncSecretsApply(secrets, all) {
       if (!s) continue;
       if (all || !c.pw) { const e = await enc(s.pw); if (e && e !== c.pw) { c.pw = e; filled++; } }
       if (all || !c.sec) { const e = await enc(s.sec); if (e && e !== c.sec) { c.sec = e; filled++; } }
+    }
+    // key files: written into the program's key folder, the connection points to the local copy (the path of the other computer is useless here)
+    for (const c of nas) {
+      const kf = secrets['key:' + c.id];
+      if (!kf || c.type !== 'ssh') continue;
+      const have = c.keyPath ? await api.stat(c.keyPath) : { exists: false };
+      if (all || !have.exists) {
+        const w = await api.keysWrite({ id: c.id, name: kf.name, b64: kf.b64 });
+        if (!w.error && w.path !== c.keyPath) { c.keyPath = w.path; filled++; }
+      }
     }
     syncWrite('nas', nas);
   }
@@ -210,7 +226,7 @@ async function openSyncDialog() {
     '<div class="dlg-text">Keep connections, favourites, presets and the language in Dropbox (/Commander/settings.json), so that every computer has the same.\nPasswords and logins stay on each computer. Last sync: ' + esc(last) + '</div>' +
     `<div class="ft-line"><label>Dropbox account:</label><select class="sy-conn">${opts}</select></div>` +
     `<label class="ft-chk"><input type="checkbox" class="sy-on"${cfg.on ? ' checked' : ''}> Keep the settings in Dropbox (sync at start and after changes)</label>` +
-    `<label class="ft-chk"><input type="checkbox" class="sy-sec"${cfg.secrets ? ' checked' : ''}> Also keep passwords and logins (encrypted with a passphrase)</label>` +
+    `<label class="ft-chk"><input type="checkbox" class="sy-sec"${cfg.secrets ? ' checked' : ''}> Also keep passwords, logins and SSH key files (encrypted with a passphrase)</label>` +
     '<div class="ft-line"><label>Passphrase:</label><input type="password" class="sy-pass" autocomplete="off" placeholder="' + (syncRaw('syncPassEnc', '') ? '(saved on this computer)' : 'the same on every computer') + '"></div>' +
     '<div class="s-hint">The passwords are encrypted here before they go to Dropbox. If you forget the passphrase they cannot be recovered; use a long one.</div>', 'Sync now');
   if (!box) return;

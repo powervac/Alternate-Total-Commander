@@ -1813,6 +1813,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
   }
 });
 
+require('./sshkeys').register(ipcMain, app); // protected folder for SSH key files (WinSCP import, settings sync)
 require('./filetools').register(ipcMain, jobs); // Files menu tools: attributes, properties, checksums, split / combine, compare ...
 
 ipcMain.handle('clip:read', () => clipboard.readText());

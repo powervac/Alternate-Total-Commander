@@ -2403,3 +2403,13 @@ ipcMain.handle('clip:write', (_e, text) => { clipboard.writeText(String(text)); 
 
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('shell:reveal', (_e, p) => shell.showItemInFolder(p));
+// the context menu of Explorer for the files of a panel (Windows only; see shellmenu.js)
+ipcMain.handle('shell:menu', async (_e, { files, x, y }) => {
+  if (!isWin) return { error: 'not Windows' };
+  const list = (Array.isArray(files) ? files : []).filter((f) => typeof f === 'string' && path.isAbsolute(f) && fs.existsSync(f)).slice(0, 2000);
+  if (!list.length) return { error: 'no files' };
+  const pt = require('electron').screen.dipToScreenPoint({ x: Math.round(x), y: Math.round(y) }); // the helper works in pixels of the screen
+  return require('./shellmenu').show(list, pt.x, pt.y);
+});
+if (isWin) app.whenReady().then(() => setTimeout(() => { try { require('./shellmenu').start(); } catch { /* the first menu starts it */ } }, 4000)); // compile the helper in the background
+app.on('will-quit', () => { try { if (isWin) require('./shellmenu').stop(); } catch { /* ignore */ } });

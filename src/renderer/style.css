@@ -199,7 +199,10 @@ body.no-toolbar #toolbar { display: none; }
 .panel .tab.active { background: #fff; position: relative; top: 1px; font-weight: 600; }
 .panel .pathbar { background: var(--path-inactive); height: 20px; line-height: 20px; padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; flex: none; }
 .panel.active .pathbar { background: var(--path-active); }
-.colhead, .row { display: grid; grid-template-columns: minmax(60px, 1fr) 50px 90px 136px 52px; align-items: center; }
+.colhead, .row { display: grid; grid-template-columns: minmax(60px, 1fr) var(--cw-ext, 50px) var(--cw-size, 90px) var(--cw-time, 136px) var(--cw-attr, 52px); align-items: center; }
+.colhead > div { position: relative; }
+.colhead .rz { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 3; }
+.colhead .rz:hover, .colhead .rz.drag { background: rgba(53, 132, 228, .35); }
 .colhead { background: #fff; border-bottom: 1px solid #dcdcdc; height: 20px; flex: none; }
 .colhead > div { padding: 0 4px; height: 100%; line-height: 20px; border-right: 1px solid #e5e5e5; cursor: default; white-space: nowrap; }
 .colhead > div.sorted { background: #cfe3f7; }
@@ -560,3 +563,12 @@ body.dlg-window .dlg > .dlg-title { display: none; }
 body.dlg-window .dlg-text, body.dlg-window .s-hint { max-width: 680px; } /* long lines wrap: the dialog does not become very wide */
 
 body.dlg-window .ab-dev, .dlg.about .ab-dev { display: block; margin: 10px 0 0; font-size: 12px; color: #666; }
+
+/* context menu of a file (long right click; macOS / Linux, and Windows when the Explorer menu is not available) */
+.fmenu { position: fixed; z-index: 100000; min-width: 230px; padding: 4px 0; background: #fff; border: 1px solid #b4b4b4; border-radius: 6px; box-shadow: 0 6px 22px rgba(0,0,0,.28); font-size: 13px; user-select: none; }
+.fmenu .fm-item { display: flex; justify-content: space-between; gap: 28px; padding: 5px 16px; cursor: default; }
+.fmenu .fm-item:hover { background: #3584e4; color: #fff; }
+.fmenu .fm-item i { font-style: normal; color: #888; }
+.fmenu .fm-item:hover i { color: #dbe8fb; }
+.fmenu .fm-item.off { color: #aaa; pointer-events: none; }
+.fmenu .fm-sep { height: 1px; margin: 4px 0; background: #ddd; }

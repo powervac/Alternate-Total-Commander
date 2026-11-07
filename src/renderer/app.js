@@ -279,6 +279,29 @@ class Panel {
 
     this.$drive.onmousedown = (e) => e.preventDefault();
     this.$drive.onclick = () => openDrivePicker(this);
+    // the width of the columns: drag the left edge of a column (the name column takes what is left); a double click puts the default width back; both panels share the widths
+    for (const c of this.$head.querySelectorAll('[data-k]:not([data-k="name"])')) {
+      const h = document.createElement('b');
+      h.className = 'rz';
+      h.dataset.c = c.dataset.k === 'time' ? 'time' : c.dataset.k;
+      c.appendChild(h);
+    }
+    this.$head.addEventListener('mousedown', (e) => {
+      const h = e.target.closest('.rz');
+      if (!h) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const k = h.dataset.c;
+      const startX = e.clientX;
+      const start = h.parentElement.getBoundingClientRect().width;
+      h.classList.add('drag');
+      const move = (ev) => { setColWidth(k, start + (startX - ev.clientX)); };
+      const up = () => { h.classList.remove('drag'); document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true); };
+      document.addEventListener('mousemove', move, true);
+      document.addEventListener('mouseup', up, true);
+    });
+    this.$head.addEventListener('dblclick', (e) => { const h = e.target.closest('.rz'); if (h) { e.stopPropagation(); setColWidth(h.dataset.c, null); } });
+    this.$head.addEventListener('click', (e) => { if (e.target.closest('.rz')) e.stopImmediatePropagation(); }, true);
     this.$head.onclick = (e) => {
       const k = e.target.closest('[data-k]')?.dataset.k;
       if (k) { this.focus(); this.setSort(k, true); }
@@ -644,7 +667,7 @@ class Panel {
         const on = h.dataset.k === this.sortKey;
         h.classList.toggle('sorted', on);
         const label = { name: 'Name', ext: 'Ext', size: 'Size', time: 'Date', attr: 'Attr' }[h.dataset.k];
-        h.textContent = (on ? (this.sortRev ? '▲ ' : '▼ ') : '') + label;
+        h.firstChild.nodeValue = (on ? (this.sortRev ? '▲ ' : '▼ ') : '') + label; // (the resize handle after the text stays)
       });
       this.updateStatus();
       this.scrollToCursor();
@@ -676,7 +699,7 @@ class Panel {
       const on = h.dataset.k === this.sortKey;
       h.classList.toggle('sorted', on);
       const label = { name: 'Name', ext: 'Ext', size: 'Size', time: 'Date', attr: 'Attr' }[h.dataset.k];
-      h.textContent = (on ? (this.sortRev ? '▲ ' : '▼ ') : '') + label;
+      h.firstChild.nodeValue = (on ? (this.sortRev ? '▲ ' : '▼ ') : '') + label; // (the resize handle after the text stays)
     });
     this.updateStatus();
     this.scrollToCursor();
@@ -1955,3 +1978,21 @@ async function openInPutty() {
   const r = await api.puttyOpen({ host: String(c.url || '').replace(/^ssh:\/\//i, ''), port: c.port, user: c.user, keyPath: c.keyPath });
   if (r && r.error) msg('PuTTY', r.error);
 }
+
+// ---------------------------------------------------------------- column widths of the file lists (shared by both panels, kept in the settings)
+const COL_MIN = { ext: 28, size: 40, time: 70, attr: 30 };
+function applyColWidths() {
+  const w = store.get('colw', {}) || {};
+  for (const k of Object.keys(COL_MIN)) {
+    if (w[k]) document.documentElement.style.setProperty('--cw-' + k, w[k] + 'px');
+    else document.documentElement.style.removeProperty('--cw-' + k);
+  }
+}
+function setColWidth(k, px) {
+  const w = { ...(store.get('colw', {}) || {}) };
+  if (px === null) delete w[k];
+  else w[k] = Math.max(COL_MIN[k] || 30, Math.min(600, Math.round(px)));
+  store.set('colw', w);
+  applyColWidths();
+}
+applyColWidths();

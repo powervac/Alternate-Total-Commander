@@ -17,6 +17,9 @@
 // Everything is uploaded straight to the web root of https://altcom.cc (the only download site, a small VPS) over ssh: .part files first, a checksum
 // check on the server, then the rename; latest.json goes last.
 //
+// The same latest.json is also put on the old site (RELEASE_LEGACY_HOST [oleg@gieldowa.keenetic.link], RELEASE_LEGACY_KEY; RELEASE_NO_LEGACY=1 skips it):
+// the oldest versions of the program ask only that address; its links already point to altcom.cc, so they download the update from the new domain.
+//
 // Needs: git with push rights, the GitHub CLI `gh` (signed in), OpenSSH (ssh / scp) and the deploy key of the server.
 // Settings (environment variables, defaults in brackets): RELEASE_HOST [oleg@31.3.218.19], RELEASE_PORT [2022], RELEASE_KEY [~/.ssh/id_nem68 or
 // H:/boosty/web/.deploy/id_nem68], RELEASE_DIR on the server [/var/www/certbot-webroot/total-mirror], RELEASE_URL [https://altcom.cc].
@@ -232,6 +235,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
     scp(tmp, `${SITE}/latest.json.part`);
     ssh(`cd ${SITE} && mv -f latest.json.part latest.json`);
+    // the old address: programs of older versions ask only the old site for latest.json; it gets the same file (its links point to altcom.cc),
+    // so that they update from the new address. Best effort: a failure here is only a warning.
+    if (!process.env.RELEASE_NO_LEGACY) {
+      const LH = process.env.RELEASE_LEGACY_HOST || 'oleg@gieldowa.keenetic.link';
+      const LK = process.env.RELEASE_LEGACY_KEY || 'H:/boosty/web/.deploy/id_gieldowa';
+      if (fs.existsSync(LK)) {
+        const o = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15'];
+        const c1 = run('scp', ['-i', LK, '-P', PORT, ...o, tmp, `${LH}:total-site/latest.json.part`], { soft: true, capture: true, always: false });
+        const c2 = c1.code === 0 ? run('ssh', ['-i', LK, '-p', PORT, ...o, LH, 'cd total-site && mv -f latest.json.part latest.json'], { soft: true, capture: true, always: false }) : c1;
+        if (!DRY) log(c2.code === 0 ? 'The old address also has the new latest.json.' : 'Warning: the old address (total.gieldowa.keenetic.link) could not be updated: programs of the oldest versions will not see this release.');
+      }
+    }
     fs.rmSync(tmp, { force: true });
     // check from outside
     // (the router / proxy in front of the server may serve the old file for a few seconds: try again, with a changing address)

@@ -19,7 +19,7 @@ class Davfs {
     this.digest = null; // { realm, nonce, qop, opaque, nc }
   }
 
-  /** opts: { url, user, pass, insecure } ; url = https://host[:port]/path/to/dav/ */
+  /** opts: { url, user, pass, insecure, timeout (ms, default 60000) } ; url = https://host[:port]/path/to/dav/ */
   async connect(opts) {
     let u;
     try { u = new URL(/^https?:\/\//i.test(opts.url || '') ? opts.url : 'https://' + (opts.url || '')); } catch { throw new Error('The address is not valid. Example: https://cloud.example.com/remote.php/dav/files/me/'); }
@@ -30,6 +30,7 @@ class Davfs {
     this.user = opts.user || '';
     this.pass = opts.pass || '';
     this.insecure = !!opts.insecure;
+    this.timeoutMs = +opts.timeout > 0 ? +opts.timeout : 60000;
     this.endpoint = u.host;
     try {
       const r = await this._request('PROPFIND', '/', { headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY });
@@ -56,12 +57,13 @@ class Davfs {
     const url = absUrl ? new URL(absUrl) : this._url(rpath);
     const mod = url.protocol === 'http:' ? http : https;
     const h = { 'User-Agent': 'AlternateCommander', ...headers };
-    const auth = this._authHeader(method, url);
+    // the login goes only to the server the user typed: a redirect to another host must not receive it
+    const auth = url.origin === this.u.origin ? this._authHeader(method, url) : null;
     if (auth) h.Authorization = auth;
     if (body != null) h['Content-Length'] = Buffer.byteLength(body);
     else if (length != null) h['Content-Length'] = String(length);
     const result = await new Promise((resolve, reject) => {
-      const req = mod.request(url, { method, headers: h, rejectUnauthorized: !this.insecure, timeout: 60000 }, (res) => resolve({ status: res.statusCode, headers: res.headers, res, req }));
+      const req = mod.request(url, { method, headers: h, rejectUnauthorized: !this.insecure, timeout: this.timeoutMs }, (res) => resolve({ status: res.statusCode, headers: res.headers, res, req }));
       req.on('error', reject);
       req.on('timeout', () => req.destroy(new Error('ETIMEDOUT')));
       if (this._onReq) this._onReq(req);
@@ -90,7 +92,7 @@ class Davfs {
     const d = this.digest;
     if (d && d.scheme === 'digest') {
       d.nc = (d.nc || 0) + 1;
-      const nc = String(d.nc).padStart(8, '0');
+      const nc = d.nc.toString(16).padStart(8, '0'); // hexadecimal, as the RFC wants
       const cnonce = crypto.randomBytes(8).toString('hex');
       const uri = url.pathname + url.search;
       const ha1 = md5(`${this.user}:${d.realm}:${this.pass}`);

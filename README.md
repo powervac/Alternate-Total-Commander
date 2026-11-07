@@ -16,8 +16,8 @@ Keyboard first, archives open like folders, and Google Drive, Dropbox, Synology 
 
 | System | How |
 |---|---|
-| **Windows 10/11** | [Download the portable exe](https://altcom.cc) (no installation) or take it from the [latest release](https://github.com/powervac/Alternate-Total-Commander/releases/latest) |
-| **macOS** (Apple Silicon and Intel) | In Terminal: `curl -fsSL https://altcom.cc/install-mac.sh \| bash` |
+| **Windows 10/11** | [Download the portable exe](https://altcom.cc) (no installation) or take it from the [latest release](https://github.com/powervac/Alternate-Total-Commander/releases/latest), or with Scoop: `scoop bucket add powervac https://github.com/powervac/scoop-bucket` then `scoop install alternate-commander` |
+| **macOS** (Apple Silicon and Intel) | In Terminal: `curl -fsSL https://altcom.cc/install-mac.sh \| bash`, or with Homebrew: `brew install --cask powervac/tap/alternate-commander` |
 | **Linux** (x86_64, AppImage) | In a terminal: `curl -fsSL https://altcom.cc/install-linux.sh \| bash`, or take the AppImage from the [latest release](https://github.com/powervac/Alternate-Total-Commander/releases/latest) and make it executable |
 
 The program updates itself (Configuration > Check for Updates). The builds are not code-signed yet: on Windows choose *More info > Run anyway* if SmartScreen warns you.

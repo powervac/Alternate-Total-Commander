@@ -121,7 +121,7 @@ async function openConnections(selectId, kind) {
     row('gdrive', '<label>Client ID:</label><input class="n-clientid" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client secret:</label><input class="n-secret" type="password" autocomplete="off">') +
     row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
-    row('dropbox gdrive', `<span></span><div class="n-note">You sign in in your browser; your password stays with ${kind === 'gdrive' ? 'Google' : 'Dropbox'}.</div>`) +
+    row('dropbox gdrive', `<span></span><div class="n-note">Sign-in happens in your browser; your password stays with ${kind === 'gdrive' ? 'Google' : 'Dropbox'}.</div>`) +
     row('dropbox gdrive', '<span></span><button class="n-switch n-link" type="button">Use a different account</button>') +
     row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +

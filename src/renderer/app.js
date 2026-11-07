@@ -886,11 +886,11 @@ class Panel {
 }
 
 // kinds of remote panels (panel.rem.type) and of saved connection records (record.type)
-const REM_TITLE = { nas: 'NAS', sftp: 'SSH', dropbox: 'Dropbox', gdrive: 'Google Drive' };
+const REM_TITLE = { nas: 'NAS', sftp: 'SSH', ftp: 'FTP', webdav: 'WebDAV', dropbox: 'Dropbox', gdrive: 'Google Drive' };
 const remTitle = (t) => REM_TITLE[t] || 'NAS';
-const REM_ICON = { nas: '☁', sftp: '⌨', dropbox: '❖', gdrive: '▲' };
-const RECORD_REM = { nas: 'nas', ssh: 'sftp', dropbox: 'dropbox', gdrive: 'gdrive' }; // saved record kind -> panel type
-const REC_ICON = { nas: '☁', ssh: '⌨', dropbox: '❖', gdrive: '▲' };
+const REM_ICON = { nas: '☁', sftp: '⌨', ftp: '⇅', webdav: '◎', dropbox: '❖', gdrive: '▲' };
+const RECORD_REM = { nas: 'nas', ssh: 'sftp', ftp: 'ftp', webdav: 'webdav', dropbox: 'dropbox', gdrive: 'gdrive' }; // saved record kind -> panel type
+const REC_ICON = { nas: '☁', ssh: '⌨', ftp: '⇅', webdav: '◎', dropbox: '❖', gdrive: '▲' };
 
 /** NAS paths always use '/' */
 const remJoin = (base, name) => (base === '/' ? '' : base.replace(/\/+$/, '')) + '/' + name;
@@ -1305,7 +1305,7 @@ async function deleteRemote() {
     text:
       p.rem.type === 'dropbox' ? `Delete ${what} from Dropbox?\nIt goes to Dropbox's deleted files (kept for 30 days).`
       : p.rem.type === 'gdrive' ? `Move ${what} to the Google Drive Trash?`
-      : `Delete ${what} from the ${p.rem.type === 'sftp' ? 'server' : 'NAS'}?\nThis cannot be undone.`,
+      : `Delete ${what} from the ${['sftp', 'ftp', 'webdav'].includes(p.rem.type) ? 'server' : 'NAS'}?\nThis cannot be undone.`,
     buttons: [{ label: 'Yes', value: 'yes', primary: true }, { label: 'No', value: 'no', cancel: true }],
   });
   if (r.value !== 'yes') return;
@@ -1730,6 +1730,8 @@ const MENUS = [
   ['Net', [
     { l: 'Synology NAS...', k: M + '+F', f: () => openConnections(undefined, 'nas') },
     { l: 'SSH server...', k: M + '+Shift+F', f: () => openConnections(undefined, 'ssh') },
+    { l: 'FTP / FTPS server...', f: () => openConnections(undefined, 'ftp') },
+    { l: 'WebDAV server...', f: () => openConnections(undefined, 'webdav') },
     { l: 'Import from WinSCP...', f: () => openWinscpImport() },
     { l: 'Dropbox...', f: () => openConnections(undefined, 'dropbox') },
     { l: 'Google Drive...', f: () => openConnections(undefined, 'gdrive') },

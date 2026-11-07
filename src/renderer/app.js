@@ -915,6 +915,14 @@ function switchDrive(p, d) {
   return p.load(target);
 }
 
+/** small disk icon for the drive list (a hard disk, or a disk with a network cable for mapped shares) */
+function driveIcon(d) {
+  const net = d && d.net;
+  const body = '<rect x="1.5" y="5" width="13" height="6.5" rx="1.2" fill="#d9dde3" stroke="#6b7480"/><rect x="3" y="8.6" width="6" height="1.4" rx=".6" fill="#7a8591"/><circle cx="12" cy="9.3" r=".9" fill="' + (net ? '#2e9e44' : '#3d8bd9') + '"/>';
+  const cable = net ? '<path d="M8 11.5v2.3M4.5 13.8h7" stroke="#2e9e44" stroke-width="1.3" fill="none"/>' : '';
+  return '<svg class="di" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' + body + cable + '</svg>';
+}
+
 function openDrivePicker(p) {
   if (modalCount > 0) return;
   p.focus();
@@ -955,7 +963,7 @@ function openDrivePicker(p) {
       if (d.off) name += (name ? '   ' : '') + '(not connected)';
       add(d.off ? 'off' : '', '', { drive: d });
       const el = rows[rows.length - 1].el;
-      el.innerHTML = `<span class="dl">${esc(win ? d.label : d.label)}</span><span class="dn">${esc(name)}</span>`;
+      el.innerHTML = `${driveIcon(d)}<span class="dl">${esc(d.label)}</span><span class="dn">${esc(name)}</span>`;
     }
     const sep = () => { const s = document.createElement('div'); s.className = 'sep'; box.appendChild(s); };
     const docs = places.find((x) => /^documents$/i.test(x.label));

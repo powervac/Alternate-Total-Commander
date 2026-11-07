@@ -463,6 +463,7 @@ body.no-toolbar #toolbar { display: none; }
 
 .drivemenu .it .dl { display: inline-block; min-width: 22px; margin-right: 10px; font-weight: 600; }
 .drivemenu .it .dn { color: #222; }
+.drivemenu .it .di { vertical-align: -3px; margin-right: 8px; }
 .drivemenu { min-width: 200px; }
 .dlg.ix { width: 640px; max-width: 94vw; }
 .ix-sec { margin: 8px 0 2px; font-weight: 600; }

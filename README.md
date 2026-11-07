@@ -10,8 +10,8 @@ Keyboard first, archives open like folders, and Google Drive, Dropbox, Synology 
 
 ![Alternate Commander in action](docs/img/demo.gif)
 
-[![Watch the 40-second tour of Alternate Commander](docs/img/showcase-poster.png)](docs/img/commander-showcase.mp4)
-*A 40-second tour (1080p, no sound): click the picture to play it.*
+[![Watch the 80-second tour of Alternate Commander](docs/img/showcase-poster.png)](docs/img/commander-showcase.mp4)
+*A 80-second tour (1080p, with music: "Pulsing Buoyancy" by KSA): click the picture to play it.*
 
 > An **unofficial** project: it is **not affiliated with, endorsed by or connected to Total Commander / Ghisler Software**.
 

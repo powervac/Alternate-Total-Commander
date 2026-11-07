@@ -30,6 +30,7 @@ It was built in one long Claude Code session on Windows 11; **it has never been 
 
 `COMMANDER_SCRIPT=<js file> COMMANDER_SHOT=<png> npx electron .` runs a script inside the page (`window.__commander` gives the panels), prints the renderer console to stdout, saves a screenshot and quits. Do not pipe the output into `Select-Object -First N` (it kills Electron before the screenshot is written). `COMMANDER_KNOWN_HOSTS=<file>` points the SSH trusted-hosts store elsewhere (use it in tests; never overwrite a user's real one).
 The test runs open a visible window and share the real app's `localStorage`: clean up anything a test saved (saved connections, tabs, hotlist).
+For a clean profile add `--user-data-dir=<empty folder>` (`npx electron . --user-data-dir=...`); the env var COMMANDER_USER_DATA does not change the profile.
 The Synology and SSH code was developed against small local mock servers (a fake File Station API and an `ssh2` server); the owner then confirmed it works with a real Synology NAS (QuickConnect) and a real SSH server on Windows.
 
 ## Release (download site total.gieldowa.keenetic.link)

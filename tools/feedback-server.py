@@ -8,12 +8,18 @@ from collections import defaultdict, deque
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+try:
+    import dkim                       # python3-dkim: signs the mail (DNS: default._domainkey.altcom.cc)
+except ImportError:
+    dkim = None
 
 TO = 'powervac@gmail.com'
 FROM = 'Alternate Commander <feedback@altcom.cc>'
 BIND = ('172.18.0.1', 8099)          # the host side of the docker network of nginx
 DATA = '/var/lib/altcom-feedback'
 MX = 'gmail-smtp-in.l.google.com'
+HELO = 'vps16434.awhost.cloud'        # the reverse DNS name (PTR) of the server IP: receivers compare it with the HELO name
+DKIM_KEY = os.path.join(DATA, 'dkim.private')
 TYPES = {'feature': 'Feature request', 'bug': 'Bug report', 'other': 'Other'}
 EMAIL_RE = re.compile(r'^[^@\s]{1,64}@[^@\s]{1,190}\.[^@\s]{2,}$')
 REQ = os.path.join(DATA, 'requests.jsonl')
@@ -104,9 +110,15 @@ def send_mail(rec):
     msg.set_content('Type: %s\nTitle: %s\nFrom: %s <%s>\nTime: %s\nIP: %s\n\n%s\n' % (
         kind, rec.get('title', ''), rec.get('name') or '-', rec.get('email') or 'no e-mail given', rec.get('time'), rec.get('ip'), rec.get('message')))
     try:
-        with smtplib.SMTP(MX, 25, local_hostname='altcom.cc', timeout=40) as s:
+        raw = msg.as_bytes()
+        if dkim and os.path.exists(DKIM_KEY):
+            with open(DKIM_KEY, 'rb') as f:
+                raw = dkim.sign(raw, b'default', b'altcom.cc', f.read(), include_headers=[b'from', b'to', b'subject', b'date', b'message-id']) + raw
+        else:
+            log('mail is NOT signed (no dkim module or key)')
+        with smtplib.SMTP(MX, 25, local_hostname=HELO, timeout=40) as s:
             s.starttls(context=ssl.create_default_context())
-            s.send_message(msg)
+            s.sendmail('feedback@altcom.cc', [TO], raw)
         log('mail sent:', rec.get('time'), kind)
         return True
     except Exception as e:

@@ -37,7 +37,7 @@ function createWindow() {
     minWidth: 700,
     minHeight: 400,
     backgroundColor: '#ffffff',
-    title: 'Commander',
+    title: 'Alternate Commander',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'), // window icon (Windows/Linux); macOS uses the app bundle icon
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -287,7 +287,7 @@ function integrateLinux() {
     const file = path.join(apps, DESKTOP_ID + '.desktop');
     const body = `[Desktop Entry]
 Type=Application
-Name=Alternate Total Commander
+Name=Alternate Commander
 Comment=Two-panel file manager
 Exec="${process.env.APPIMAGE}" %U
 Icon=${icon}
@@ -1754,7 +1754,7 @@ ipcMain.handle('cloud:googleSignIn', nasWrap(async (_e, { clientId, clientSecret
  */
 // App keys of Google / Dropbox for the one-button sign-in: from oauth-defaults.json when the build has them, else from the copy cached in the
 // user's profile, else downloaded ONCE from the download site (so that a build without the keys, e.g. the Mac one, still works at once).
-const KEYS_URL = process.env.COMMANDER_KEYS_URL || 'https://total.gieldowa.keenetic.link/cfg-f43948e43a892dd3.json';
+const KEYS_URL = process.env.COMMANDER_KEYS_URL || 'https://altcom.cc/cfg-f43948e43a892dd3.json';
 const hasKeys = (j) => !!(j && ((j.google && j.google.clientId) || (j.dropbox && j.dropbox.appKey)));
 const readKeys = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
 ipcMain.handle('cloud:defaults', async () => {
@@ -2207,9 +2207,9 @@ ipcMain.handle('emu:available', () => emulator.available());
 
 // ---------------------------------------------------------------- updates
 // latest.json on the download site: { version, notes, win: { url, sha256 }, mac: { command } }. COMMANDER_UPDATE_URL overrides the address (tests).
-// The fast mirror (nem68.duckdns.org) and the main site (where releases are uploaded first) both have latest.json: the newer one wins, the files are tried
+// The download site (altcom.cc) both have latest.json: the newer one wins, the files are tried
 // in the order of the "urls" list of the entry (mirror first, then the main site).
-const UPDATE_URLS = process.env.COMMANDER_UPDATE_URL ? [process.env.COMMANDER_UPDATE_URL] : ['https://nem68.duckdns.org/latest.json', 'https://total.gieldowa.keenetic.link/latest.json'];
+const UPDATE_URLS = process.env.COMMANDER_UPDATE_URL ? [process.env.COMMANDER_UPDATE_URL] : ['https://altcom.cc/latest.json'];
 const verNum = (v) => String(v || '0').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 
@@ -2262,7 +2262,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
       let lastErr = 'Download failed';
       let got = false;
       // the mirror is checked first: when it answers it is used (whatever the order in latest.json), when it does not the main site is used at once
-      const isMirror = (u) => /\/\/nem68\.duckdns\.org\//.test(u);
+      const isMirror = (u) => /\/\/(altcom\.cc|nem68\.duckdns\.org)\//.test(u);
       const alive = async (u) => { try { const c = new AbortController(); const tm = setTimeout(() => c.abort(), 5000); try { const r = await fetch(u, { method: 'HEAD', headers: { 'User-Agent': 'Commander-updater' }, signal: c.signal }); return r.ok; } finally { clearTimeout(tm); } } catch { return false; } };
       const mirrorUp = cands.some(isMirror) ? await alive(cands.find(isMirror)) : false;
       const order = [...cands.filter((u) => isMirror(u) && mirrorUp), ...cands.filter((u) => !isMirror(u)), ...cands.filter((u) => isMirror(u) && !mirrorUp)];
@@ -2314,12 +2314,7 @@ ipcMain.handle('update:install', async (e, { info }) => {
       return { ok: true };
     }
     if (process.platform === 'darwin') {
-      let cmd = (info && info.mac && info.mac.command) || 'curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash';
-      try { // the install script comes from the mirror when it is alive
-        const c = new AbortController(); const tm = setTimeout(() => c.abort(), 5000);
-        const r = await fetch('https://nem68.duckdns.org/install-mac.sh', { method: 'HEAD', signal: c.signal }); clearTimeout(tm);
-        if (r.ok) cmd = 'curl -fsSL https://nem68.duckdns.org/install-mac.sh | bash';
-      } catch { /* the main site */ }
+      let cmd = (info && info.mac && info.mac.command) || 'curl -fsSL https://altcom.cc/install-mac.sh | bash';
       if (!/^curl -fsSL https:\/\/[\w.\/-]+ \| bash$/.test(cmd)) return { error: 'Unexpected update command' };
       spawn('osascript', ['-e', 'tell application "Terminal" to activate', '-e', `tell application "Terminal" to do script "${cmd.replace(/"/g, '\\"')}"`], { detached: true, stdio: 'ignore' }).unref();
       return { ok: true, terminal: true };

@@ -4,8 +4,7 @@
 // Uses helpers from app.js (openModal, modalCount, esc, api, store) and filetools.js (ftBytes).
 
 const ABOUT_LINKS = {
-  site: 'https://total.gieldowa.keenetic.link',
-  mirror: 'https://nem68.duckdns.org',
+  site: 'https://altcom.cc',
   git: 'https://github.com/powervac/Alternate-Total-Commander',
 };
 
@@ -19,7 +18,7 @@ async function openAbout(opts = {}) {
   box.className = 'dlg about';
   box.innerHTML =
     '<div class="dlg-title">About</div><div class="dlg-body">' +
-    '<div class="ab-name">Alternate Total Commander</div>' +
+    '<div class="ab-name">Alternate Commander</div>' +
     '<div class="ab-sub">A two-panel file manager for Windows and macOS, in the manner of Total Commander.</div>' +
     '<div class="ab-ver">Your version: <b class="ab-cur">...</b></div>' +
     '<div class="ab-status"><span class="ab-spin" hidden></span><span class="ab-state"></span></div>' +
@@ -27,7 +26,6 @@ async function openAbout(opts = {}) {
     '<div class="ab-notes" hidden></div>' +
     '<div class="ab-links">' +
     `<div><span>Website</span><a href="#" data-u="${ABOUT_LINKS.site}">${ABOUT_LINKS.site.replace('https://', '')}</a></div>` +
-    `<div><span>Fast mirror</span><a href="#" data-u="${ABOUT_LINKS.mirror}">${ABOUT_LINKS.mirror.replace('https://', '')}</a></div>` +
     `<div><span>Source code</span><a href="#" data-u="${ABOUT_LINKS.git}">github.com/powervac/Alternate-Total-Commander</a></div>` +
     '</div>' +
     '<label class="ab-dev"><input type="checkbox" class="ab-devmode"> Developer mode (a window with the detailed log opens during sync, updates and archive work)</label>' +

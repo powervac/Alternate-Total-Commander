@@ -1,13 +1,13 @@
 #!/bin/bash
 # NOTE: @MACKEY@ is replaced by the access key of the download site when the script is deployed (see tools/site-serve.py).
-# Installs Alternate Total Commander on macOS in one go:
-#   curl -fsSL https://total.gieldowa.keenetic.link/install-mac.sh | bash
+# Installs Alternate Commander on macOS in one go:
+#   curl -fsSL https://altcom.cc/install-mac.sh | bash
 # Files downloaded by curl are not "quarantined", so macOS does not say "Commander is damaged". The script picks the build for your
 # processor (Apple Silicon or Intel), copies the app into /Applications, signs it locally (needed on Apple Silicon) and starts it.
 set -e
 
-# the fast mirror first; the main site is the second address (both serve the images only to curl with this key)
-BASES="https://nem68.duckdns.org/downloads https://total.gieldowa.keenetic.link/downloads"
+# the download site (both serve the images only to curl with this key)
+BASES="https://altcom.cc/downloads"
 case "$(uname -m)" in
   arm64) FILE="Alternate-Total-Commander-macOS-AppleSilicon.dmg" ;;
   *)     FILE="Alternate-Total-Commander-macOS-Intel.dmg" ;;

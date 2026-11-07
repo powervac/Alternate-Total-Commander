@@ -1,12 +1,12 @@
 #!/bin/bash
-# Installs Alternate Total Commander on Linux (x86_64) in one go:
-#   curl -fsSL https://total.gieldowa.keenetic.link/install-linux.sh | bash
+# Installs Alternate Commander on Linux (x86_64) in one go:
+#   curl -fsSL https://altcom.cc/install-linux.sh | bash
 # The AppImage goes to ~/Applications/Commander.AppImage, an entry is added to the application menu, and the program starts.
 # The program updates itself later (Configuration > Check for Updates).
 set -e
 
-# the fast mirror first; the main site is the second address
-BASES="https://nem68.duckdns.org https://total.gieldowa.keenetic.link"
+# the download site
+BASES="https://altcom.cc"
 FILE="Alternate-Total-Commander-Linux.AppImage"
 if [ "$(uname -m)" != "x86_64" ]; then echo "Only 64-bit Intel/AMD (x86_64) is built for Linux." >&2; exit 1; fi
 
@@ -40,7 +40,7 @@ mkdir -p "$APPS"
 cat > "$APPS/alternate-total-commander.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Alternate Total Commander
+Name=Alternate Commander
 Comment=Two-panel file manager
 Exec="$DEST" %U
 Terminal=false

@@ -1,4 +1,4 @@
-# Alternate Total Commander
+# Alternate Commander
 
 An **unofficial**, open-source two-panel file manager in the style of Total Commander, for **Windows and macOS**
 (built with Electron). It is a personal project and is **not affiliated with, endorsed by or connected to Total Commander / Ghisler Software**.

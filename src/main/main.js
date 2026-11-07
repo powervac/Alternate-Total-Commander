@@ -2212,6 +2212,21 @@ ipcMain.handle('thumb:remote', async (_e, { id, path: rpath, size, key, fsize })
   return url;
 });
 
+// chip music (AY / YM): a track is rendered to a WAV in a worker thread, from a local file or from the stream URL of a remote panel
+const aymusic = require('./aymusic');
+ipcMain.handle('ay:render', async (_e, { file, url, ext }) => {
+  try {
+    let bytes;
+    if (file) bytes = await fs.promises.readFile(file);
+    else if (url && /^http:\/\/127\.0\.0\.1[:\/]/.test(url)) bytes = Buffer.from(await (await fetch(url)).arrayBuffer());
+    else return { error: 'No file.' };
+    if (bytes.length > 16 << 20) return { error: 'The file is too big for a chip music module.' };
+    const r = await aymusic.render(bytes, String(ext || '').toLowerCase());
+    return r.error ? r : { wav: r.wav, title: r.title, seconds: r.seconds, format: r.format };
+  } catch (err) { return { error: err.message }; }
+});
+ipcMain.handle('ay:exts', () => aymusic.AY_EXTS);
+app.on('before-quit', () => aymusic.shutdown());
 ipcMain.handle('winscp:list', async (_e, { iniPath }) => { try { return await require('./winscp').list(iniPath); } catch (err) { return { error: err.message }; } });
 ipcMain.handle('emu:open', async (_e, { file }) => { try { return await emulator.open(file, BrowserWindow); } catch (err) { return { error: err.message }; } });
 ipcMain.handle('emu:available', () => emulator.available());

@@ -4,7 +4,9 @@
 // ALAC, AIFF, WMA, DSD ...) are decoded by the bundled ffmpeg into a lossless FLAC stream.
 // Uses helpers from app.js (panels, A, P, esc, splitExt, api, store, vFileUrl/vDur from viewer.js).
 
-const PL_AUDIO = Object.fromEntries('mp3 wav wave flac ogg oga opus m4a aac wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
+/** ZX Spectrum / Atari ST chip music (AY, YM): rendered to a WAV by src/main/aymusic.js (same list as AY_EXTS there) */
+const PL_AY = Object.fromEntries('pt3 pt2 pt1 stc st1 st3 stp sqt asc psc psm ftc gtr ay ayc psg tsd vtx ym'.split(' ').map((e) => [e, 1]));
+const PL_AUDIO = Object.fromEntries(('mp3 wav wave flac ogg oga opus m4a aac wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc ' + Object.keys(PL_AY).join(' ')).split(' ').map((e) => [e, 1]));
 /** formats Chromium cannot decode: go to ffmpeg right away */
 const PL_FFMPEG = Object.fromEntries('wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
 const isAudioFile = (name) => !!PL_AUDIO[splitExt(name)[1].toLowerCase()];
@@ -34,6 +36,8 @@ const pl = {
   tags: null,
   dragging: false,
   failed: 0,
+  ayUrl: null, // blob URL of the rendered chip music track
+  rendering: false,
 };
 
 function plInit() {
@@ -97,7 +101,7 @@ function plTitle() {
   const name = pl.queue[pl.i] || '';
   const t = pl.tags;
   const title = t && t.title ? (t.artist ? `${t.artist} – ${t.title}` : t.title) : name;
-  return title + (pl.queue.length > 1 ? `   (${pl.i + 1}/${pl.queue.length})` : '');
+  return title + (pl.rendering ? '   (rendering...)' : '') + (pl.queue.length > 1 ? `   (${pl.i + 1}/${pl.queue.length})` : '');
 }
 
 function plUi() {
@@ -160,6 +164,7 @@ async function playTrack(i) {
   const token = ++pl.token;
   pl.i = i;
   pl.tc = null;
+  pl.rendering = false;
   pl.tags = null;
   pl.el.pause();
   plUi();
@@ -169,10 +174,29 @@ async function playTrack(i) {
   if (src.error) return plSkip(`${name}: ${src.error}`);
   pl.spec = src.spec;
   const ext = splitExt(name)[1].toLowerCase();
+  if (PL_AY[ext]) return plChip(token, src.spec, ext);
   if (PL_FFMPEG[ext] && (await api.mediaFfmpeg())) return plConverted(token, 0);
   pl.el.src = src.url;
   pl.el.play().catch(() => {});
   plTags(token); // tags in the background
+}
+
+/** chip music: the track is rendered to a WAV in a worker thread first (1-4 s), then plays and seeks like any audio file */
+async function plChip(token, spec, ext) {
+  pl.rendering = true;
+  pl.tags = null;
+  plUi();
+  const r = await api.ayRender({ file: spec.kind === 'file' ? spec.value : undefined, url: spec.kind === 'url' ? spec.value : undefined, ext });
+  if (token !== pl.token) return;
+  pl.rendering = false;
+  if (r.error) return plSkip(`${pl.queue[pl.i]}: ${r.error}`);
+  if (pl.ayUrl) URL.revokeObjectURL(pl.ayUrl);
+  pl.ayUrl = URL.createObjectURL(new Blob([r.wav], { type: 'audio/wav' }));
+  pl.tags = r.title ? { title: r.title } : null;
+  pl.failed = 0;
+  pl.el.src = pl.ayUrl;
+  pl.el.play().catch(() => {});
+  plUi();
 }
 
 /** read artist/title from the file (needs ffmpeg; silently skipped without it) */
@@ -200,6 +224,7 @@ async function plConverted(token, at) {
 async function plError() {
   const token = pl.token;
   if (!pl.queue.length || !pl.el.src) return;
+  if (pl.ayUrl && pl.el.src === pl.ayUrl) return plSkip(`${pl.queue[pl.i]}: cannot be played`); // no ffmpeg fallback for chip music
   if (!pl.tc && (await api.mediaFfmpeg())) return plConverted(token, plCurrent());
   plSkip(`${pl.queue[pl.i]}: cannot be played`);
 }
@@ -263,5 +288,7 @@ function playerStop() {
   pl.i = -1;
   pl.tc = null;
   pl.tags = null;
+  pl.rendering = false;
+  if (pl.ayUrl) { URL.revokeObjectURL(pl.ayUrl); pl.ayUrl = null; }
   plUi();
 }

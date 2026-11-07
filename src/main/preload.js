@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('api', {
   thumbRemote: inv('thumb:remote'),
   emuOpen: inv('emu:open'),
   winscpList: inv('winscp:list'),
+  ayRender: inv('ay:render'),
+  ayExts: inv('ay:exts'),
   settingsCloud: inv('settings:cloud'),
   keysStore: inv('keys:store'),
   keysRead: inv('keys:read'),

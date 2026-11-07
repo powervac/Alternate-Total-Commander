@@ -1,11 +1,56 @@
 # Alternate Commander
 
-An **unofficial**, open-source two-panel file manager in the style of Total Commander, for **Windows and macOS**
-(built with Electron). It is a personal project and is **not affiliated with, endorsed by or connected to Total Commander / Ghisler Software**.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-informational.svg)](https://altcom.cc)
+[![Latest release](https://img.shields.io/github/v/release/powervac/Alternate-Total-Commander?label=release)](https://github.com/powervac/Alternate-Total-Commander/releases/latest)
+[![Website](https://img.shields.io/badge/website-altcom.cc-2563eb.svg)](https://altcom.cc)
 
-> **Status:** developed and tested on Windows 11. macOS support is prepared (key mapping, packaging, drive list) but **has not been tested on a Mac yet** - bug reports are welcome.
+**A free, open-source two-panel file manager for Windows, macOS and Linux, in the style of Total Commander.**
+Keyboard first, archives open like folders, and Google Drive, Dropbox, Synology NAS and SSH servers work as ordinary disks.
 
-*Кратко по-русски:* двухпанельный файловый менеджер в духе Total Commander для Windows и macOS: zip как папка, Synology NAS (QuickConnect), SSH-консоль + SFTP, просмотр (текст, hex, картинки, PDF, видео, аудио), редактор, музыкальный плеер, поиск, синхронизация папок, вкладки, групповое переименование. Запуск: `npm install`, затем `npm start` (Windows: `start.bat`, macOS: `./start-mac.command`).
+![Alternate Commander in action](docs/img/demo.gif)
+
+> An **unofficial** project: it is **not affiliated with, endorsed by or connected to Total Commander / Ghisler Software**.
+
+## Download
+
+| System | How |
+|---|---|
+| **Windows 10/11** | [Download the portable exe](https://altcom.cc) (no installation) or take it from the [latest release](https://github.com/powervac/Alternate-Total-Commander/releases/latest) |
+| **macOS** (Apple Silicon and Intel) | In Terminal: `curl -fsSL https://altcom.cc/install-mac.sh \| bash` |
+| **Linux** (x86_64, AppImage) | In a terminal: `curl -fsSL https://altcom.cc/install-linux.sh \| bash`, or take the AppImage from the [latest release](https://github.com/powervac/Alternate-Total-Commander/releases/latest) and make it executable |
+
+The program updates itself (Configuration > Check for Updates). The builds are not code-signed yet: on Windows choose *More info > Run anyway* if SmartScreen warns you.
+Everything is also on the website: **https://altcom.cc**
+
+## Highlights
+
+- **Two panels and tabs**, a drive list with network drives and favourites, history, quick view, hotlist (Ctrl+D), keyboard shortcuts like Total Commander (F3 view, F4 edit, F5 copy, F6 move, F7 new folder, F8 delete).
+- **Archives as folders:** zip, 7z, tar, tar.gz, rar, gz and more open like directories; pack and unpack (zip, 7z, tar, tar.gz...); edit zip files in place.
+- **Cloud and servers as disks:** Google Drive, Dropbox, Synology NAS (also through QuickConnect), SSH/SFTP with a real terminal console.
+- **Find Files** (Alt+F7) in its own window: masks, regular expressions, text inside files and archives, "Feed to listbox".
+- **Viewer and editor:** text with encoding detection, hex, images, PDF, video, audio, Office documents; editor with find/replace.
+- **Everyday tools:** compare and synchronize folders, multi-rename, split and combine large files (with .crc like Total Commander), checksums, thumbnails, music player, queue for copy/move jobs.
+- **Settings sync** through Dropbox, Google Drive or a folder (connections, favourites, language and view settings).
+- **Eight interface languages:** English, Russian, Polish, Portuguese, Spanish, German, Belarusian, Ukrainian.
+
+## Screenshots
+
+| Two panels | Archive opened like a folder |
+|---|---|
+| ![Two panels](docs/img/two-panels.png) | ![Archive as folder](docs/img/archive-as-folder.png) |
+
+| Thumbnails | Tabs |
+|---|---|
+| ![Thumbnails](docs/img/thumbnails.png) | ![Tabs](docs/img/tabs.png) |
+
+![Google Drive sign-in with one button](docs/img/cloud.png)
+
+> **Status:** developed on Windows 11; also used on macOS (Intel) and Ubuntu. Bug reports and feature requests are welcome: [open an issue](https://github.com/powervac/Alternate-Total-Commander/issues) or use the form at [altcom.cc](https://altcom.cc/#requests).
+
+*Кратко по-русски:* двухпанельный файловый менеджер в духе Total Commander для Windows, macOS и Linux: архивы как папки (zip, 7z, tar, rar), Google Drive, Dropbox, Synology NAS (QuickConnect), SSH-консоль + SFTP, просмотр (текст, hex, картинки, PDF, видео, аудио, документы Office), редактор, музыкальный плеер, поиск, синхронизация папок, вкладки, групповое переименование. Скачать: https://altcom.cc. Запуск из исходников: `npm install`, затем `npm start` (Windows: `start.bat`, macOS: `./start-mac.command`).
+
+## More features
 
 - **Built-in document viewer** (F3 or Enter): docx, xlsx, pptx, OpenDocument (odt, ods, odp) and the old Word .doc and .rtf (as plain text) are shown by the program itself, with headings, bold/italic, lists, tables and pictures. No Word or Office is needed and it works the same on Windows and macOS. Files > Open With Default Application still opens the system program.
 
@@ -17,7 +62,7 @@ An **unofficial**, open-source two-panel file manager in the style of Total Comm
 
 - **SSH as a disk or a console**: in the SSH connection window "Open as" chooses what opens first, the file list of the server (a disk) or the console. Ctrl+O switches between them at any time.
 
-- **Updates**: the program looks for a newer version a few seconds after start and offers to install it (Configuration > Check for Updates... does it on demand). On Windows the installer is downloaded, verified by its SHA-256 and started silently; on a Mac the one-line installer runs in Terminal.
+- **Updates**: the program looks for a newer version a few seconds after start and offers to install it (Configuration > Check for Updates... does it on demand). On Windows the new portable exe and on Linux the new AppImage are downloaded, verified by their SHA-256 and replace the old file; on a Mac the one-line installer runs in Terminal.
 - **Space and Insert**: Space selects the file or folder under the cursor and stays on it (a folder also gets the total size of its contents in the Size column); Insert selects and moves one line down.
 
 - **ZX Spectrum emulator**: Enter on a .trd, .scl, .tap, .tzx, .z80, .sna, .szx, .fdi, .td0, .udi, .csw or .hob file starts it in the built-in emulator (Unreal Speccy Portable compiled to WebAssembly). Also Files > Run in ZX Spectrum Emulator.

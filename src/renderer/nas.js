@@ -11,7 +11,7 @@ function nasLoad() {
 }
 const nasSave = (list) => store.set('nas', list);
 const nasNewId = () => 'nas-' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
-/** record kind: 'nas' | 'ssh' | 'dropbox' | 'gdrive' (records saved before the clouds existed have no type: NAS) */
+/** record kind: 'nas' | 'ssh' | 'ftp' | 'webdav' | 'dropbox' | 'gdrive' (records saved before the clouds existed have no type: NAS) */
 const connType = (c) => (c && RECORD_REM[c.type] ? c.type : 'nas');
 
 function nasDefaultName(url) {
@@ -67,6 +67,8 @@ const CLOUD_LINKS = {
 const KIND_TITLE = {
   nas: 'Synology NAS (File Station / QuickConnect)',
   ssh: 'SSH server (console + files)',
+  ftp: 'FTP / FTPS server',
+  webdav: 'WebDAV server',
   dropbox: 'Dropbox',
   gdrive: 'Google Drive',
 };
@@ -80,6 +82,8 @@ async function openConnections(selectId, kind) {
   const sel = selectId && all.find((c) => c.id === selectId);
   kind = sel ? connType(sel) : kind || 'nas';
   const ssh = kind === 'ssh';
+  const ftp = kind === 'ftp';
+  const plain = ftp || kind === 'webdav'; // FTP / FTPS and WebDAV: a host or address, a login, a folder to start in
   const cloud = kind === 'dropbox' || kind === 'gdrive';
   // app keys of the cloud services: shipped defaults (oauth-defaults.json) or what the user entered once (shared by all accounts of the kind)
   const shipped = cloud ? ((await api.cloudDefaults()) || {})[kind === 'gdrive' ? 'google' : 'dropbox'] || {} : {};
@@ -108,22 +112,28 @@ async function openConnections(selectId, kind) {
     `<div class="dlg-title">${esc(KIND_TITLE[kind])}</div>` +
     '<div class="dlg-body"><div class="nas-wrap"><div class="nas-list"></div>' +
     '<div class="nas-form">' + hero +
-    row('nas ssh dropbox gdrive', '<label>Name:</label><input class="n-name" spellcheck="false">') +
-    row('nas ssh', `<label>${ssh ? 'Host:' : 'Address:'}</label><input class="n-url" spellcheck="false" placeholder="${ssh ? 'server name or IP address' : 'https://id.region.quickconnect.to  or  nas.local:5001'}">`) +
+    row('nas ssh ftp webdav dropbox gdrive', '<label>Name:</label><input class="n-name" spellcheck="false">') +
+    row('nas ssh ftp webdav', `<label>${ssh || ftp ? 'Host:' : 'Address:'}</label><input class="n-url" spellcheck="false" placeholder="${ftp ? 'ftp.example.com  or  ftp.example.com:2121' : ssh ? 'server name or IP address' : plain ? 'https://cloud.example.com/remote.php/dav/files/me/' : 'https://id.region.quickconnect.to  or  nas.local:5001'}">`) +
+    row('ftp', '<label>Security:</label><select class="n-sec"><option value="explicit">FTP over TLS (explicit, recommended)</option><option value="implicit">FTP over TLS (implicit, port 990)</option><option value="none">Plain FTP (not encrypted)</option></select>') +
     row('ssh', '<label>Port:</label><input class="n-port" spellcheck="false" placeholder="22">') +
     row('ssh', '<label>Open as:</label><select class="n-openas"><option value="files">Disk (file list) - Ctrl+O shows the console</option><option value="console">Console - Ctrl+O shows the file list</option></select>') +
-    row('nas ssh', '<label>User:</label><input class="n-user" spellcheck="false" autocomplete="off">') +
+    row('nas ssh ftp webdav', '<label>User:</label><input class="n-user" spellcheck="false" autocomplete="off">') +
+    row('ftp', '<span></span><button class="n-anon n-link" type="button">Anonymous login (e-mail address as password)</button>') +
     row('ssh', '<label>Key file:</label><span class="n-keyrow"><input class="n-key" spellcheck="false" placeholder="optional: private key (OpenSSH / PEM)"><button class="n-browse" type="button">Browse...</button></span>') +
-    row('nas ssh', '<label class="n-pass-label">Password:</label><input class="n-pass" type="password" autocomplete="off">') +
+    row('nas ssh ftp webdav', '<label class="n-pass-label">Password:</label><input class="n-pass" type="password" autocomplete="off">') +
+    row('ftp', '<label>Remote folder:</label><input class="n-rdir" spellcheck="false" placeholder="optional: the folder to open first, e.g. /public_html">') +
+    row('ftp webdav', '<label>Local folder:</label><input class="n-ldir" spellcheck="false" placeholder="optional: the other panel goes to this folder">') +
+    row('ftp', '<label>Keep alive:</label><input class="n-keep" spellcheck="false" placeholder="seconds between NOOP commands, empty = off">') +
+    row('ftp', '<label>After login:</label><input class="n-cmds" spellcheck="false" placeholder="optional FTP commands, separated by ;">') +
     row('nas', '<label>2-step code:</label><input class="n-otp" spellcheck="false" autocomplete="off" placeholder="only if 2-step verification is on">') +
-    row('nas', '<span></span><label class="n-chk"><input type="checkbox" class="n-insecure"> Allow an untrusted certificate (self-signed)</label>') +
+    row('nas ftp webdav', '<span></span><label class="n-chk"><input type="checkbox" class="n-insecure"> Allow an untrusted certificate (self-signed)</label>') +
     row('dropbox', '<label>App key:</label><input class="n-appkey" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client ID:</label><input class="n-clientid" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client secret:</label><input class="n-secret" type="password" autocomplete="off">') +
     row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
     row('dropbox gdrive', `<span></span><div class="n-note">Sign-in happens in your browser; your password stays with ${kind === 'gdrive' ? 'Google' : 'Dropbox'}.</div>`) +
     row('dropbox gdrive', '<span></span><button class="n-switch n-link" type="button">Use a different account</button>') +
-    row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
+    row('nas ssh ftp webdav dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +
     (cloud ? `<div class="nas-help"><button class="n-adv" type="button">Settings and setup help...</button><div class="n-helpbody"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div></div>` : '') +
     '<div class="nas-status"></div></div>' +
@@ -134,6 +144,7 @@ async function openConnections(selectId, kind) {
   const $name = q('.n-name'), $url = q('.n-url'), $port = q('.n-port'), $user = q('.n-user');
   const $openas = q('.n-openas');
   const $key = q('.n-key'), $pass = q('.n-pass'), $otp = q('.n-otp'), $insecure = q('.n-insecure'), $remember = q('.n-remember');
+  const $sec = q('.n-sec'), $rdir = q('.n-rdir'), $ldir = q('.n-ldir'), $keep = q('.n-keep'), $cmds = q('.n-cmds');
   const $appkey = q('.n-appkey'), $clientid = q('.n-clientid'), $secret = q('.n-secret');
   const buttons = box.querySelectorAll('.dlg-btns button');
   let closeModal;
@@ -231,6 +242,11 @@ async function openConnections(selectId, kind) {
     if ($pass) { $pass.value = ''; $pass.placeholder = c.pw ? '(saved)' : ''; }
     if ($otp) $otp.value = '';
     if ($insecure) $insecure.checked = !!c.insecure;
+    if ($sec) $sec.value = c.security || 'explicit';
+    if ($rdir) $rdir.value = c.remoteDir || '';
+    if ($ldir) $ldir.value = c.localDir || '';
+    if ($keep) $keep.value = c.keep || '';
+    if ($cmds) $cmds.value = c.cmds || '';
     if ($appkey) $appkey.value = c.appKey || appWide().appKey || shipped.appKey || '';
     if ($clientid) $clientid.value = c.clientId || appWide().clientId || shipped.clientId || '';
     if ($secret) { $secret.value = ''; $secret.placeholder = c.sec || appWide().sec || shipped.clientSecret ? '(saved)' : ''; }
@@ -253,6 +269,11 @@ async function openConnections(selectId, kind) {
       keyPath: $key ? $key.value.trim() : '',
       openAs: $openas ? $openas.value : 'files',
       insecure: $insecure ? $insecure.checked : false,
+      security: $sec ? $sec.value : '',
+      remoteDir: $rdir ? $rdir.value.trim() : '',
+      localDir: $ldir ? $ldir.value.trim() : '',
+      keep: $keep ? $keep.value.trim() : '',
+      cmds: $cmds ? $cmds.value.trim() : '',
       appKey: $appkey ? $appkey.value.trim() : '',
       clientId: $clientid ? $clientid.value.trim() : '',
       sec: cur ? cur.sec : '',
@@ -290,8 +311,8 @@ async function openConnections(selectId, kind) {
 
   async function save() {
     const conn = formConn();
-    if (!(conn.url || conn.appKey || conn.clientId)) return setStatus(ssh ? 'Enter the host name or address.' : kind === 'nas' ? 'Enter the address of the NAS.' : 'Enter the app key / client ID first.', true);
-    await persist(conn, ssh || kind === 'nas' ? $pass.value : '');
+    if (!(conn.url || conn.appKey || conn.clientId)) return setStatus(ssh || ftp ? 'Enter the host name or address.' : kind === 'webdav' ? 'Enter the address of the WebDAV server.' : kind === 'nas' ? 'Enter the address of the NAS.' : 'Enter the app key / client ID first.', true);
+    await persist(conn, ssh || plain || kind === 'nas' ? $pass.value : '');
     fill();
     setStatus('Saved.');
   }
@@ -344,15 +365,19 @@ async function openConnections(selectId, kind) {
         res = await api.cloudConnect({ id: conn.id, kind, ...creds });
         if (!res.error) secret = res.refreshToken;
       } else {
-        if (!conn.url) return setStatus(ssh ? 'Enter the host name or address.' : 'Enter the address of the NAS.', true);
-        if (!conn.user) { $user.focus(); return setStatus('Enter the user name.', true); }
+        if (!conn.url) return setStatus(ssh || ftp ? 'Enter the host name or address.' : plain ? 'Enter the address of the WebDAV server.' : 'Enter the address of the NAS.', true);
+        if (!conn.user && !plain) { $user.focus(); return setStatus('Enter the user name.', true); } // FTP and WebDAV may be anonymous
         let pass = $pass.value;
         if (!pass && cur && cur.pw) pass = await decrypt(cur.pw);
-        if (!pass && !ssh) { $pass.focus(); return setStatus('Enter the password.', true); }
+        if (!pass && !ssh && !plain) { $pass.focus(); return setStatus('Enter the password.', true); }
         if (ssh && !pass && !conn.keyPath) { $pass.focus(); return setStatus('Enter the password, or choose a key file.', true); }
-        setStatus(ssh ? 'Connecting...' : 'Connecting... (QuickConnect can take a few seconds)');
+        setStatus(ssh || plain ? 'Connecting...' : 'Connecting... (QuickConnect can take a few seconds)');
         secret = pass;
-        res = ssh
+        res = ftp
+          ? await api.ftpConnect({ id: conn.id, host: conn.url, user: conn.user, pass, security: conn.security || 'explicit', insecure: conn.insecure, keep: +conn.keep || 0, cmds: (conn.cmds || '').split(';') })
+          : kind === 'webdav'
+          ? await api.davConnect({ id: conn.id, url: conn.url, user: conn.user, pass, insecure: conn.insecure })
+          : ssh
           ? await api.sshConnect({ id: conn.id, host: conn.url.replace(/^ssh:\/\//i, ''), port: conn.port, user: conn.user, pass: conn.keyPath ? '' : pass, keyPath: conn.keyPath, passphrase: conn.keyPath ? pass : '' })
           : await api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass, otp: $otp.value.trim(), insecure: conn.insecure });
       }
@@ -381,7 +406,7 @@ async function openConnections(selectId, kind) {
     closed = true;
     closeModal();
     const type = RECORD_REM[kind];
-    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh ? res.home || '/' : '/', openAs: conn.openAs, who: cloud ? res.account || conn.account || '' : conn.user || '' });
+    liveConns.set(conn.id, { id: conn.id, name: conn.name, type, home: ssh || ftp ? res.home || '/' : '/', openAs: conn.openAs, who: cloud ? res.account || conn.account || '' : conn.user || '' });
     const p = A();
     p.focus();
     const want = nasPendingPath && nasPendingPath.id === conn.id ? nasPendingPath.path : null;
@@ -390,6 +415,11 @@ async function openConnections(selectId, kind) {
       // "Disk": the file list of the server; "Console": the console first. Ctrl+O switches between them either way
       const home = want || res.home || '/';
       if (await p.loadRem({ id: conn.id, name: conn.name, type }, home) && conn.openAs === 'console') await sshShowConsole(p);
+    } else if (plain) {
+      // FTP / WebDAV: the remote folder of the record (or the login folder), and the other panel on the local folder if one is given
+      const first = want || (ftp && conn.remoteDir) || res.home || '/';
+      if (!(await p.loadRem({ id: conn.id, name: conn.name, type }, first)) && first !== '/') await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
+      if (conn.localDir) { try { await O().go({ dir: conn.localDir }); } catch { /* the folder is not there */ } }
     } else if (!(want && want !== '/' && (await p.loadRem({ id: conn.id, name: conn.name, type }, want)))) await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
   }
 
@@ -411,6 +441,10 @@ async function openConnections(selectId, kind) {
   });
   $list.addEventListener('dblclick', (e) => { if (e.target.closest('.nas-item')) connect(); });
   if ($key) $key.addEventListener('input', applyPassLabel);
+  if (ftp) {
+    // like the "Anonymous login" button of Total Commander: user anonymous, an e-mail style password, not remembered
+    q('.n-anon').onclick = () => { $user.value = 'anonymous'; $pass.value = 'anonymous@'; $remember.checked = false; setStatus(''); };
+  }
   if (ssh) {
     q('.n-browse').onclick = async () => {
       const f = await api.openFileDialog({ title: 'Select the private key file', defaultPath: api.home + (api.platform === 'win32' ? '\\.ssh' : '/.ssh') });

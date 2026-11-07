@@ -365,8 +365,8 @@ async function openWinscpImport(iniPath) {
     const f = await api.openFileDialog({ title: 'Select WinSCP.ini', defaultPath: api.home });
     return f ? openWinscpImport(f) : undefined;
   }
-  const have = (nasLoad() || []).filter((c) => connType(c) === 'ssh');
-  const exists = (s) => have.some((c) => (c.url || '').toLowerCase() === s.host.toLowerCase() && (c.user || '') === s.user && String(c.port || 22) === String(s.port));
+  const have = (nasLoad() || []).filter((c) => connType(c) !== 'nas' && connType(c) !== 'dropbox' && connType(c) !== 'gdrive');
+  const exists = (s) => have.some((c) => connType(c) === s.kind && (c.url || '').toLowerCase().includes(s.host.toLowerCase()) && (c.user || '') === s.user && (s.kind !== 'ssh' || String(c.port || 22) === String(s.port)));
   const rows = r.sessions.map((s, i) => {
     const dup = exists(s);
     return `<label class="ft-chk wsc-row"><input type="checkbox" data-i="${i}"${s.importable && !dup ? ' checked' : ''}${s.importable ? '' : ' disabled'}> <b>${esc(s.name)}</b> <span class="s-hint">${esc(s.user)}@${esc(s.host)}:${s.port} - ${esc(s.protocol)}${dup ? ' (already added)' : ''}${s.importable ? '' : ' (not supported)'}</span></label>`;
@@ -387,8 +387,18 @@ async function openWinscpImport(iniPath) {
       if (k.error) notes.push(`${s.name}: key file not copied (${k.error}); the original path is kept.`);
       else { keyPath = k.path; keys++; if (!k.supported) notes.push(`${s.name}: ${k.reason}.`); }
     }
-    list.push({ id, type: 'ssh', name: s.name, url: s.host, port: String(s.port), user: s.user, keyPath, openAs: 'files', insecure: false, appKey: '', clientId: '', sec: '', remember: false, pw: '' });
+    const rec = { id, type: s.kind, name: s.name, url: s.host, port: String(s.port), user: s.user, keyPath, openAs: 'files', insecure: false, appKey: '', clientId: '', sec: '', remember: false, pw: '' };
+    if (s.kind === 'ftp') { // FTP: the port goes behind the host name, the encryption comes from the Ftps setting of WinSCP
+      rec.url = s.port === 21 || (s.ftps === 1 && s.port === 990) ? s.host : `${s.host}:${s.port}`;
+      rec.port = '';
+      rec.security = s.ftps === 0 ? 'none' : s.ftps === 1 ? 'implicit' : 'explicit';
+      rec.remoteDir = s.dir;
+    } else if (s.kind === 'webdav') {
+      rec.url = `${s.ftps ? 'https' : 'http'}://${s.host}${s.port === (s.ftps ? 443 : 80) ? '' : ':' + s.port}${s.dir.startsWith('/') ? s.dir : '/' + s.dir}`;
+      rec.port = '';
+    }
+    list.push(rec);
   }
   nasSave(list);
-  msg('Import from WinSCP', `${chosen.length} connection(s) added to Net > SSH server... ${keys ? `${keys} key file(s) were copied into the program's key folder (with "Settings in Dropbox" and passwords turned on they are kept in Dropbox, encrypted by your passphrase). ` : ''}Passwords are asked at the first connection.` + (notes.length ? '\n\n' + notes.join('\n') : ''));
+  msg('Import from WinSCP', `${chosen.length} connection(s) added (Net > SSH server... / FTP / WebDAV). ${keys ? `${keys} key file(s) were copied into the program's key folder (with "Settings in Dropbox" and passwords turned on they are kept in Dropbox, encrypted by your passphrase). ` : ''}Passwords are asked at the first connection.` + (notes.length ? '\n\n' + notes.join('\n') : ''));
 }

@@ -1720,6 +1720,29 @@ ipcMain.handle('ssh:connect', nasWrap(async (e, { id, host, port, user, pass, ke
   return { ok: true, home: c.home, base: c.base };
 }));
 
+// FTP / FTPS and WebDAV: same session map and the same nas:* calls (list, copy, rename ...) as NAS and SSH
+const { Ftpfs } = require('./ftpclient');
+const { Davfs } = require('./davclient');
+ipcMain.handle('ftp:connect', nasWrap(async (_e, { id, host, port, user, pass, security, insecure, keep, cmds }) => {
+  const c = new Ftpfs();
+  let h = String(host || '').trim().replace(/^ftps?:\/\//i, '').replace(/\/.*$/, '');
+  const pm = /^([^:\[\]]+):(\d+)$/.exec(h); // host:port in one field, like Total Commander
+  if (pm) { h = pm[1]; port = pm[2]; }
+  await c.connect({ host: h, port, user, pass, security, insecure, keep, cmds: Array.isArray(cmds) ? cmds.map((x) => String(x).trim()).filter(Boolean) : [] });
+  const old = nasSessions.get(id);
+  if (old) old.logout();
+  nasSessions.set(id, c);
+  return { ok: true, home: c.home, base: c.base };
+}));
+ipcMain.handle('dav:connect', nasWrap(async (_e, { id, url, user, pass, insecure }) => {
+  const c = new Davfs();
+  await c.connect({ url, user, pass, insecure });
+  const old = nasSessions.get(id);
+  if (old) old.logout();
+  nasSessions.set(id, c);
+  return { ok: true, home: c.home, base: c.base };
+}));
+
 ipcMain.handle('ssh:shell', nasWrap(async (e, { id, cols, rows }) => {
   const c = nasGet(id);
   if (c.type !== 'sftp') throw new Error('This connection has no console.');

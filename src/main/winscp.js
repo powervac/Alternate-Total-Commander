@@ -17,11 +17,14 @@ function toSession(name, v) {
   const s = {
     name: decodeName(name).replace(/\//g, ' / '),
     host: v.HostName || '',
-    port: v.PortNumber ? +v.PortNumber : 22,
+    port: v.PortNumber ? +v.PortNumber : proto === 5 ? 21 : proto === 6 ? (+v.Ftps ? 443 : 80) : 22,
     user: v.UserName || '',
     keyFile: (v.PublicKeyFile || '').replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16))),
     protocol: PROTO_NAME[proto] || 'protocol ' + proto,
-    importable: proto === 0 || proto === 1 || proto === 2,
+    kind: proto === 5 ? 'ftp' : proto === 6 ? 'webdav' : 'ssh', // what the connection becomes in the program
+    ftps: +v.Ftps || 0, // WinSCP: 0 none, 1 implicit TLS, 2 / 3 explicit TLS
+    dir: decodeName(v.RemoteDirectory || ''),
+    importable: proto === 0 || proto === 1 || proto === 2 || proto === 5 || proto === 6,
   };
   if (!s.host) s.importable = false;
   return s;

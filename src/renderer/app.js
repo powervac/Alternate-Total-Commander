@@ -295,12 +295,15 @@ class Panel {
       const startX = e.clientX;
       const start = h.parentElement.getBoundingClientRect().width;
       h.classList.add('drag');
-      const move = (ev) => { setColWidth(k, start + (startX - ev.clientX)); };
+      // the name column keeps about 100 px: the other columns together may not take more than the rest
+      const others = [...this.$head.querySelectorAll('[data-k]:not([data-k="name"])')].filter((c) => c.dataset.k !== k).reduce((s, c) => s + c.getBoundingClientRect().width, 0);
+      const room = this.$head.getBoundingClientRect().width - 110 - others;
+      const move = (ev) => { setColWidth(this, k, Math.min(start + (startX - ev.clientX), room)); };
       const up = () => { h.classList.remove('drag'); document.removeEventListener('mousemove', move, true); document.removeEventListener('mouseup', up, true); };
       document.addEventListener('mousemove', move, true);
       document.addEventListener('mouseup', up, true);
     });
-    this.$head.addEventListener('dblclick', (e) => { const h = e.target.closest('.rz'); if (h) { e.stopPropagation(); setColWidth(h.dataset.c, null); } });
+    this.$head.addEventListener('dblclick', (e) => { const h = e.target.closest('.rz'); if (h) { e.stopPropagation(); setColWidth(this, h.dataset.c, null); } });
     this.$head.addEventListener('click', (e) => { if (e.target.closest('.rz')) e.stopImmediatePropagation(); }, true);
     this.$head.onclick = (e) => {
       const k = e.target.closest('[data-k]')?.dataset.k;
@@ -1948,6 +1951,7 @@ document.addEventListener('keydown', async (e) => {
   drives = await api.drives();
   places = await api.places();
   panels = [new Panel(0, $('#p0')), new Panel(1, $('#p1'))];
+  applyColWidths();
   const startDir = (i) => store.get(`dir${i}`, null) || api.home;
   for (const i of [1, 0]) {
     const p = panels[i];
@@ -1979,20 +1983,20 @@ async function openInPutty() {
   if (r && r.error) msg('PuTTY', r.error);
 }
 
-// ---------------------------------------------------------------- column widths of the file lists (shared by both panels, kept in the settings)
+// ---------------------------------------------------------------- column widths of the file lists (each panel has its own, kept in the settings)
 const COL_MIN = { ext: 28, size: 40, time: 70, attr: 30 };
-function applyColWidths() {
-  const w = store.get('colw', {}) || {};
+function applyColWidths(p) {
+  if (!p) { panels.forEach((q) => applyColWidths(q)); return; }
+  const w = store.get('colw' + p.idx, {}) || {};
   for (const k of Object.keys(COL_MIN)) {
-    if (w[k]) document.documentElement.style.setProperty('--cw-' + k, w[k] + 'px');
-    else document.documentElement.style.removeProperty('--cw-' + k);
+    if (w[k]) p.el.style.setProperty('--cw-' + k, w[k] + 'px');
+    else p.el.style.removeProperty('--cw-' + k);
   }
 }
-function setColWidth(k, px) {
-  const w = { ...(store.get('colw', {}) || {}) };
+function setColWidth(p, k, px) {
+  const w = { ...(store.get('colw' + p.idx, {}) || {}) };
   if (px === null) delete w[k];
-  else w[k] = Math.max(COL_MIN[k] || 30, Math.min(600, Math.round(px)));
-  store.set('colw', w);
-  applyColWidths();
+  else w[k] = Math.max(COL_MIN[k] || 30, Math.round(px));
+  store.set('colw' + p.idx, w);
+  applyColWidths(p);
 }
-applyColWidths();

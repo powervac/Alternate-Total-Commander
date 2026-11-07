@@ -6,7 +6,7 @@
 // Uses helpers from app.js (store, dialog, msg, esc) and filetools.js (ftForm); nas.js (nasLoad, connType).
 
 const SYNC_KEYS = ['nas', 'hotlist', 'hotlistTcDone', 'hotlist_darwin', 'hotlist_linux', 'hotlistTcDone_darwin', 'hotlistTcDone_linux', 'mrPresets', 'searchTemplates', 'searchHistory', 'search2', 'cloudApp', 'toolbar', 'lang',
-  'colw', 'sortKey0', 'sortKey1', 'sortRev0', 'sortRev1', 'thumbs0', 'thumbs1', 'hotkeys', 'showHidden', 'dirBrackets', 'dirSort', 'confirmDelete', 'useTrash'];
+  'colw0', 'colw1', 'sortKey0', 'sortKey1', 'sortRev0', 'sortRev1', 'thumbs0', 'thumbs1', 'hotkeys', 'showHidden', 'dirBrackets', 'dirSort', 'confirmDelete', 'useTrash'];
 const SYNC_RELOAD = new Set(['lang', 'toolbar', 'sortKey0', 'sortKey1', 'sortRev0', 'sortRev1', 'thumbs0', 'thumbs1']); // keys the page reads only at start
 const syncRaw = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
 const syncWrite = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } };

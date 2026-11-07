@@ -92,11 +92,22 @@ async function openConnections(selectId, kind) {
   const box = document.createElement('div');
   box.className = 'dlg nas';
   const row = (ks, html) => `<div class="nas-row" data-k="${ks}">${html}</div>`;
-  const signInLabel = kind === 'gdrive' ? '<span class="g-logo">G</span> Sign in with Google' : 'Sign in with Dropbox';
+  // the "G" mark of Google's own sign-in buttons; Dropbox gets its open-box mark in its blue
+  const G_MARK = '<svg class="g-logo" viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+  const DBX_MARK = '<svg class="dbx-logo" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M6 2.5 0 6.33l6 3.84 6-3.84zm12 0-6 3.83 6 3.84 6-3.84zM0 14l6 3.83 6-3.83-6-3.83zm18-3.83L12 14l6 3.83L24 14zM6 19.17l6 3.83 6-3.83-6-3.84z"/></svg>';
+  const signInLabel = kind === 'gdrive' ? `${G_MARK}<span>Sign in with Google</span>` : `${DBX_MARK}<span>Sign in with Dropbox</span>`;
+  // the top of the simple cloud view: a picture, what the window is for, one line about the sign-in
+  const HERO_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/></svg>';
+  const hero = cloud
+    ? '<div class="nas-row n-hero-row" data-k="dropbox gdrive"><div class="n-hero">' +
+      `<div class="n-hero-icon ${kind === 'gdrive' ? 'n-hero-g' : 'n-hero-d'}">${HERO_ICON}</div>` +
+      `<div class="n-hero-title">${esc(KIND_TITLE[kind])}</div>` +
+      '<div class="n-hero-sub">Your files open in a panel like an ordinary disk: copy, view, rename and delete.</div></div></div>'
+    : '';
   box.innerHTML =
     `<div class="dlg-title">${esc(KIND_TITLE[kind])}</div>` +
     '<div class="dlg-body"><div class="nas-wrap"><div class="nas-list"></div>' +
-    '<div class="nas-form">' +
+    '<div class="nas-form">' + hero +
     row('nas ssh dropbox gdrive', '<label>Name:</label><input class="n-name" spellcheck="false">') +
     row('nas ssh', `<label>${ssh ? 'Host:' : 'Address:'}</label><input class="n-url" spellcheck="false" placeholder="${ssh ? 'server name or IP address' : 'https://id.region.quickconnect.to  or  nas.local:5001'}">`) +
     row('ssh', '<label>Port:</label><input class="n-port" spellcheck="false" placeholder="22">') +
@@ -110,6 +121,7 @@ async function openConnections(selectId, kind) {
     row('gdrive', '<label>Client ID:</label><input class="n-clientid" spellcheck="false" autocomplete="off">') +
     row('gdrive', '<label>Client secret:</label><input class="n-secret" type="password" autocomplete="off">') +
     row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
+    row('dropbox gdrive', `<span></span><div class="n-note">You sign in in your browser; your password stays with ${kind === 'gdrive' ? 'Google' : 'Dropbox'}.</div>`) +
     row('dropbox gdrive', '<span></span><button class="n-switch n-link" type="button">Use a different account</button>') +
     row('nas ssh dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +
@@ -154,6 +166,12 @@ async function openConnections(selectId, kind) {
     hideRow(q('.n-switch'), !saved); // "Use a different account" only makes sense when there is a login to replace
     // simple view: a saved login -> "Connect"; nothing saved -> the big sign-in button
     q('.n-signin').closest('.nas-row').hidden = simple && saved;
+    box.classList.toggle('n-simple', simple); // the compact, centred look (style.css)
+    hideRow(q('.n-hero'), !simple);
+    hideRow(q('.n-note'), !(simple && !saved));
+    q('.n-hero-sub').textContent = saved
+      ? 'You are signed in. Press Connect to open your files.'
+      : 'Your files open in a panel like an ordinary disk: copy, view, rename and delete.';
     q('.n-connect').hidden = simple && !saved;
     for (const b of [q('.n-save'), q('.n-new'), q('.n-del')]) b.hidden = simple;
     $list.hidden = simple;

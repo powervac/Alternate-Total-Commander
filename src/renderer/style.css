@@ -73,14 +73,39 @@ body.no-toolbar #toolbar { display: none; }
 .nas-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; }
 .nas-row[hidden] { display: none; }
 .nas-form .n-switch { justify-self: start; border: 0; background: none; color: #0b57d0; font: inherit; text-decoration: underline; cursor: pointer; padding: 2px 0; height: auto; }
-.n-bigbtn { height: 34px; font: inherit; font-weight: 600; padding: 0 22px; border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; justify-self: start; }
+/* sign-in buttons of the cloud windows (Google's own button style: white pill, grey border, the coloured G) */
+.n-bigbtn { height: 40px; min-width: 240px; font: inherit; font-size: 14px; font-weight: 600; padding: 0 20px; border: 1px solid #747775; border-radius: 20px; background: #fff; color: #1f1f1f;
+  display: inline-flex; align-items: center; justify-content: center; gap: 12px; justify-self: start; cursor: pointer; transition: background .12s, box-shadow .12s, border-color .12s; }
+.n-bigbtn:hover { background: #f8faff; box-shadow: 0 1px 3px rgba(60,64,67,.25); }
+.n-bigbtn:active { background: #eef3fd; }
+.n-bigbtn:focus-visible { outline: 2px solid #0b57d0; outline-offset: 2px; }
+.n-bigbtn:disabled { opacity: .55; cursor: default; box-shadow: none; }
+.n-bigbtn svg { flex: none; }
+.n-google:hover { border-color: #4285f4; }
 .n-dropbox { border-color: #0061fe; color: #0061fe; }
-.n-dropbox:hover { background: #eef4ff; }
+.n-dropbox:hover { background: #eef4ff; border-color: #0061fe; }
 .n-adv { font: inherit; height: 22px; padding: 0 10px; border: 1px solid #adadad; background: #e1e1e1; margin-bottom: 6px; }
 .n-helpbody[hidden], .n-adv[hidden] { display: none; }
-.n-google { height: 30px; font: inherit; font-weight: 600; padding: 0 18px; border: 1px solid #747775; border-radius: 4px; background: #fff; color: #1f1f1f; display: inline-flex; align-items: center; justify-content: center; gap: 10px; justify-self: start; }
-.n-google:hover { background: #f0f4ff; border-color: #4285f4; }
-.g-logo { font-weight: 800; font-size: 16px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc05 50% 75%, #34a853 75% 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.n-note { font-size: 11px; color: #6b6b6b; }
+/* the simple cloud view: one centred card (picture, title, one line, the button), set by applyCloudUi in nas.js */
+.dlg.nas.n-simple { width: 440px; }
+.n-simple .nas-wrap { display: block !important; }
+.n-simple .nas-form { align-items: center; text-align: center; gap: 10px; padding: 6px 8px 0; }
+.n-simple .nas-row { grid-template-columns: 1fr; justify-items: center; }
+.n-simple .nas-row > span:empty { display: none; }
+.n-simple .n-bigbtn { justify-self: center; margin-top: 6px; }
+.n-simple .n-switch { justify-self: center; }
+.n-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0 4px; }
+.n-hero-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.n-hero-g { background: #e8f0fe; color: #1a73e8; }
+.n-hero-d { background: #e6efff; color: #0061fe; }
+.n-hero-title { font-size: 17px; font-weight: 600; color: #1f1f1f; }
+.n-hero-sub { color: #555; max-width: 340px; line-height: 1.45; }
+.n-simple .nas-help { margin-top: 14px; padding-top: 10px; border-top: 1px solid #ddd; text-align: center; }
+.n-simple .n-adv { border: 0; background: none; color: #0b57d0; height: auto; padding: 2px 4px; margin: 0; cursor: pointer; }
+.n-simple .n-adv:hover { text-decoration: underline; }
+.n-simple .nas-status { text-align: center; min-height: 20px; }
+.n-simple .nas-status:empty { margin-top: 0; }
 .nas-help { margin-top: 10px; }
 .nas-help .n-link { font: inherit; height: 22px; padding: 0 10px; border: 1px solid #adadad; background: #e1e1e1; margin-bottom: 6px; }
 .n-help-text { white-space: pre-wrap; color: #555; font-size: 11px; line-height: 1.45; max-height: 118px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; padding: 6px 8px; user-select: text; -webkit-user-select: text; }

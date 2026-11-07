@@ -9,3 +9,5 @@ scratch/
 *.tmp
 oauth-defaults.json
 dist-release/
+*.nupkg
+PROJECT_NOTES.md

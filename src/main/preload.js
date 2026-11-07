@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('api', {
   rarFind: inv('rar:find'),
   winFit: inv('win:fit'),
   devSet: inv('dev:set'),
+  debugShot: inv('debug:shot'),
   devBuffer: inv('dev:buffer'),
   devLog: (tag, text) => ipcRenderer.send('dev:log', tag, text),
   onDevLine: (cb) => { const h = (_e, l) => cb(l); ipcRenderer.on('dev:line', h); return () => ipcRenderer.removeListener('dev:line', h); },

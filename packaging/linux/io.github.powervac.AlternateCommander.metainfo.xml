@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.powervac.AlternateCommander</id>
+  <name>Alternate Commander</name>
+  <summary>Two-panel file manager in the style of Total Commander</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer_name>powervac</developer_name>
+  <description>
+    <p>Alternate Commander is a keyboard-first two-panel file manager. Archives (zip, 7z, tar, rar and more) open like folders; Google Drive, Dropbox, Synology NAS and SSH/SFTP servers work as ordinary disks.</p>
+    <p>Find Files, compare and synchronize folders, multi-rename, a viewer and an editor, a music player and settings sync are built in. It is an unofficial project and is not affiliated with Total Commander / Ghisler Software.</p>
+  </description>
+  <launchable type="desktop-id">io.github.powervac.AlternateCommander.desktop</launchable>
+  <url type="homepage">https://altcom.cc</url>
+  <url type="bugtracker">https://github.com/powervac/Alternate-Total-Commander/issues</url>
+  <url type="vcs-browser">https://github.com/powervac/Alternate-Total-Commander</url>
+  <url type="faq">https://altcom.cc/changelog.html</url>
+  <screenshots>
+    <screenshot type="default"><image>https://raw.githubusercontent.com/powervac/Alternate-Total-Commander/main/docs/img/two-panels.png</image><caption>Two panels</caption></screenshot>
+    <screenshot><image>https://raw.githubusercontent.com/powervac/Alternate-Total-Commander/main/docs/img/archive-as-folder.png</image><caption>An archive opened like a folder</caption></screenshot>
+    <screenshot><image>https://raw.githubusercontent.com/powervac/Alternate-Total-Commander/main/docs/img/thumbnails.png</image><caption>Thumbnails</caption></screenshot>
+  </screenshots>
+  <categories><category>Utility</category><category>FileManager</category></categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.924" date="2026-11-07"><url>https://altcom.cc/changelog.html</url></release>
+  </releases>
+</component>

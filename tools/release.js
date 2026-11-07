@@ -12,7 +12,7 @@
 //   npm run release -- 0.1.7 "notes" --no-mac   (Windows only: the Mac files on the site stay as they are; same: --win-only)
 //   npm run release -- 0.1.7 "notes" --no-win   (macOS only: the Windows file stays as it is; same: --mac-only; --both = both)
 //   npm run release -- 0.1.7 "notes" --dry-run  (show the steps, change nothing)
-//   other flags: --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), 
+//   other flags: --no-github-release (no release page on GitHub), --no-push (do not commit / push), --no-build (use the files of the last build in dist-release), 
 //
 // Everything is uploaded straight to the web root of https://altcom.cc (the only download site, a small VPS) over ssh: .part files first, a checksum
 // check on the server, then the rename; latest.json goes last.
@@ -118,9 +118,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let macRun = null;
   if (!flags.has('--no-push')) {
     if (version !== pkg.version) run('npm', ['version', version, '--no-git-tag-version']);
+    // the entry of this version in the changelog (shown on https://altcom.cc/changelog.html and kept in the repository)
+    if (!DRY) {
+      try {
+        const cf = path.join(ROOT, 'tools', 'changelog.json');
+        const list = fs.existsSync(cf) ? JSON.parse(fs.readFileSync(cf, 'utf8')) : [];
+        if (!list.length || list[0].version !== version) {
+          const items = notes.split(/;\s+/).map((x) => x.trim()).filter(Boolean);
+          list.unshift({ version, date: new Date().toISOString().slice(0, 10), items: items.length ? items : [notes] });
+          fs.writeFileSync(cf, JSON.stringify(list, null, 2) + '\n');
+        }
+      } catch (e) { log('Warning: the changelog was not updated: ' + e.message); }
+    }
     run('git', ['add', '-A']);
     const dirty = run('git', ['status', '--porcelain'], { capture: true, always: true }).out;
-    if (dirty || DRY) run('git', ['commit', '-m', `Version ${version}: ${notes}`.slice(0, 200) + '\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>']);
+    if (dirty || DRY) run('git', ['commit', '-m', `Version ${version}: ${notes}`.slice(0, 200)]);
     run('git', ['push']);
   }
   // ------------------------------------------------------------ 2. macOS build on GitHub (in the background)
@@ -235,6 +247,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
     scp(tmp, `${SITE}/latest.json.part`);
     ssh(`cd ${SITE} && mv -f latest.json.part latest.json`);
+    // the changelog page of the site reads changelog.json
+    const clf = path.join(ROOT, 'tools', 'changelog.json');
+    if (fs.existsSync(clf)) { scp(clf, `${SITE}/changelog.json.part`); ssh(`cd ${SITE} && chmod 644 changelog.json.part && mv -f changelog.json.part changelog.json`); }
     // the old address: programs of older versions ask only the old site for latest.json; it gets the same file (its links point to altcom.cc),
     // so that they update from the new address. Best effort: a failure here is only a warning.
     if (!process.env.RELEASE_NO_LEGACY) {
@@ -268,5 +283,41 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       if (len && info[n] && len !== info[n].size) die(`${n} on the site has the size ${len}, but ${info[n].size} bytes were uploaded.`);
     }
   }
+  // ------------------------------------------------------------ GitHub release: the public page of the version with the Windows, Linux and Mac files
+  // (the Mac images are attached for the Homebrew cask, which downloads them from the release; a browser download of them says "damaged",
+  // the site and install-mac.sh stay the recommended way). A failure here is only a warning.
+  if (!flags.has('--no-github-release') && (withWin || (withLinux && appImage) || withMac)) {
+    const tag = `v${version}`;
+    const dir = path.join(OUT, 'github');
+    const assets = [];
+    if (!DRY) { fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true }); }
+    const add = (src, name) => { const f = path.join(dir, name); if (!DRY) fs.copyFileSync(src, f); assets.push(f); };
+    if (withWin) add(portable, `Alternate-Commander-${version}-Windows-portable.exe`);
+    if (withLinux && appImage) add(appImage, `Alternate-Commander-${version}-Linux-x86_64.AppImage`);
+    if (withMac && (dmgs.arm || DRY)) add(dmgs.arm, `Alternate-Commander-${version}-macOS-arm64.dmg`);
+    if (withMac && (dmgs.intel || DRY)) add(dmgs.intel, `Alternate-Commander-${version}-macOS-Intel.dmg`);
+    const exists = run('gh', ['release', 'view', tag], { capture: true, soft: true, always: true });
+    if (exists.code === 0) {
+      // the release exists already (e.g. a Mac-only run after a Windows one): only add / replace the files of this run
+      const r = run('gh', ['release', 'upload', tag, ...assets, '--clobber'], { soft: true });
+      if (!DRY) log(r.code === 0 ? `GitHub release ${tag} already existed: the files of this run were added.` : `Warning: the files could not be added to the GitHub release ${tag}.`);
+    } else {
+      const body = [
+        `## Alternate Commander ${version}`, '', notes, '',
+        '### Downloads',
+        withWin ? `- **Windows 10/11:** \`Alternate-Commander-${version}-Windows-portable.exe\` (portable, no installation)` : '',
+        withLinux && appImage ? `- **Linux x86_64:** \`Alternate-Commander-${version}-Linux-x86_64.AppImage\` (\`chmod +x\`, then run) or \`curl -fsSL ${URL_BASE}/install-linux.sh | bash\`` : '',
+        `- **macOS (Apple Silicon and Intel):** in Terminal: \`curl -fsSL ${URL_BASE}/install-mac.sh | bash\``, '',
+        `The program updates itself (Configuration > Check for Updates). The newest files are always at ${URL_BASE}`, '',
+      ].filter((x, i, a) => x !== '' || a[i - 1] !== '').join('\n');
+      const nf = path.join(os.tmpdir(), 'commander-release-notes.md');
+      if (!DRY) fs.writeFileSync(nf, body);
+      const r = run('gh', ['release', 'create', tag, ...assets, '--title', `Alternate Commander ${version}`, '--notes-file', nf, '--target', run('git', ['branch', '--show-current'], { capture: true, always: true, soft: true }).out || 'main', '--latest'], { soft: true });
+      if (!DRY) log(r.code === 0 ? `GitHub release ${tag} created.` : `Warning: the GitHub release ${tag} could not be created (the files are on the site anyway).`);
+      if (!DRY) fs.rmSync(nf, { force: true });
+    }
+  }
+  // manifests of winget / Scoop / Chocolatey / Homebrew for this version (written to packaging/, they are submitted by hand: see packaging/README.md)
+  if (!flags.has('--no-github-release') && !DRY) { run('node', [path.join('tools', 'packaging.js'), version], { soft: true }); }
   log(`Done: ${version} is on the site. Programs offer the update at their next start (Configuration > Check for Updates...).`);
 })().catch((e) => die(e.stack || e.message));

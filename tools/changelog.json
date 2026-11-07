@@ -1,0 +1,112 @@
+[
+  {
+    "version": "0.1.925",
+    "date": "2026-11-07",
+    "items": [
+      "Critical bug fixed, core bug added"
+    ]
+  },
+  {
+    "version": "0.1.924",
+    "date": "2026-11-07",
+    "items": [
+      "New home: https://altcom.cc is now the only download site, with HTTPS; the program checks for updates and downloads them from there",
+      "The program is called Alternate Commander everywhere"
+    ]
+  },
+  {
+    "version": "0.1.921 - 0.1.923",
+    "date": "2026-11-07",
+    "items": [
+      "Long right-click on a file opens the file menu: Explorer's own menu on Windows, a menu with the usual actions on macOS and Linux",
+      "The width of the columns in the file lists can be changed (drag the left edge of a column; double-click puts it back)",
+      "Dialog windows can be made bigger, and Find Files has a sensible minimum size"
+    ]
+  },
+  {
+    "version": "0.1.915 - 0.1.920",
+    "date": "2026-11-06",
+    "items": [
+      "Linux: the first Ubuntu version (AppImage) with automatic updates",
+      "Linux: configuration, paths and the home folder fixed",
+      "Settings sync and saved logins fixed on systems without a keyring"
+    ]
+  },
+  {
+    "version": "0.1.914",
+    "date": "2026-11-06",
+    "items": [
+      "Drag files out of a panel into other programs (Explorer, mail, browser)",
+      "macOS: fix for Intel Macs"
+    ]
+  },
+  {
+    "version": "0.1.9 - 0.1.913",
+    "date": "2026-11-06",
+    "items": [
+      "Archives: 7z, tar, tar.gz, rar, gz open like folders; pack and unpack; Split and Combine large files (with a .crc file, like Total Commander)",
+      "Find Files and all dialogs open in windows of their own that can be moved out of the main window",
+      "Find Files: \"Feed to listbox\", including files found inside archives",
+      "Cloud panels show thumbnails; account names in the drive list; arrow keys in the image viewer",
+      "Tabs of both panels are aligned; a faster download mirror; fixes and improvements"
+    ]
+  },
+  {
+    "version": "0.1.8",
+    "date": "2026-11-06",
+    "items": [
+      "Configuration dialog in the style of Total Commander",
+      "Configurable keyboard shortcuts for every command",
+      "Own editor can be chosen; F2 renames; autostart programs (Autoruns) viewer"
+    ]
+  },
+  {
+    "version": "0.1.7",
+    "date": "2026-11-06",
+    "items": [
+      "Settings can be kept in Google Drive or in a local folder, not only in Dropbox",
+      "macOS: drive list fixed",
+      "Windows: only the portable exe is published"
+    ]
+  },
+  {
+    "version": "0.1.6",
+    "date": "2026-11-06",
+    "items": [
+      "Optional file name index for fast search",
+      "Drive list with volume names; the scroll position is kept when going back",
+      "Folder tree for saved connections; open an SSH server in PuTTY"
+    ]
+  },
+  {
+    "version": "0.1.4 - 0.1.5",
+    "date": "2026-11-06",
+    "items": [
+      "Settings in Dropbox as one zip file, optionally protected by a password; Retrieve and Save buttons",
+      "Background job queue for copy and move, with pause",
+      "SSH panel: console or file list; copy between two cloud drives; Synology delete as a background task",
+      "PuTTY version 3 keys are supported; the portable exe"
+    ]
+  },
+  {
+    "version": "0.1.3",
+    "date": "2026-11-06",
+    "items": [
+      "Google and Dropbox app keys are downloaded once, so a fresh build signs in with one button",
+      "Clear message for online-only cloud files"
+    ]
+  },
+  {
+    "version": "0.1.0 - 0.1.2",
+    "date": "2026-11-06",
+    "items": [
+      "ZX Spectrum emulator, eight interface languages, WSL as a disk, favourites on remote disks, import of WinSCP sessions",
+      "Updates from the program; one-line installer for macOS",
+      "Space selects a folder with its size; SSH servers open as a disk or a console",
+      "Built-in viewer for Word, Excel, PowerPoint and OpenDocument files; thumbnails; the Files menu tools",
+      "New Find Files engine; Ctrl+D favourites with import from Total Commander",
+      "Dropbox and Google Drive as disks with one-button sign-in; Synology NAS and SSH/SFTP; zip, 7z and tar archives as folders",
+      "First public version: two panels, tabs, viewer, editor, music player, compare and synchronize folders, multi-rename"
+    ]
+  }
+]

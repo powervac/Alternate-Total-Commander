@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Alternate Commander
+Comment=Two-panel file manager in the style of Total Commander
+Exec=alternate-commander %U
+Icon=io.github.powervac.AlternateCommander
+Terminal=false
+Categories=Utility;FileManager;
+Keywords=file;manager;commander;two-panel;ssh;sftp;dropbox;

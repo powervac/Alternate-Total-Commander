@@ -583,6 +583,43 @@ Dropbox.cancelSignIn = cancelSignIn;
  * Start a local listener on 127.0.0.1, open buildUrl(redirect, state) in the browser and wait for the answer.
  * Resolves with { code, redirect }.
  */
+/** The page the browser shows after the sign-in (served once by the loopback server). Self-contained: no outside fonts, pictures or scripts. */
+function signInPage(ok, what) {
+  const service = what === 'Google' ? 'Google Drive' : what === 'Dropbox' ? 'Dropbox' : 'the cloud drive';
+  const title = ok ? `Signed in to ${service}` : 'Sign-in was not completed';
+  const text = ok
+    ? `Alternate Commander can now open your ${service} files. You can close this tab and go back to the program.`
+    : 'Nothing was changed. Go back to the program and press the sign-in button again if you want to try once more.';
+  const mark = ok
+    ? '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} - Alternate Commander</title>
+<style>
+:root { color-scheme: light dark; --bg: #f3f5f9; --card: #fff; --text: #1f2328; --muted: #59636e; --line: #e3e7ee; --accent: ${ok ? '#1a7f37' : '#c62828'}; --tint: ${ok ? '#dafbe1' : '#ffebe9'}; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0f1218; --card: #181c24; --text: #e6edf3; --muted: #9aa4b1; --line: #2a303b; --accent: ${ok ? '#3fb950' : '#f85149'}; --tint: ${ok ? '#12321c' : '#3d1517'}; } }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif; }
+.card { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 40px 36px 30px; text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(0,0,0,.08); animation: in .35s ease-out both; }
+.mark { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--tint); color: var(--accent); }
+h1 { margin: 0 0 10px; font-size: 21px; font-weight: 650; letter-spacing: -.01em; }
+p { margin: 0; color: var(--muted); }
+.foot { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.foot svg { flex: none; }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+</style></head><body>
+<main class="card">
+<div class="mark">${mark}</div>
+<h1>${title}</h1>
+<p>${text}</p>
+<div class="foot"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>Alternate Commander</div>
+</main>
+</body></html>`;
+}
+
 async function loopbackCode({ port, openUrl, buildUrl, what }) {
   const state = b64u(crypto.randomBytes(12));
   const server = http.createServer();
@@ -601,7 +638,7 @@ async function loopbackCode({ port, openUrl, buildUrl, what }) {
         if (u.searchParams.get('state') !== state && !u.searchParams.get('error')) { res.writeHead(404); return res.end(); }
         const ok = !!u.searchParams.get('code');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<html><body style="font-family:sans-serif;padding:40px;text-align:center"><h2>${ok ? 'You are signed in.' : 'Sign-in was not completed.'}</h2><p>You can close this tab and go back to the program.</p></body></html>`);
+        res.end(signInPage(ok, what));
         clearTimeout(timer);
         if (ok) resolve(u.searchParams.get('code'));
         else reject(new Error(`${what} sign-in was cancelled: ` + (u.searchParams.get('error') || 'no code')));

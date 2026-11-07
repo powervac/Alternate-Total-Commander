@@ -167,6 +167,17 @@ global.devlog = dlog; // the modules (settingsync.js, sevenzip.js) use it when i
 ipcMain.handle('dev:set', (_e, on) => { devMode = !!on; if (devMode) dlog('dev', `Developer mode is on: ${app.getName()} ${app.getVersion()} | ${process.platform} ${process.arch} | electron ${process.versions.electron} | safeStorage ${sysStorage.isEncryptionAvailable() ? 'available' : 'NOT available (the key file of the program is used)'}${process.env.APPIMAGE ? ' | AppImage ' + process.env.APPIMAGE : ''}`); else if (devWin && !devWin.isDestroyed()) devWin.close(); return devMode; });
 ipcMain.on('dev:log', (_e, tag, text) => dlog('ui:' + String(tag).slice(0, 20), String(text).slice(0, 6000)));
 ipcMain.handle('dev:buffer', () => devBuf.slice());
+// dev helper for the pictures of the README: COMMANDER_SHOTS_DIR=<folder> lets a test script save the picture of the window at any moment (api.debugShot(name))
+if (process.env.COMMANDER_SHOTS_DIR) {
+  ipcMain.handle('debug:shot', async (e, name) => {
+    const bw = BrowserWindow.fromWebContents(e.sender);
+    if (!bw) return false;
+    const img = await bw.webContents.capturePage();
+    fs.mkdirSync(process.env.COMMANDER_SHOTS_DIR, { recursive: true });
+    fs.writeFileSync(path.join(process.env.COMMANDER_SHOTS_DIR, String(name).replace(/[^\w.-]/g, '_') + '.png'), img.toPNG());
+    return true;
+  });
+}
 const popupWins = new Set();
 const fitted = new WeakSet();
 ipcMain.handle('win:fit', (e, { w, h }) => {

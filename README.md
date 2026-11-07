@@ -87,7 +87,7 @@ Everything is also on the website: **https://altcom.cc**
 - **SSH servers** (password or key file): the panel shows an interactive **console** (xterm.js); files copied (F5) or dropped into the console are uploaded to the console's current folder. Ctrl+O switches to an SFTP file list.
 - **Viewer (F3):** text with automatic encoding detection (UTF-8/16, Windows-1251, CP866...), hex, images, PDF, video and audio. Formats Chromium cannot play (HEVC, AVI, WMV, AC3 sound, APE, WavPack, ALAC, AIFF...) are converted on the fly by a bundled **ffmpeg**.
 - **Editor (F4):** keeps encoding, BOM and line endings; find/replace; works on files inside zip archives and on a NAS / SSH server.
-- **Music player:** Enter on an audio file plays the folder in the background (mp3, FLAC, WAV, OGG, AAC; lossless formats through ffmpeg), media keys supported.
+- **Music player:** Enter on an audio file plays the folder in the background (mp3, FLAC, WAV, OGG, AAC; lossless formats through ffmpeg), media keys supported. **ZX Spectrum and Atari ST chip music** (PT3, PT2, PT1, STC, ST1, ST3, STP, SQT, ASC, PSC, PSM, FTC, GTR, AY, AYC, PSG, VTX, YM) plays in the same player: the AY-3-8910 / YM2149 chip is emulated, the title comes from the module.
 
 ## Run
 

@@ -1,12 +1,12 @@
 {
-  "version": "0.1.924",
+  "version": "0.1.925",
   "description": "Free, open-source two-panel file manager in the style of Total Commander, for Windows, macOS and Linux.",
   "homepage": "https://altcom.cc",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/powervac/Alternate-Total-Commander/releases/download/v0.1.924/Alternate-Commander-0.1.924-Windows-portable.exe#/alternate-commander.exe",
-      "hash": "2e0e76eb8cc1415d360caf8ec06e188f7c6a95fe92858937424a1a932e7acfb8"
+      "url": "https://github.com/powervac/Alternate-Total-Commander/releases/download/v0.1.925/Alternate-Commander-0.1.925-Windows-portable.exe#/alternate-commander.exe",
+      "hash": "1c87f2f10c51d555410200a94d8c50e5c511597b939070d00a8a40c08eb64f41"
     }
   },
   "bin": "alternate-commander.exe",

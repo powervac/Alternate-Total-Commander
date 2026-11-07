@@ -1,9 +1,9 @@
 cask "alternate-commander" do
   arch arm: "arm64", intel: "Intel"
 
-  version "0.1.924"
-  sha256 arm:   "5e622f16887bce60342694ab19d86a07b73b30938c0e612afcd3844bffe83957",
-         intel: "518946d89f38db36bf37bb0c2aa897b2889e0a62ec2f26cf5681c37086773f44"
+  version "0.1.925"
+  sha256 arm:   "ff69f899b8cf5109ab908514b40465b80640a8d2f1210c1ec18b6649ecfed57c",
+         intel: "cf471bea0c8e83eb2ccf156448b2e60d57676fc3f4b08ee30edc3e298d4a37d8"
 
   url "https://github.com/powervac/Alternate-Total-Commander/releases/download/v#{version}/Alternate-Commander-#{version}-macOS-#{arch}.dmg",
       verified: "github.com/powervac/Alternate-Total-Commander/"

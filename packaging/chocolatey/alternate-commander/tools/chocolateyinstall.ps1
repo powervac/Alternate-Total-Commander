@@ -5,8 +5,8 @@ $exe = Join-Path $toolsDir 'Alternate-Commander.exe'
 $packageArgs = @{
   packageName  = $env:ChocolateyPackageName
   fileFullPath = $exe
-  url64bit     = 'https://github.com/powervac/Alternate-Total-Commander/releases/download/v0.1.924/Alternate-Commander-0.1.924-Windows-portable.exe'
-  checksum64   = '2e0e76eb8cc1415d360caf8ec06e188f7c6a95fe92858937424a1a932e7acfb8'
+  url64bit     = 'https://github.com/powervac/Alternate-Total-Commander/releases/download/v0.1.925/Alternate-Commander-0.1.925-Windows-portable.exe'
+  checksum64   = '1c87f2f10c51d555410200a94d8c50e5c511597b939070d00a8a40c08eb64f41'
   checksumType64 = 'sha256'
 }
 Get-ChocolateyWebFile @packageArgs

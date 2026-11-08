@@ -222,6 +222,22 @@ const A = () => panels[active];
 const O = () => panels[1 - active];
 const ROW_H = 20;
 
+/** while a remote folder (NAS, SFTP, FTP, WebDAV, Dropbox, Google Drive) is loading: a window "connecting" and no clicks or keys for other folders; returns the function that removes it */
+function remBusyOn(conn) {
+  modalCount++;
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;cursor:progress;background:transparent';
+  const box = document.createElement('div');
+  box.style.cssText = 'display:none;padding:18px 28px;border:1px solid var(--border,#555);border-radius:8px;background:var(--bg,#2b2b2b);color:var(--fg,#ddd);box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:14px';
+  box.textContent = tr('Connecting and loading the folder...') + ' ' + (conn.name || '');
+  ov.appendChild(box);
+  ov.addEventListener('keydown', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+  document.body.appendChild(ov);
+  const t = setTimeout(() => { box.style.display = 'block'; }, 250);
+  let done = false;
+  return () => { if (done) return; done = true; clearTimeout(t); ov.remove(); modalCount--; };
+}
+
 class Panel {
   constructor(idx, el) {
     this.idx = idx;
@@ -497,7 +513,9 @@ class Panel {
 
   /** browse a Synology NAS (File Station) or an SSH server (SFTP). conn = {id, name, type: 'nas'|'sftp'}; rpath '/' or '/dir/sub' */
   async loadRem(conn, rpath = '/', opts = {}) {
-    const res = await api.nasList({ id: conn.id, path: rpath });
+    const busy = remBusyOn(conn);
+    let res;
+    try { res = await api.nasList({ id: conn.id, path: rpath }); } finally { busy(); }
     if (res.error) {
       if ((conn.type === 'dropbox' || conn.type === 'gdrive') && /sign in again|no longer valid/i.test(res.error)) {
         // the saved cloud login was revoked or has too few rights: forget it and offer the one-button sign-in again

@@ -1769,7 +1769,10 @@ const MENUS = [
     { l: 'Hotkeys...', f: () => openConfig('hotkeys') },
     { l: 'Editor...', f: () => openConfig('editor') },
   ]],
-  ['About', () => openAbout()], // a function instead of a list of items: the click opens the window itself
+  ['About', [
+    { l: 'Help', k: 'F1', f: () => openHelp() },
+    { l: 'About Alternate Commander...', f: () => openAbout() },
+  ]],
 ];
 
 /** Ctrl+Up: open the folder (or archive) under the cursor in a new tab */

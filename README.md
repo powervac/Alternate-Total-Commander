@@ -35,6 +35,7 @@ Everything is also on the website: **https://altcom.cc**
 - **Viewer and editor:** text with encoding detection, hex, images, PDF, video, audio, Office documents; editor with find/replace.
 - **Everyday tools:** compare and synchronize folders, multi-rename, split and combine large files (with .crc like Total Commander), checksums, thumbnails, music player, queue for copy/move jobs.
 - **Settings sync** through Dropbox, Google Drive or a folder (connections, favourites, language and view settings).
+- **Built-in help** (About > Help or F1) with a table of contents and search, written in all eight languages: every feature, the keyboard shortcuts (generated from the current key settings), the connection types and troubleshooting.
 - **Eight interface languages:** English, Russian, Polish, Portuguese, Spanish, German, Belarusian, Ukrainian.
 
 ## Screenshots

@@ -84,6 +84,7 @@ class Davfs {
       result.res.resume();
       return this._request(method, rpath, { headers, body, bodyStream, length, absUrl: new URL(result.headers.location, url).href }, hops + 1);
     }
+    result.url = url; // where the answer really came from (after redirects)
     return result;
   }
 
@@ -114,7 +115,7 @@ class Davfs {
   async list(folder) {
     const dir = (folder || '/').replace(/\/+$/, '') || '/';
     const r = await this._ok('PROPFIND', dir === '/' ? '/' : dir + '/', { headers: { Depth: '1', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY }, [207]);
-    const here = decodeURIComponent(this._url(dir === '/' ? '/' : dir + '/').pathname).replace(/\/+$/, '');
+    const here = decodeURIComponent(r.url.pathname).replace(/\/+$/, ''); // the folder itself, as the server finally answered (a redirect may have moved it)
     const out = [];
     for (const blk of r.text.split(/<(?:\w+:)?response[ >]/i).slice(1)) {
       const href = /<(?:\w+:)?href[^>]*>([\s\S]*?)<\/(?:\w+:)?href>/i.exec(blk);

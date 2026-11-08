@@ -11,6 +11,35 @@ const ftp = require('basic-ftp');
 
 const posix = path.posix;
 
+const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+
+/**
+ * The date of a LIST line (the only thing most servers give): "Nov  7 22:41" / "Nov  7  2024" (Unix) or "11-07-26 10:41PM" (DOS), as a time in ms.
+ * The server's time zone is not known: the time is taken as UTC. A Unix line without a year is the current year, or the last one when that
+ * would be more than a day in the future (what ls does). 0 when the text is not a date.
+ */
+function parseRawDate(raw, now = Date.now()) {
+  const t = String(raw || '').trim();
+  let m = /^([A-Za-z]{3})\s+(\d{1,2})\s+(?:(\d{4})|(\d{1,2}):(\d{2}))$/.exec(t);
+  if (m) {
+    const mon = MONTHS[m[1].toLowerCase()];
+    if (mon === undefined) return 0;
+    const day = +m[2];
+    if (m[3]) return Date.UTC(+m[3], mon, day);
+    let ms = Date.UTC(new Date(now).getUTCFullYear(), mon, day, +m[4], +m[5]);
+    if (ms > now + 86400000) ms = Date.UTC(new Date(now).getUTCFullYear() - 1, mon, day, +m[4], +m[5]);
+    return ms;
+  }
+  m = /^(\d{2})-(\d{2})-(\d{2}|\d{4}) (\d{1,2}):(\d{2})\s*([AP]M)?$/i.exec(t);
+  if (m) {
+    const y = m[3].length === 4 ? +m[3] : +m[3] < 70 ? 2000 + +m[3] : 1900 + +m[3];
+    let h = +m[4];
+    if (m[6]) h = (h % 12) + (m[6].toUpperCase() === 'PM' ? 12 : 0);
+    return Date.UTC(y, +m[1] - 1, +m[2], h, +m[5]);
+  }
+  return 0;
+}
+
 class Ftpfs {
   constructor() {
     this.type = 'ftp';
@@ -23,7 +52,7 @@ class Ftpfs {
     this.timer = null;
   }
 
-  /** opts: { host, port, user, pass, security: 'none' | 'explicit' | 'implicit', insecure, keep (seconds, 0 = off), cmds (array of FTP commands sent after the login) } */
+  /** opts: { host, port, user, pass, security: 'none' | 'explicit' | 'implicit', insecure, keep (seconds, 0 = off), cmds (array of FTP commands sent after the login), timeout (ms, default 30000) } */
   async connect(opts) {
     const { host, security } = opts;
     if (!host) throw new Error('Enter the host name or address');
@@ -33,7 +62,7 @@ class Ftpfs {
     try {
       this.client = await this._open();
       this.home = ((await this.client.pwd()) || '/').replace(/\\/g, '/');
-      if (+opts.keep > 0) this.timer = setInterval(() => this._keepAlive(), Math.max(10, +opts.keep) * 1000);
+      if (+opts.keep > 0) this.timer = setInterval(() => this._keepAlive(), Math.max(Ftpfs.MIN_KEEP_S, +opts.keep) * 1000);
     } catch (e) {
       this._drop();
       throw explain(e);
@@ -43,17 +72,24 @@ class Ftpfs {
 
   async _open() {
     const o = this.opts;
-    const c = new ftp.Client(30000);
+    const c = new ftp.Client(+o.timeout > 0 ? +o.timeout : 30000);
     c.ftp.verbose = false;
     const secure = o.security === 'implicit' ? 'implicit' : o.security === 'none' ? false : true;
-    await c.access({
-      host: o.host,
-      port: +o.port || (secure === 'implicit' ? 990 : 21),
-      user: o.user,
-      password: o.pass,
-      secure,
-      secureOptions: secure ? { rejectUnauthorized: !o.insecure, servername: o.host } : undefined,
-    });
+    try {
+      await c.access({
+        host: o.host,
+        port: +o.port || (secure === 'implicit' ? 990 : 21),
+        user: o.user,
+        password: o.pass,
+        secure,
+        secureOptions: secure ? { rejectUnauthorized: !o.insecure, servername: o.host } : undefined,
+      });
+    } catch (e) {
+      c.close();
+      // explicit TLS: a server that has no TLS answers the AUTH command with 500 ... 504
+      if (secure === true && /^50[0-4]\b/.test(String(e && e.message))) throw new Error('The server does not support FTP over TLS. Choose "Plain FTP (not encrypted)" if you accept that.');
+      throw e;
+    }
     for (const cmd of o.cmds || []) { // commands after the login (like the "Send commands" box of Total Commander)
       try { await c.send(cmd); } catch (e) { c.close(); throw new Error(`The command "${cmd}" was refused: ${e.message}`); }
     }
@@ -91,40 +127,47 @@ class Ftpfs {
   }
 
   // ------------------------------------------------------------ files
-  async list(folder) {
-    const dir = folder || '/';
-    return this._run(async (c) => {
-      const entries = await c.list(dir);
-      const out = [];
-      for (const e of entries) {
-        if (e.name === '.' || e.name === '..') continue;
-        let isDir = e.isDirectory;
-        if (e.isSymbolicLink) { // follow the link: a folder when it can be entered
-          try { await c.cd(posix.join(dir, e.name)); isDir = true; } catch { isDir = false; }
-          try { await c.cd(dir); } catch { /* ignore */ }
-        }
-        out.push({ name: e.name, isDir, size: isDir ? -1 : e.size || 0, mtime: e.modifiedAt ? e.modifiedAt.getTime() : 0 });
+  // Every public operation is ONE job of the queue (the helpers _list, _exists ... work on the client of that job), so that an upload,
+  // which looks, creates folders and then sends, cannot be interleaved with another operation that was asked in between.
+  async _list(c, dir) {
+    const entries = await c.list(dir);
+    const out = [];
+    for (const e of entries) {
+      if (e.name === '.' || e.name === '..') continue;
+      let isDir = e.isDirectory;
+      if (e.isSymbolicLink) { // follow the link: a folder when it can be entered
+        try { await c.cd(posix.join(dir, e.name)); isDir = true; } catch { isDir = false; }
+        try { await c.cd(dir); } catch { /* ignore */ }
       }
-      return out;
-    });
+      out.push({ name: e.name, isDir, size: isDir ? -1 : e.size || 0, mtime: e.modifiedAt ? e.modifiedAt.getTime() : parseRawDate(e.rawModifiedAt) });
+    }
+    return out;
   }
 
-  async exists(p) {
-    const name = posix.basename(p);
-    const dir = posix.dirname(p);
+  async _exists(c, p) {
     try {
-      return (await this.list(dir)).some((e) => e.name === name);
+      return (await this._list(c, posix.dirname(p))).some((e) => e.name === posix.basename(p));
     } catch {
       return false;
     }
   }
 
-  async mkdirp(dir) {
+  async _mkdirp(c, dir) {
     if (!dir || dir === '/') return;
-    await this._run(async (c) => {
-      const here = await c.pwd();
-      try { await c.ensureDir(dir); } finally { try { await c.cd(here); } catch { /* ignore */ } }
-    });
+    const here = await c.pwd();
+    try { await c.ensureDir(dir); } finally { try { await c.cd(here); } catch { /* ignore */ } }
+  }
+
+  list(folder) {
+    return this._run((c) => this._list(c, folder || '/'));
+  }
+
+  exists(p) {
+    return this._run((c) => this._exists(c, p));
+  }
+
+  async mkdirp(dir) {
+    await this._run((c) => this._mkdirp(c, dir));
   }
 
   async mkdir(parent, name) {
@@ -135,16 +178,14 @@ class Ftpfs {
     await this._run((c) => c.rename(p, posix.join(posix.dirname(p), newName)));
   }
 
-  async removeOne(p) {
-    const name = posix.basename(p);
-    const dir = posix.dirname(p);
-    const kind = (await this.list(dir)).find((e) => e.name === name);
-    if (kind && kind.isDir) await this._run((c) => c.removeDir(p));
-    else await this._run((c) => c.remove(p));
-  }
-
   async remove(paths) {
-    for (const p of paths) await this.removeOne(p);
+    await this._run(async (c) => {
+      for (const p of paths) {
+        const kind = (await this._list(c, posix.dirname(p))).find((e) => e.name === posix.basename(p));
+        if (kind && kind.isDir) await c.removeDir(p);
+        else await c.remove(p);
+      }
+    });
   }
 
   /** a transfer of one file; cancel (destroy) closes the control connection, the next operation opens a new one */
@@ -167,10 +208,10 @@ class Ftpfs {
   }
 
   async upload(localFile, destFolder, name, overwrite, { onData, onReq } = {}) {
-    await this.mkdirp(destFolder);
     const target = posix.join(destFolder, name);
-    if (!overwrite && (await this.exists(target))) throw new Error('already exists');
     await this._run(async (c) => {
+      await this._mkdirp(c, destFolder);
+      if (!overwrite && (await this._exists(c, target))) throw new Error('already exists');
       await this._transfer(c, onData, onReq, () => c.uploadFrom(localFile, target));
       try { // keep the date of the file when the server knows MFMT
         const t = fs.statSync(localFile).mtime;
@@ -188,12 +229,19 @@ class Ftpfs {
     try {
       total = await own.size(remotePath);
     } catch (e) {
-      own.close();
-      throw explain(e);
+      // no SIZE (or an answer that is not a number, as for an empty file on some servers): ask the listing of the folder
+      try {
+        const hit = (await this._list(own, posix.dirname(remotePath))).find((x) => x.name === posix.basename(remotePath) && !x.isDir);
+        if (!hit) throw e;
+        total = hit.size;
+      } catch {
+        own.close();
+        throw explain(e);
+      }
     }
     let start = 0;
     let end = total - 1;
-    const m = range && /bytes=(\d*)-(\d*)/.exec(range);
+    const m = total > 0 && range && /bytes=(\d*)-(\d*)/.exec(range); // an empty file has no ranges: 200 and nothing
     if (m) {
       if (m[1]) start = +m[1];
       if (m[2]) end = Math.min(+m[2], total - 1);
@@ -201,6 +249,13 @@ class Ftpfs {
     }
     const length = Math.max(0, end - start + 1);
     let s;
+    if (m && start >= total) { // the range starts behind the end of the file: 416 Range Not Satisfiable
+      own.close();
+      s = Readable.from([]);
+      s.statusCode = 416;
+      s.headers = { 'content-length': '0', 'content-range': `bytes */${total}` };
+      return s;
+    }
     if (total === 0 || length === 0) {
       own.close();
       s = Readable.from([]);
@@ -234,17 +289,20 @@ class Ftpfs {
   }
 }
 
+Ftpfs.MIN_KEEP_S = 10; // the shortest keep-alive interval (tests lower it)
+Ftpfs.parseRawDate = parseRawDate;
+
 /** friendlier messages for the usual failures */
 function explain(e) {
   const m = e && e.message ? e.message : String(e);
   if (/ENOTFOUND|EAI_AGAIN/.test(m)) return new Error('Host not found: ' + m);
   if (/ECONNREFUSED/.test(m)) return new Error('Connection refused (is the FTP server running and the port right?)');
   if (/ETIMEDOUT|timeout/i.test(m)) return new Error('The server did not answer in time.');
-  if (/^530|Login (incorrect|authentication failed)|User cannot log in/i.test(m)) return new Error('Login failed: wrong user name or password.');
+  if (/^53\d|^501\b.*pass|Login (incorrect|authentication failed)|User cannot log in/i.test(m)) return new Error('Login failed: wrong user name or password.');
   if (/self[- ]signed|unable to verify|CERT_|certificate/i.test(m)) return new Error('The server certificate is not trusted. Tick "Allow an untrusted certificate" if you trust this server.');
   if (/wrong version number|EPROTO/i.test(m)) return new Error('The server does not speak TLS on this port: try "Plain FTP" or "FTP over TLS (explicit)" with port 21 (implicit TLS is port 990).');
   if (/^550/.test(m)) return new Error(m.replace(/^550\s*/, '') || 'The server refused: no such file or no permission.');
   return e instanceof Error ? e : new Error(m);
 }
 
-module.exports = { Ftpfs };
+module.exports = { Ftpfs, parseRawDate };

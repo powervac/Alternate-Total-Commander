@@ -807,7 +807,7 @@ function findRar() {
 ipcMain.handle('rar:find', () => findRar());
 
 // unpack a whole 7z / tar / tar.gz / gz / bz2 / xz / rar archive, and pack into 7z / tar / tar.gz / tar.bz2 / tar.xz / gz (7za, see sevenzip.js)
-ipcMain.handle('arc:unpack', async (e, { id, archive, destDir, overwrite }) => {
+ipcMain.handle('arc:unpack', async (e, { id, archive, destDir, overwrite, password }) => {
   const ctx = mkCtx(e, id);
   ctx.total = 100;
   jobs.set(id, ctx);
@@ -817,17 +817,18 @@ ipcMain.handle('arc:unpack', async (e, { id, archive, destDir, overwrite }) => {
     ctx.current = archive;
     ctx.curSrc = archive;
     ctx.curDst = destDir;
-    await sevenzip.unpackAll(archive, destDir, { overwrite, hold, cancelled: () => ctx.cancel, onPct: (v) => { ctx.done = v; ctx.tick(); } });
+    await sevenzip.unpackAll(archive, destDir, { overwrite, password, hold, cancelled: () => ctx.cancel, onPct: (v) => { ctx.done = v; ctx.tick(); } });
     ctx.tick(true);
     return { errors: ctx.cancel ? [] : ctx.errors, cancelled: ctx.cancel };
   } catch (err) {
-    return { errors: ctx.cancel ? [] : [`${path.basename(archive)}: ${/password|encrypted/i.test(err.message) ? 'the archive is protected by a password (not supported)' : err.message}`], cancelled: ctx.cancel };
+    const needPw = /password|encrypted|headers error/i.test(err.message); // a 7z with encrypted names says only "Headers Error"
+    return { errors: ctx.cancel ? [] : [`${path.basename(archive)}: ${needPw ? (password ? 'wrong password' : 'the archive is protected by a password') : err.message}`], needPassword: needPw && !ctx.cancel, cancelled: ctx.cancel };
   } finally {
     jobs.delete(id);
   }
 });
 
-ipcMain.handle('arc:pack', async (e, { id, kind, cwd, names, archive }) => {
+ipcMain.handle('arc:pack', async (e, { id, kind, cwd, names, archive, password, level }) => {
   const ctx = mkCtx(e, id);
   ctx.total = 100;
   jobs.set(id, ctx);
@@ -842,7 +843,7 @@ ipcMain.handle('arc:pack', async (e, { id, kind, cwd, names, archive }) => {
       if (!exe) throw new Error('WinRAR (Rar.exe) was not found: install it to make .rar archives.');
       await fsp.rm(archive, { force: true });
       await new Promise((resolve, reject) => {
-        const p = spawn(exe, ['a', '-r', '-y', '-idcd', archive, ...names], { cwd, windowsHide: true });
+        const p = spawn(exe, ['a', '-r', '-y', '-idcd', ...(Number.isInteger(level) ? ['-m' + Math.min(5, Math.round(level * 5 / 9))] : []), ...(password ? ['-hp' + password] : []), archive, ...names], { cwd, windowsHide: true });
         let err = '', buf = '';
         hold.kill = () => { try { p.kill(); } catch { /* gone */ } };
         p.stdout.on('data', (c) => { buf += c.toString('latin1'); const m = buf.match(/(\d{1,3})%/g); if (m) { ctx.done = Math.min(100, parseInt(m[m.length - 1], 10)); ctx.tick(); } if (buf.length > 4096) buf = buf.slice(-256); });
@@ -850,7 +851,7 @@ ipcMain.handle('arc:pack', async (e, { id, kind, cwd, names, archive }) => {
         p.on('error', reject);
         p.on('close', (code) => (code === 0 || code === 1 ? resolve() : reject(new Error((err || 'Rar.exe exited with code ' + code).trim().split('\n').slice(-2).join(' ')))));
       });
-    } else await sevenzip.pack(kind, cwd, names, archive, { hold, onPct: (v) => { ctx.done = v; ctx.tick(); } });
+    } else await sevenzip.pack(kind, cwd, names, archive, { password, level, hold, onPct: (v) => { ctx.done = v; ctx.tick(); } });
     ctx.tick(true);
     return { errors: [], cancelled: false };
   } catch (err) {

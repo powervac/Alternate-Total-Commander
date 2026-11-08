@@ -170,25 +170,30 @@ function runProgress(args, cwd, onPct, hold) {
 }
 
 /** unpack the whole archive into destDir. overwrite: 'all' | 'skip'. onPct(0..100), hold.kill() to stop */
-async function unpackAll(archive, destDir, { overwrite = 'skip', onPct, hold, cancelled } = {}) {
+async function unpackAll(archive, destDir, { overwrite = 'skip', onPct, hold, cancelled, password } = {}) {
   await fsp.mkdir(destDir, { recursive: true });
   if (isRar(archive)) { await extractRar(archive, [], destDir, cancelled); if (onPct) onPct(100); return; }
   if (WRAPPED.test(archive)) { await pipeTwo(archive, ['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-si', '-ttar', '-o' + destDir], onPct, hold); if (onPct) onPct(100); return; }
-  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-o' + destDir, '--', archive], undefined, onPct, hold);
+  // no -p: 7za would wait for a password on the console; -p with an empty password makes it fail at once with "Wrong password"
+  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-p' + (password || ''), '-o' + destDir, '--', archive], undefined, onPct, hold);
 }
 
 /** pack sources (all of them in the same folder `cwd`, given by name) into archive. kind: 7z | tar | tgz | tbz2 | txz | gz | bz2 | xz */
-async function pack(kind, cwd, names, archive, { onPct, hold } = {}) {
+async function pack(kind, cwd, names, archive, { onPct, hold, password, level } = {}) {
+  const mx = '-mx=' + (Number.isInteger(level) && level >= 0 && level <= 9 ? level : 5);
   await fsp.mkdir(path.dirname(archive), { recursive: true });
   const tmp = archive + '.part';
   await fsp.rm(tmp, { force: true });
-  const type = { '7z': '7z', tar: 'tar', gz: 'gzip', bz2: 'bzip2', xz: 'xz' };
+  const type = { '7z': '7z', zip: 'zip', tar: 'tar', gz: 'gzip', bz2: 'bzip2', xz: 'xz' };
   try {
-    if (kind === '7z' || kind === 'tar') {
-      await runProgress(['a', '-t' + type[kind], '-y', '-spd', ...(kind === '7z' ? ['-mx=5'] : []), tmp, '--', ...names], cwd, onPct, hold);
+    if (password && kind !== '7z' && kind !== 'zip') throw new Error('Encryption works for zip and 7z archives only.');
+    if (kind === '7z' || kind === 'tar' || kind === 'zip') {
+      // password: 7z gets AES-256 and encrypted file names (-mhe), zip gets AES-256 (the old ZipCrypto is weak)
+      const enc = !password ? [] : kind === '7z' ? ['-p' + password, '-mhe=on'] : ['-p' + password, '-mem=AES256'];
+      await runProgress(['a', '-t' + type[kind], '-y', '-spd', ...(kind === '7z' || kind === 'zip' ? [mx] : []), ...enc, tmp, '--', ...names], cwd, onPct, hold);
     } else if (kind === 'gz' || kind === 'bz2' || kind === 'xz') {
       if (names.length !== 1) throw new Error('A .' + kind + ' holds one file: select one file (or pack several into a .tar.' + kind + ').');
-      await runProgress(['a', '-t' + type[kind], '-y', tmp, '--', names[0]], cwd, onPct, hold);
+      await runProgress(['a', '-t' + type[kind], '-y', mx, tmp, '--', names[0]], cwd, onPct, hold);
     } else {
       // tgz / tbz2 / txz: the tar is made and compressed at the same time through a pipe (no big temporary tar on the system disk)
       const wrap = { tgz: 'gzip', tbz2: 'bzip2', txz: 'xz' }[kind];
@@ -196,7 +201,7 @@ async function pack(kind, cwd, names, archive, { onPct, hold } = {}) {
       const tarName = path.basename(archive).replace(/\.(tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i, '') + '.tar';
       await new Promise((resolve, reject) => {
         const p1 = spawn(bin, ['a', '-ttar', '-so', '-bsp2', '-bso0', '-spd', 'x.tar', '--', ...names], { cwd, windowsHide: true });
-        const p2 = spawn(bin, ['a', '-t' + wrap, '-y', '-bso0', '-bsp0', '-si' + tarName, tmp], { windowsHide: true });
+        const p2 = spawn(bin, ['a', '-t' + wrap, '-y', mx, '-bso0', '-bsp0', '-si' + tarName, tmp], { windowsHide: true });
         let e1 = '', e2 = '', buf = '', done1 = null, done2 = null;
         if (hold) hold.kill = () => { try { p1.kill(); } catch { /* gone */ } try { p2.kill(); } catch { /* gone */ } };
         p1.stdout.pipe(p2.stdin);

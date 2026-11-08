@@ -97,13 +97,13 @@ function openModal(box) {
 /** letter of a key by its position on the keyboard, so shortcuts also work with a Russian (or any other) layout: Ctrl+С = Ctrl+C */
 const keyLetter = (e) => (/^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : String(e.key).toLowerCase());
 
-function dialog({ title, text, input, buttons }) {
+function dialog({ title, text, input, inputType, buttons }) {
   return new Promise((resolve) => {
     const box = document.createElement('div');
     box.className = 'dlg';
     box.innerHTML =
       `<div class="dlg-title">${esc(title)}</div><div class="dlg-body"><div class="dlg-text">${esc(text || '')}</div>` +
-      (input !== undefined ? '<input class="dlg-input" spellcheck="false">' : '') +
+      (input !== undefined ? `<input class="dlg-input" spellcheck="false"${inputType === 'password' ? ' type="password" autocomplete="off"' : ''}>` : '') +
       '</div><div class="dlg-btns"></div>';
     const inp = $('.dlg-input', box);
     if (inp) inp.value = input;
@@ -1550,41 +1550,96 @@ async function packSel() {
   const lastKind = store.get('packKind', 'zip');
   const rarExe = await api.rarFind(); // WinRAR installed: .rar can be made
   const kinds = { ...PACK_KINDS, ...(rarExe ? { rar: ['rar (WinRAR)', '.rar'] } : {}) };
+  const lastOpt = store.get('packOpts', { level: 6, move: false, separate: false });
+  const chk = (c, label, on) => `<label class="ft-chk"><input type="checkbox" class="${c}"${on ? ' checked' : ''}> ${label}</label>`;
   const box = await ftForm('Pack files',
     `<div class="dlg-text">${names.length === 1 ? `Pack "${esc(names[0])}"` : `Pack ${names.length} file(s)/dir(s)`} into the archive:</div>` +
     '<div class="ft-line"><input class="pk-name" spellcheck="false"></div>' +
-    '<div class="ft-line"><label>Type:</label><select class="pk-kind">' + Object.entries(kinds).map(([k, v]) => `<option value="${k}"${k === lastKind ? ' selected' : ''}>${v[0]}</option>`).join('') + '</select></div>' +
-    '<div class="s-hint">The type follows the extension of the name: .zip, .7z, .tar, .tar.gz (.tgz), .tar.bz2, .tar.xz, or a single file in .gz / .bz2 / .xz.' + (rarExe ? ' .rar is made by WinRAR.' : ' A .rar can be opened and unpacked here, but only WinRAR itself can make one: install WinRAR and "rar" appears in this list.') + '</div>', 'Pack',
+    '<div class="pk-cols"><div class="pk-opts">' +
+    chk('pk-move', 'Move to archive (delete the files after packing)', lastOpt.move) +
+    chk('pk-sep', 'Create separate archives, one per selected file/dir', lastOpt.separate) +
+    chk('pk-enc', 'Encrypt', false) +
+    '<div class="pk-pwbox" hidden><div class="ft-line"><label>Password (encrypt):</label><input type="password" class="pk-pw" spellcheck="false" autocomplete="off"></div>' +
+    '<div class="ft-line"><label>Repeat password:</label><input type="password" class="pk-pw2" spellcheck="false" autocomplete="off"></div>' +
+    '<div class="s-hint">Encryption (AES-256): zip, 7z (the file names are hidden too) and rar.</div></div></div>' +
+    '<fieldset class="pk-packer"><legend>Packer</legend>' + Object.entries(kinds).map(([k, v]) => `<label class="ft-chk"><input type="radio" name="pk-kind" value="${k}"${k === lastKind ? ' checked' : ''}> ${v[0]}</label>`).join('') + '</fieldset></div>' +
+    '<div class="ft-line"><label>Compression rate:</label><select class="pk-level">' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}"${n === lastOpt.level ? ' selected' : ''}>${n}${n === 0 ? ' (store)' : n === 9 ? ' (maximum)' : ''}</option>`).join('') + '</select></div>' +
+    '<div class="s-hint">The type follows the extension of the name: .zip, .7z, .tar, .tar.gz (.tgz), .tar.bz2, .tar.xz, or a single file in .gz / .bz2 / .xz.' + (rarExe ? ' .rar is made by WinRAR.' : ' A .rar can be opened and unpacked here, but only WinRAR itself can make one: install WinRAR and "rar" appears in the packer list.') + '</div>', 'Pack',
     (b) => {
-      const nm = b.querySelector('.pk-name'), kd = b.querySelector('.pk-kind');
+      const nm = b.querySelector('.pk-name');
+      const radios = [...b.querySelectorAll('input[name="pk-kind"]')];
+      const cur = () => (radios.find((r) => r.checked) || radios[0]).value;
       const strip = (n) => n.replace(/\.(tar\.(gz|bz2|xz)|tgz|tbz2?|txz|zip|7z|rar|tar|gz|bz2|xz)$/i, '');
       nm.value = P.join(dst.dir, base + (kinds[lastKind] || PACK_KINDS.zip)[1]);
-      kd.onchange = () => { nm.value = strip(nm.value) + kinds[kd.value][1]; };
-      nm.oninput = () => { const k = packKindOf(nm.value); if (kd.value !== k && /\.[A-Za-z0-9]+$/.test(nm.value)) kd.value = k; };
+      for (const r of radios) r.onchange = () => { nm.value = strip(nm.value) + kinds[cur()][1]; };
+      nm.oninput = () => { const k = packKindOf(nm.value); if (cur() !== k && kinds[k] && /\.[A-Za-z0-9]+$/.test(nm.value)) radios.find((r) => r.value === k).checked = true; };
+      const enc = b.querySelector('.pk-enc');
+      enc.onchange = () => { b.querySelector('.pk-pwbox').hidden = !enc.checked; if (enc.checked) b.querySelector('.pk-pw').focus(); };
     });
   if (!box) return;
   let val = box.querySelector('.pk-name').value.trim();
   if (!val) return;
+  const picked = box.querySelector('input[name="pk-kind"]:checked');
   let kind = packKindOf(val);
-  if (!/\.(zip|7z|rar|tar|tgz|tbz2?|txz|gz|bz2|xz)$/i.test(val)) { kind = box.querySelector('.pk-kind').value; val += kinds[kind][1]; }
-  if (kind === 'rar' && !rarExe) return msg('Pack', 'A .rar can only be made by WinRAR, which was not found on this computer. Choose zip or 7z, or install WinRAR.');
-  store.set('packKind', kind in PACK_KINDS || kind === 'rar' ? kind : 'zip');
-  const archive = P.resolve(src.dir, val);
-  const st = await api.stat(archive);
-  if (st.exists) {
-    if (st.isDir) return msg('Error', 'A folder with this name already exists.');
-    const c = await dialog({
-      title: 'Confirm overwrite',
-      text: `"${P.basename(archive)}" already exists.\nOverwrite?`,
-      buttons: [{ label: 'Overwrite', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }],
-    });
-    if (c.value !== 'ok') return;
+  if (!/\.(zip|7z|rar|tar|tgz|tbz2?|txz|gz|bz2|xz)$/i.test(val)) { kind = picked ? picked.value : 'zip'; val += kinds[kind][1]; }
+  const level = parseInt(box.querySelector('.pk-level').value, 10);
+  const move = box.querySelector('.pk-move').checked, separate = box.querySelector('.pk-sep').checked;
+  const encOn = box.querySelector('.pk-enc').checked;
+  const password = encOn ? box.querySelector('.pk-pw').value : '';
+  if (encOn) {
+    if (!password) return msg('Pack', 'Type a password or clear the Encrypt box.');
+    if (password !== box.querySelector('.pk-pw2').value) return msg('Pack', 'The two passwords are different.');
   }
-  const res = await withProgress('Packing', (id) => (kind === 'zip'
-    ? api.zipPack({ id, sources: items.map((i) => P.join(src.dir, i.name)), archive })
-    : api.arcPack({ id, kind, cwd: src.dir, names, archive })));
+  if (password && !['zip', '7z', 'rar'].includes(kind)) return msg('Pack', 'Encryption works for zip, 7z and rar archives only. Choose one of them or clear the password.');
+  if (kind === 'rar' && !rarExe) return msg('Pack', 'A .rar can only be made by WinRAR, which was not found on this computer. Choose zip or 7z, or install WinRAR.');
+  if ((kind === 'gz' || kind === 'bz2' || kind === 'xz') && (separate ? items.some((i) => i.isDir) : items.length !== 1 || items[0].isDir)) return msg('Pack', 'A .gz / .bz2 / .xz holds one file: select one file, or use "Create separate archives".');
+  store.set('packKind', kind in PACK_KINDS || kind === 'rar' ? kind : 'zip');
+  store.set('packOpts', { level, move, separate });
+  // one archive with everything, or (separate) one archive per item named after it, in the folder of the typed name
+  const jobsList = separate
+    ? items.map((i) => ({ names: [i.name], archive: P.join(P.dirname(P.resolve(src.dir, val)), (i.isDir ? i.name : splitExt(i.name)[0]) + kinds[kind][1]) }))
+    : [{ names, archive: P.resolve(src.dir, val) }];
+  const allErrors = [];
+  for (const jb of jobsList) {
+    const st = await api.stat(jb.archive);
+    if (st.exists) {
+      if (st.isDir) { allErrors.push(`${P.basename(jb.archive)}: a folder with this name already exists.`); continue; }
+      const c = await dialog({
+        title: 'Confirm overwrite',
+        text: `"${P.basename(jb.archive)}" already exists.\nOverwrite?`,
+        buttons: [{ label: 'Overwrite', value: 'ok', primary: true }, { label: 'Cancel', value: 'cancel', cancel: true }],
+      });
+      if (c.value !== 'ok') break;
+    }
+    // zip made by the built-in packer (fast; no password, normal rate); everything else by 7za / WinRAR
+    const res = await withProgress('Packing', (id) => (kind === 'zip' && !password && level === 6
+      ? api.zipPack({ id, sources: jb.names.map((n) => P.join(src.dir, n)), archive: jb.archive })
+      : api.arcPack({ id, kind, cwd: src.dir, names: jb.names, archive: jb.archive, password, level })));
+    allErrors.push(...res.errors);
+    if (res.cancelled) break;
+    if (move && !res.errors.length) {
+      const d = await api.del({ sources: jb.names.map((n) => P.join(src.dir, n)), permanent: false });
+      if (d && d.errors && d.errors.length) allErrors.push(...d.errors);
+    }
+  }
   await Promise.all(panels.map((p) => p.refresh()));
-  await showErrors(res.errors);
+  await showErrors(allErrors);
+}
+
+/** an unpack that failed because of a password: ask for it (again when it was wrong) and repeat; run(password) -> result of arc:unpack */
+async function retryWithPassword(res, name, run) {
+  for (let tries = 0; res.needPassword && tries < 5; tries++) {
+    const c = await dialog({
+      title: 'Password',
+      text: tries ? `Wrong password for "${name}". Try again:` : `"${name}" is protected by a password:`,
+      input: '',
+      inputType: 'password',
+      buttons: OKCANCEL,
+    });
+    if (c.value !== 'ok' || !c.input) return { errors: [], cancelled: true };
+    res = await run(c.input);
+  }
+  return res;
 }
 
 async function unpackSel() {
@@ -1616,12 +1671,20 @@ async function unpackSel() {
         if (c.value === 'cancel') break;
         overwrite = c.value;
       }
-      const res = await withProgress('Unpacking', (id) => api.arcUnpack({ id, archive, destDir, overwrite }));
+      let res = await withProgress('Unpacking', (id) => api.arcUnpack({ id, archive, destDir, overwrite }));
+      res = await retryWithPassword(res, a.name, (password) => withProgress('Unpacking', (id) => api.arcUnpack({ id, archive, destDir, overwrite, password })));
       allErrors.push(...res.errors);
       if (res.cancelled) break;
       continue;
     }
     const info = await api.zipInspect({ archive, destDir });
+    if (info.error && /encrypted/i.test(info.error)) {
+      // a zip with a password: 7za unpacks it (AES and the old ZipCrypto)
+      const res = await retryWithPassword({ errors: [], needPassword: true }, a.name, (password) => withProgress('Unpacking', (id) => api.arcUnpack({ id, archive, destDir, overwrite: 'all', password })));
+      allErrors.push(...res.errors);
+      if (res.cancelled) break;
+      continue;
+    }
     if (info.error) { allErrors.push(`${a.name}: ${info.error}`); continue; }
     let overwrite = 'skip';
     if (info.conflictCount) {

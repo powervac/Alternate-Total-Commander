@@ -502,7 +502,20 @@ class Panel {
 
   /** browse a zip archive like a folder (read-only). inner = path inside the archive, '/'-separated */
   async loadArc(file, inner, opts = {}) {
-    const res = await api.zipList({ archive: file, inner });
+    let res = await api.zipList({ archive: file, inner });
+    // an archive with a password: ask for it (again when it was wrong) and read the list once more
+    for (let tries = 0; res.error && res.needPassword && tries < 5; tries++) {
+      const c = await dialog({
+        title: 'Password',
+        text: res.wrong ? `Wrong password for "${P.basename(file)}". Try again:` : `"${P.basename(file)}" is protected by a password:`,
+        input: '',
+        inputType: 'password',
+        buttons: OKCANCEL,
+      });
+      if (c.value !== 'ok' || !c.input) { await api.arcSetPassword({ archive: file, password: '' }); return false; }
+      await api.arcSetPassword({ archive: file, password: c.input });
+      res = await api.zipList({ archive: file, inner });
+    }
     if (res.error) { await msg('Error', res.error); return false; }
     // an archive that was downloaded from a NAS / SSH server keeps a pointer to its origin (read-only, shown with the remote path)
     const remote = opts.remote || (this.arc && this.arc.file === file ? this.arc.remote : undefined);

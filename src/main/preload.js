@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('api', {
   zipInspect: inv('zip:inspect'),
   zipUnpack: inv('zip:unpack'),
   zipList: inv('zip:list'),
+  arcSetPassword: inv('arc:setPassword'),
   zipModify: inv('zip:modify'),
   zipExtract: inv('zip:extract'),
   zipOpen: inv('zip:open'),

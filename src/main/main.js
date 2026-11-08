@@ -1624,7 +1624,7 @@ function ensureNasProxy() {
         const up = await c.openDownload(rp, req.headers.range);
         const h = { 'Content-Type': MIME[rp.split('.').pop().toLowerCase()] || 'application/octet-stream', 'Accept-Ranges': 'bytes' };
         for (const k of ['content-length', 'content-range']) if (up.headers[k]) h[k] = up.headers[k];
-        res.writeHead(up.statusCode === 206 ? 206 : 200, h);
+        res.writeHead(up.statusCode === 206 || up.statusCode === 416 ? up.statusCode : 200, h); // 416: a range behind the end of the file
         up.pipe(res);
         res.on('close', () => up.destroy());
       } catch (err) {

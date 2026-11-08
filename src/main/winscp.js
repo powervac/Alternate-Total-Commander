@@ -17,7 +17,7 @@ function toSession(name, v) {
   const s = {
     name: decodeName(name).replace(/\//g, ' / '),
     host: v.HostName || '',
-    port: v.PortNumber ? +v.PortNumber : proto === 5 ? 21 : proto === 6 ? (+v.Ftps ? 443 : 80) : 22,
+    port: +v.PortNumber > 0 && +v.PortNumber < 65536 ? Math.floor(+v.PortNumber) : proto === 5 ? 21 : proto === 6 ? (+v.Ftps ? 443 : 80) : 22, // a missing or silly port is the default of the protocol
     user: v.UserName || '',
     keyFile: (v.PublicKeyFile || '').replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16))),
     protocol: PROTO_NAME[proto] || 'protocol ' + proto,
@@ -39,7 +39,7 @@ function parseIni(text) {
     if (sec) { cur = { name: sec[1], v: {} }; out.push(cur); continue; }
     if (/^\[/.test(line)) { cur = null; continue; }
     const kv = /^([^=]+)=(.*)$/.exec(line);
-    if (cur && kv) cur.v[kv[1].trim()] = kv[2];
+    if (cur && kv) cur.v[kv[1].trim()] = kv[2].trim();
   }
   return out.filter((s) => !/^Default( |%20)Settings$/i.test(s.name)).map((s) => toSession(s.name, s.v));
 }

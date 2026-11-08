@@ -31,6 +31,14 @@ const SINGLE = /\.(gz|bz2|xz|lzma)$/i; // one compressed file (a tar inside is t
 const WRAPPED = /\.(tgz|tbz2?|txz|tar\.(gz|bz2|xz))$/i; // a tar inside a compressed file: unwrapped first
 const isSevenArchive = (f) => EXT.test(f);
 
+// passwords of the archives opened in this session (memory only): archive path -> password. -p with an empty password makes 7za fail at once instead of waiting for the console.
+const passwords = new Map();
+const setPassword = (archive, pw) => { if (pw) passwords.set(archive, pw); else passwords.delete(archive); };
+const hasPassword = (archive) => passwords.has(archive);
+const pwArg = (archive) => '-p' + (passwords.get(archive) || '');
+/** the error means that a password is needed (or was wrong) */
+const needsPassword = (msg) => /password|encrypted|headers error|data error/i.test(String(msg));
+
 function run(args, cwd) {
   return new Promise((resolve, reject) => {
     if (global.devlog) global.devlog('7za', `${bin} ${args.map((a) => (/^-p/.test(a) ? '-p***' : a)).join(' ')}`);
@@ -96,7 +104,7 @@ async function inner(archive) {
 /** [{ name: 'dir/file', size, mtime, dir }] */
 async function listRar(archive) {
   const { createExtractorFromFile } = require('node-unrar-js');
-  const ex = await createExtractorFromFile({ filepath: archive });
+  const ex = await createExtractorFromFile({ filepath: archive, password: passwords.get(archive) });
   const { fileHeaders } = ex.getFileList();
   const out = [];
   for (const h of fileHeaders) {
@@ -112,7 +120,7 @@ async function list(archive) {
   // -sccUTF-8: print names as UTF-8. Without it 7za on Windows writes them in the console code page and every non-ASCII letter becomes "_"
   const text = WRAPPED.test(archive)
     ? await pipeTwo(archive, ['l', '-slt', '-ba', '-spd', '-sccUTF-8', '-si', '-ttar'])
-    : await run(['l', '-slt', '-ba', '-spd', '-sccUTF-8', archive]);
+    : await run(['l', '-slt', '-ba', '-spd', '-sccUTF-8', pwArg(archive), archive]);
   const entries = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
     const f = {};
@@ -123,7 +131,7 @@ async function list(archive) {
     if (f.Path === undefined || /(^|\/)(\._[^/]*|PaxHeader(\/.*)?)$/.test(f.Path.replace(/\\/g, '/'))) continue; // skip macOS tar junk
     const dir = /^D/.test(f.Attributes || '') || f.Folder === '+';
     const t = Date.parse((f.Modified || '').replace(' ', 'T'));
-    entries.push({ name: f.Path.replace(/\\/g, '/'), size: dir ? -1 : parseInt(f.Size, 10) || 0, mtime: Number.isFinite(t) ? t : 0, dir });
+    entries.push({ name: f.Path.replace(/\\/g, '/'), size: dir ? -1 : parseInt(f.Size, 10) || 0, mtime: Number.isFinite(t) ? t : 0, dir, enc: f.Encrypted === '+' });
   }
   // a bz2 / xz / lzma file holds one file without a name: it is named like the archive without the extension
   if (!entries.length && SINGLE.test(archive)) {
@@ -139,7 +147,7 @@ async function list(archive) {
 async function extractRar(archive, paths, destDir, cancelled) {
   const { createExtractorFromFile } = require('node-unrar-js');
   await fsp.mkdir(destDir, { recursive: true });
-  const ex = await createExtractorFromFile({ filepath: archive, targetPath: destDir });
+  const ex = await createExtractorFromFile({ filepath: archive, targetPath: destDir, password: passwords.get(archive) });
   const want = paths && paths.length ? paths.map((x) => String(x).replace(/\\/g, '/').replace(/\/+$/, '')) : null;
   const pick = want ? (h) => { const n = String(h.name).replace(/\\/g, '/'); return want.some((w) => n === w || n.startsWith(w + '/')); } : undefined;
   const { files } = ex.extract(pick ? { files: pick } : {});
@@ -151,8 +159,8 @@ async function extract(archive, paths, destDir) {
   await fsp.mkdir(destDir, { recursive: true });
   if (WRAPPED.test(archive)) { await pipeTwo(archive, ['x', '-y', '-spd', '-si', '-ttar', '-o' + destDir, '--', ...paths]); return; }
   // a single compressed file has no inner names: it is unpacked whole
-  if (SINGLE.test(archive)) { await run(['x', '-y', '-spd', '-o' + destDir, '--', archive]); return; }
-  await run(['x', '-y', '-spd', '-o' + destDir, '--', archive, ...paths]);
+  if (SINGLE.test(archive)) { await run(['x', '-y', '-spd', pwArg(archive), '-o' + destDir, '--', archive]); return; }
+  await run(['x', '-y', '-spd', pwArg(archive), '-o' + destDir, '--', archive, ...paths]);
 }
 
 /** 7za with the percent of the work reported: onPct(0..100); kill() stops it. -> promise */
@@ -171,11 +179,12 @@ function runProgress(args, cwd, onPct, hold) {
 
 /** unpack the whole archive into destDir. overwrite: 'all' | 'skip'. onPct(0..100), hold.kill() to stop */
 async function unpackAll(archive, destDir, { overwrite = 'skip', onPct, hold, cancelled, password } = {}) {
+  if (password) setPassword(archive, password);
   await fsp.mkdir(destDir, { recursive: true });
   if (isRar(archive)) { await extractRar(archive, [], destDir, cancelled); if (onPct) onPct(100); return; }
   if (WRAPPED.test(archive)) { await pipeTwo(archive, ['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-si', '-ttar', '-o' + destDir], onPct, hold); if (onPct) onPct(100); return; }
   // no -p: 7za would wait for a password on the console; -p with an empty password makes it fail at once with "Wrong password"
-  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', '-p' + (password || ''), '-o' + destDir, '--', archive], undefined, onPct, hold);
+  await runProgress(['x', '-y', overwrite === 'all' ? '-aoa' : '-aos', '-spd', pwArg(archive), '-o' + destDir, '--', archive], undefined, onPct, hold);
 }
 
 /** pack sources (all of them in the same folder `cwd`, given by name) into archive. kind: 7z | tar | tgz | tbz2 | txz | gz | bz2 | xz */
@@ -229,4 +238,4 @@ async function pack(kind, cwd, names, archive, { onPct, hold, password, level } 
   }
 }
 
-module.exports = { isSevenArchive, isRar, list, extract, run, unpackAll, pack };
+module.exports = { isSevenArchive, isRar, list, extract, run, unpackAll, pack, setPassword, hasPassword, needsPassword };

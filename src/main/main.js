@@ -821,7 +821,7 @@ ipcMain.handle('arc:unpack', async (e, { id, archive, destDir, overwrite, passwo
     ctx.tick(true);
     return { errors: ctx.cancel ? [] : ctx.errors, cancelled: ctx.cancel };
   } catch (err) {
-    const needPw = /password|encrypted|headers error/i.test(err.message); // a 7z with encrypted names says only "Headers Error"
+    const needPw = sevenzip.needsPassword(err.message); // a 7z with encrypted names says only "Headers Error"
     return { errors: ctx.cancel ? [] : [`${path.basename(archive)}: ${needPw ? (password ? 'wrong password' : 'the archive is protected by a password') : err.message}`], needPassword: needPw && !ctx.cancel, cancelled: ctx.cancel };
   } finally {
     jobs.delete(id);
@@ -1176,19 +1176,25 @@ ipcMain.handle('zip:unpack', async (e, { id, archive, destDir, overwrite }) => {
 // ---- zip as a folder (read-only browsing)
 
 const zipCache = new Map(); // archive path -> { sig, entries: [{name, size, mtime}] }
+class NeedPassword extends Error { constructor() { super('the archive is protected by a password'); this.needPassword = true; } }
+/** read through 7za: 7z, tar, ... and also a zip whose password is known (yauzl cannot decrypt) */
+const viaSeven = (archive) => sevenzip.isSevenArchive(archive) || sevenzip.hasPassword(archive);
+ipcMain.handle('arc:setPassword', (_e, { archive, password }) => { sevenzip.setPassword(archive, password); zipCache.delete(archive); return true; });
 async function zipIndex(archive) {
   const st = await fsp.stat(archive);
   const sig = st.mtimeMs + ':' + st.size;
   const c = zipCache.get(archive);
   if (c && c.sig === sig) return c.entries;
-  if (sevenzip.isSevenArchive(archive)) {
+  if (viaSeven(archive)) {
     const list = await sevenzip.list(archive);
+    if (!sevenzip.hasPassword(archive) && list.some((en) => en.enc)) throw new NeedPassword();
     const norm = list.map((en) => ({ name: en.dir ? en.name + '/' : en.name, size: en.size, mtime: en.mtime }));
     zipCache.set(archive, { sig, entries: norm });
     return norm;
   }
   const { z, entries } = await listZip(archive);
   z.close();
+  if (entries.some((en) => !isDirEntry(en) && en.isEncrypted())) throw new NeedPassword(); // a zip with a password is read through 7za once the password is known
   const light = entries.map((en) => ({
     name: en.fileName.replace(/\\/g, '/'),
     size: en.uncompressedSize,
@@ -1222,7 +1228,8 @@ ipcMain.handle('zip:list', async (_e, { archive, inner }) => {
     const items = [...map.values()].map((i) => ({ name: i.name, isDir: i.isDir, size: i.size, mtime: i.mtime, ro: false, hidden: false, link: false }));
     return { dir: archive, items };
   } catch (err) {
-    return { error: path.basename(archive) + ': ' + err.message };
+    const need = err.needPassword || (sevenzip.isSevenArchive(archive) && sevenzip.needsPassword(err.message));
+    return { error: path.basename(archive) + ': ' + err.message, needPassword: !!need, wrong: !!need && sevenzip.hasPassword(archive) };
   }
 });
 
@@ -1232,7 +1239,7 @@ async function sevenExtract(ctx, archive, inner, names, destDir, rename, overwri
   const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-'));
   try {
     ctx.current = path.basename(archive);
-    await sevenzip.extract(archive, names.map((n) => base + n), tmp);
+    try { await sevenzip.extract(archive, names.map((n) => base + n), tmp); } catch (err) { if (sevenzip.needsPassword(err.message)) { sevenzip.setPassword(archive, ''); zipCache.delete(archive); throw new Error('wrong password (open the archive again to enter it)'); } throw err; }
     await fsp.mkdir(destDir, { recursive: true });
     for (const n of names) {
       if (ctx.cancel) break;
@@ -1252,7 +1259,7 @@ async function sevenExtract(ctx, archive, inner, names, destDir, rename, overwri
 ipcMain.handle('zip:extract', async (e, { id, archive, inner, names, destDir, rename, overwrite }) => {
   const ctx = mkCtx(e, id);
   jobs.set(id, ctx);
-  if (sevenzip.isSevenArchive(archive)) {
+  if (viaSeven(archive)) {
     try { await sevenExtract(ctx, archive, inner, names, destDir, rename, overwrite); } catch (err) { ctx.errors.push(err.message); }
     ctx.tick(true);
     jobs.delete(id);
@@ -1289,10 +1296,10 @@ ipcMain.handle('zip:extract', async (e, { id, archive, inner, names, destDir, re
 
 /** extract one file of an archive into a fresh temp folder, returns its path (removed on quit) */
 async function extractToTemp(archive, inner, name) {
-  if (sevenzip.isSevenArchive(archive)) {
+  if (viaSeven(archive)) {
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-'));
     const want = (inner ? inner + '/' : '') + name;
-    await sevenzip.extract(archive, [want], dir);
+    try { await sevenzip.extract(archive, [want], dir); } catch (err) { if (sevenzip.needsPassword(err.message)) { sevenzip.setPassword(archive, ''); zipCache.delete(archive); throw new Error('wrong password (open the archive again to enter it)'); } throw err; }
     const target = path.join(dir, ...want.split('/'));
     if (!fs.existsSync(target)) throw new Error('not found in archive');
     return target;

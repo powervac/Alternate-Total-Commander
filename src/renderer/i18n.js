@@ -341,6 +341,7 @@ const I18N_ROWS = [
   ['Music player: previous track', 'Музыкальный плеер: предыдущий трек', 'Музичний програвач: попередній трек', 'Музычны прайгравальнік: папярэдні трэк', 'Odtwarzacz muzyki: poprzedni utwór', 'Player de música: faixa anterior', 'Reproductor de música: pista anterior', 'Musikplayer: vorheriger Titel'],
   ['Selection', 'Выделение', 'Виділення', 'Вылучэнне', 'Zaznaczanie', 'Seleção', 'Selección', 'Markierung'],
   ['Tabs', 'Вкладки', 'Вкладки', 'Укладкі', 'Karty', 'Abas', 'Pestañas', 'Tabs'],
+  ['Connecting and loading the folder...', 'Подключение и загрузка папки...', 'Підключення і завантаження теки...', 'Падключэнне і загрузка папкі...', 'Łączenie i wczytywanie folderu...', 'Conectando e carregando a pasta...', 'Conectando y cargando la carpeta...', 'Verbinden und Ordner laden...'],
   ['FTP / FTPS server...', 'FTP / FTPS сервер...', 'FTP / FTPS сервер...', 'FTP / FTPS сервер...', 'Serwer FTP / FTPS...', 'Servidor FTP / FTPS...', 'Servidor FTP / FTPS...', 'FTP- / FTPS-Server...'],
   ['WebDAV server...', 'WebDAV-сервер...', 'WebDAV-сервер...', 'WebDAV-сервер...', 'Serwer WebDAV...', 'Servidor WebDAV...', 'Servidor WebDAV...', 'WebDAV-Server...'],
   ['FTP / FTPS server', 'FTP / FTPS сервер', 'FTP / FTPS сервер', 'FTP / FTPS сервер', 'Serwer FTP / FTPS', 'Servidor FTP / FTPS', 'Servidor FTP / FTPS', 'FTP- / FTPS-Server'],

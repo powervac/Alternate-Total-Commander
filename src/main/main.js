@@ -2135,8 +2135,36 @@ ipcMain.handle('shell:open', async (_e, p) => {
   return r || null;
 });
 
-ipcMain.handle('shell:run', (_e, cmd, cwd) => {
+ipcMain.handle('shell:run', async (_e, cmd, cwd) => {
   try {
+    if (!isWin && !isMac) {
+      // Linux: no built-in terminal, so look for an installed terminal emulator and keep it open after the command ends
+      const script = `${cmd}\n_rc=$?; echo; echo "[exit code $_rc] - press Enter to close"; read _x`;
+      const list = [
+        ['x-terminal-emulator', ['-e', 'bash', '-c', script]],
+        ['gnome-terminal', ['--', 'bash', '-c', script]],
+        ['konsole', ['-e', 'bash', '-c', script]],
+        ['xfce4-terminal', ['-x', 'bash', '-c', script]],
+        ['mate-terminal', ['-x', 'bash', '-c', script]],
+        ['lxterminal', ['-e', 'bash', '-c', script]],
+        ['tilix', ['-e', 'bash', '-c', script]],
+        ['alacritty', ['-e', 'bash', '-c', script]],
+        ['kitty', ['bash', '-c', script]],
+        ['xterm', ['-e', 'bash', '-c', script]],
+      ];
+      let cwdOk = cwd;
+      try { if (!cwd || !fs.statSync(cwd).isDirectory()) cwdOk = undefined; } catch { cwdOk = undefined; }
+      for (const [exe, args] of list) {
+        const started = await new Promise((resolve) => {
+          let child;
+          try { child = spawn(exe, args, { cwd: cwdOk, detached: true, stdio: 'ignore' }); } catch { resolve(false); return; }
+          child.once('error', () => resolve(false));
+          child.once('spawn', () => { child.unref(); resolve(true); });
+        });
+        if (started) return null;
+      }
+      return 'No terminal emulator found (tried x-terminal-emulator, gnome-terminal, konsole, xfce4-terminal, xterm...)';
+    }
     if (isWin) {
       spawn('cmd.exe', ['/d', '/s', '/c', `"start "" cmd.exe /k ${cmd}"`], {
         cwd,

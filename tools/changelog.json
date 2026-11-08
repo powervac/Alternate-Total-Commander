@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.932",
+    "date": "2026-11-08",
+    "items": [
+      "Linux terminal for the command line, loading screen for remote folders, encrypted archives, TC-style pack dialog"
+    ]
+  },
+  {
     "version": "0.1.931",
     "date": "2026-11-08",
     "items": [

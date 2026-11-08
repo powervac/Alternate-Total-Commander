@@ -722,3 +722,66 @@ describe('FTP session behaviour', () => {
     assert.equal(s.logins.length, logins);
   });
 });
+
+// ---------------------------------------------------------------- second round: found by the mutation tests
+describe('FTP details (second round)', () => {
+  let s;
+  before(async () => { s = await new MockFtp().start(); });
+  after(() => s.stop());
+  afterEach(() => { s.reset(); s.clear(); });
+
+  it('FTP-L8 ordinary files and folders are not entered with CWD; only links are', async () => {
+    s.put('f.txt', 'x'); s.mkdir('d');
+    const c = await connect(s);
+    await c.list('/');
+    assert.equal(s.commands.filter((x) => /^CWD /.test(x)).length, 0);
+  });
+
+  it('FTP-P10 a file of ONE byte still has ranges: bytes=0-0 is 206 with "bytes 0-0/1"', async () => {
+    s.put('one.bin', 'Z');
+    const c = await connect(s);
+    const r = await c.openDownload('/one.bin', 'bytes=0-0');
+    assert.equal(r.statusCode, 206);
+    assert.deepEqual(r.headers, { 'content-length': '1', 'content-range': 'bytes 0-0/1' });
+    assert.equal((await readAll(r)).toString(), 'Z');
+    const whole = await c.openDownload('/one.bin');
+    assert.equal(whole.statusCode, 200);
+    assert.equal((await readAll(whole)).toString(), 'Z');
+  });
+
+  it('FTP-P11 when SIZE does not work (an empty file on this server) the size comes from the listing of the SAME file, not from another one', async () => {
+    s.put('sizes/a-full.bin', 'seven!!');
+    s.put('sizes/z-empty.bin', '');
+    s.mkdir('sizes/m-folder');
+    const c = await connect(s);
+    const r = await c.openDownload('/sizes/z-empty.bin');
+    assert.equal(r.statusCode, 200);
+    assert.deepEqual(r.headers, { 'content-length': '0' });
+    assert.equal((await readAll(r)).length, 0);
+    await rejects(c.openDownload('/sizes/m-folder'), /.+/); // a folder is not a file
+    await rejects(c.openDownload('/sizes/missing.bin'), ENOENT);
+  });
+
+  it('FTP-P12 a range whose last byte is before its first is invalid and ignored: the whole file, 200', async () => {
+    s.put('r.bin', Buffer.from('0123456789'));
+    const c = await connect(s);
+    const r = await c.openDownload('/r.bin', 'bytes=7-3');
+    assert.equal(r.statusCode, 200);
+    assert.deepEqual(r.headers, { 'content-length': '10' });
+    assert.equal((await readAll(r)).toString(), '0123456789');
+    const ok = await c.openDownload('/r.bin', 'bytes=3-3'); // the same first and last byte is a valid range
+    assert.equal(ok.statusCode, 206);
+    assert.equal((await readAll(ok)).toString(), '3');
+  });
+
+  it('FTP-P13 open ended ranges: bytes=4- is the rest, and a range is read from the right place', async () => {
+    s.put('o.bin', Buffer.from('abcdefghij'));
+    const c = await connect(s);
+    const r = await c.openDownload('/o.bin', 'bytes=4-');
+    assert.equal(r.statusCode, 206);
+    assert.equal(r.headers['content-range'], 'bytes 4-9/10');
+    assert.equal((await readAll(r)).toString(), 'efghij');
+    const mid = await c.openDownload('/o.bin', 'bytes=2-5');
+    assert.equal((await readAll(mid)).toString(), 'cdef');
+  });
+});

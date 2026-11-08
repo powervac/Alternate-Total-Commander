@@ -610,3 +610,244 @@ describe('DAV redirects', () => {
     assert.ok(a.log.filter((q) => q.method === 'GET').every((q) => q.headers.authorization));
   });
 });
+
+// ---------------------------------------------------------------- second round: found by the mutation tests
+describe('DAV details (second round)', () => {
+  let s;
+  before(async () => { s = await new MockDav({ base: '/dav' }).start(); });
+  after(() => s.stop());
+  beforeEach(() => s.reset());
+
+  it('DAV-C9 the timeout option: a positive number is used, 0 / negative / text / nothing mean 60 s', async () => {
+    // (a tiny timeout makes the connect itself fail: only the value that was taken is looked at)
+    for (const [given, want] of [[undefined, 60000], [0, 60000], [-5, 60000], ['abc', 60000], [0.5, 0.5], [1, 1], ['500', 500], [300, 300], [120000, 120000]]) {
+      const c = new Davfs();
+      await c.connect({ url: s.url, user: 'test', pass: 'secret', timeout: given }).catch(() => {});
+      assert.equal(c.timeoutMs, want, String(given));
+    }
+  });
+
+  it('DAV-C10 the text of an unexpected status is "The server answered <code> <reason>"', async () => {
+    for (const [code, text] of [[400, 'The server answered 400 Bad Request'], [403, 'The server answered 403 Forbidden'], [500, 'The server answered 500 Internal Server Error'], [503, 'The server answered 503 Service Unavailable']]) {
+      s.reset(); s.on('PROPFIND', code, 5);
+      await assert.rejects(new Davfs().connect({ url: s.url, user: 'test', pass: 'secret' }), (e) => { assert.equal(e.message, text); return true; });
+    }
+    s.reset(); s.on('PROPFIND', (_q, res) => { res.writeHead(499, ''); res.end(); return true; }, 5); // a status without a reason phrase
+    await assert.rejects(new Davfs().connect({ url: s.url }), (e) => { assert.equal(e.message, 'The server answered 499'); return true; });
+    s.reset(); s.on('PROPFIND', 399, 5); // below 400 is not an error of the probe
+    await new Davfs().connect({ url: s.url });
+  });
+
+  it('DAV-A8 an endless wrong password stops after exactly 3 requests (Basic and Digest)', async () => {
+    for (const auth of ['basic', 'digest']) {
+      const t = await new MockDav({ auth }).start();
+      try {
+        await assert.rejects(new Davfs().connect({ url: t.url, user: 'test', pass: 'WRONG' }), /Login failed/);
+        assert.equal(t.log.filter((q) => q.method === 'PROPFIND').length, 3, auth);
+      } finally { await t.stop(); }
+    }
+  });
+
+  it('DAV-A9 Digest: the client nonce is 8 random bytes (16 hex digits), new for every request', async () => {
+    const t = await new MockDav({ auth: 'digest' }).start();
+    try {
+      const c = await connect(t);
+      for (let i = 0; i < 5; i++) await c.exists('/');
+      const nonces = t.log.map((q) => /cnonce="([^"]*)"/.exec(q.headers.authorization || '')).filter(Boolean).map((m) => m[1]);
+      assert.ok(nonces.length >= 5);
+      assert.ok(nonces.every((x) => /^[0-9a-f]{16}$/.test(x)), nonces.join());
+      assert.equal(new Set(nonces).size, nonces.length);
+    } finally { await t.stop(); }
+  });
+
+  it('DAV-A10 a server that answers 401 WITHOUT a challenge is not retried: one request, "Login failed"', async () => {
+    s.on('PROPFIND', (_q, res) => { res.writeHead(401); res.end(); return true; }, 9);
+    await assert.rejects(new Davfs().connect({ url: s.url, user: 'test', pass: 'secret' }), /Login failed/);
+    assert.equal(s.log.filter((q) => q.method === 'PROPFIND').length, 1);
+  });
+
+  it('DAV-A11 a Basic server that wants the login once more (a proxy, an expired session) is answered with Basic again, and so are later requests', async () => {
+    const t = await new MockDav({ auth: 'basic', base: '/dav' }).start();
+    try {
+      const c = await connect(t);
+      t.put('/a.txt', 'a');
+      t.on('PROPFIND', (_q, res) => { res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="again"' }); res.end(); return true; });
+      assert.deepEqual((await c.list('/')).map((x) => x.name), ['a.txt']);
+      await c.exists('/a.txt');
+      assert.ok(t.log.every((q) => !q.headers.authorization || /^Basic /.test(q.headers.authorization)), 'never Digest to a Basic server');
+    } finally { await t.stop(); }
+  });
+
+  it('DAV-A12 an anonymous upload sends no OPTIONS; with a Basic login the OPTIONS goes before the upload', async () => {
+    const a = new Davfs();
+    await a.connect({ url: s.url });
+    await a.upload(local('anon.txt', 'x'), '/', 'anon.txt', true, {});
+    assert.equal(s.log.filter((q) => q.method === 'OPTIONS').length, 0);
+    const t = await new MockDav({ auth: 'basic' }).start();
+    try {
+      const c = await connect(t);
+      await c.upload(local('basic.txt', 'x'), '/', 'b.txt', true, {});
+      assert.equal(t.log.filter((q) => q.method === 'OPTIONS').length, 1);
+      assert.ok(t.log.findIndex((q) => q.method === 'OPTIONS') < t.log.findIndex((q) => q.method === 'PUT'));
+    } finally { await t.stop(); }
+  });
+
+  it('DAV-X6 an endless redirect is followed exactly 5 times: 6 requests in all', async () => {
+    const c = await connect(s);
+    s.on('GET', (req, res) => { res.writeHead(302, { Location: req.url }); res.end(); return true; }, 50);
+    await assert.rejects(c.download('/loop.txt', local('loop2.txt')), /answered 302/);
+    assert.equal(s.log.filter((q) => q.method === 'GET').length, 6);
+  });
+
+  it('DAV-L10 a server that does not repeat the folder itself in its answer lists all children', async () => {
+    const c = await connect(s);
+    s.on('PROPFIND', (_q, res) => {
+      res.writeHead(207, { 'Content-Type': 'application/xml' });
+      res.end('<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/first.txt</d:href><d:propstat><d:prop><d:getcontentlength>1</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>' +
+        '<d:response><d:href>/dav/second.txt</d:href><d:propstat><d:prop><d:getcontentlength>2</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>');
+      return true;
+    });
+    assert.deepEqual((await c.list('/')).map((x) => [x.name, x.size]), [['first.txt', 1], ['second.txt', 2]]);
+  });
+
+  it('DAV-L11 a response without an href is ignored', async () => {
+    const c = await connect(s);
+    s.on('PROPFIND', (_q, res) => {
+      res.writeHead(207, { 'Content-Type': 'application/xml' });
+      res.end('<d:multistatus xmlns:d="DAV:"><d:response><d:propstat><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>' +
+        '<d:response><d:href>/dav/ok.txt</d:href><d:propstat><d:prop/><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>');
+      return true;
+    });
+    assert.deepEqual((await c.list('/')).map((x) => x.name), ['ok.txt']);
+  });
+
+  it('DAV-L12 a file with no date has mtime 0; a date is read exactly (to the second)', async () => {
+    s.put('/dated.txt', 'x', Date.UTC(2023, 4, 6, 7, 8, 9));
+    const c = await connect(s);
+    assert.equal((await c.list('/')).find((x) => x.name === 'dated.txt').mtime, Date.UTC(2023, 4, 6, 7, 8, 9));
+    s.on('PROPFIND', (_q, res) => {
+      res.writeHead(207, { 'Content-Type': 'application/xml' });
+      res.end('<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/</d:href></d:response><d:response><d:href>/dav/nodate.txt</d:href><d:propstat><d:prop><d:getcontentlength>3</d:getcontentlength></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>');
+      return true;
+    });
+    assert.deepEqual(await c.list('/'), [{ name: 'nodate.txt', isDir: false, size: 3, mtime: 0 }]);
+  });
+
+  it('DAV-E1 exists: a plain 200 answer to PROPFIND counts as "there"; a broken connection is exactly false', async () => {
+    s.put('/x.txt', 'x');
+    const c = await connect(s);
+    s.on('PROPFIND', 200);
+    assert.equal(await c.exists('/x.txt'), true);
+    s.on('PROPFIND', (req) => { req.socket.destroy(); return true; });
+    assert.strictEqual(await c.exists('/x.txt'), false);
+    s.on('PROPFIND', 404);
+    assert.strictEqual(await c.exists('/x.txt'), false);
+  });
+
+  it('DAV-M4 the answers that mean "done": MKCOL 200 / 201 / 204 / 405, MOVE 200 / 201 / 204, DELETE 200 / 202 / 204 / 404; the others are errors', async () => {
+    const c = await connect(s);
+    s.put('/f.txt', 'x');
+    for (const code of [200, 201, 204, 405]) { s.on('MKCOL', code); await c.mkdir('/', 'd' + code); }
+    for (const code of [202, 203, 205, 301]) { s.on('MKCOL', code); await assert.rejects(c.mkdir('/', 'e' + code), new RegExp(`answered ${code}`)); }
+    for (const code of [200, 201, 204]) { s.on('MOVE', code); await c.rename('/f.txt', 'g.txt'); }
+    for (const code of [202, 205, 207]) { s.on('MOVE', code); await assert.rejects(c.rename('/f.txt', 'h.txt'), new RegExp(`answered ${code}`)); }
+    for (const code of [200, 202, 204, 404]) { s.on('DELETE', code); await c.remove(['/f.txt']); }
+    for (const code of [201, 203, 205]) { s.on('DELETE', code); await assert.rejects(c.remove(['/f.txt']), new RegExp(`answered ${code}`)); }
+  });
+
+  it('DAV-G6 the message of the server in a failed GET / PUT is shown (download, streaming, upload)', async () => {
+    const c = await connect(s);
+    const boom = (req, res) => { res.writeHead(500, { 'Content-Type': 'application/xml' }); res.end('<s:error xmlns:s="x"><s:message>quota &lt;exceeded&gt;</s:message></s:error>'); return true; };
+    s.on('GET', boom); await assert.rejects(c.download('/a.txt', local('g6.txt')), /answered 500: quota <exceeded>/);
+    s.on('GET', boom); await assert.rejects(c.openDownload('/a.txt'), /answered 500: quota <exceeded>/);
+    s.on('PUT', boom); await assert.rejects(c.upload(local('g6u.txt', 'x'), '/', 'u.txt', true, {}), /answered 500: quota <exceeded>/);
+  });
+
+  it('DAV-G7 onReq is called with the request as soon as it starts (and again with a handle when the body starts); destroying it while the server is silent ends the download', async () => {
+    s.put('/ok.txt', 'hello');
+    const c = await connect(s);
+    const calls = [];
+    await c.download('/ok.txt', local('g7.txt'), { onReq: (h) => calls.push(h) });
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every((h) => typeof h.destroy === 'function'));
+    s.on('GET', () => true); // a server that never answers
+    let handle;
+    const p = c.download('/ok.txt', local('g7b.txt'), { onReq: (h) => { handle = h; } });
+    await new Promise((r) => setTimeout(r, 100));
+    assert.ok(handle, 'the handle is there before the server answers');
+    handle.destroy();
+    await assert.rejects(p);
+  });
+
+  it('DAV-P5 only the headers a player needs are passed on; absent ones are not invented', async () => {
+    s.put('/m.mp3', 'abc');
+    const c = await connect(s);
+    s.on('GET', (_q, res) => { res.writeHead(200, { 'Content-Length': 3, 'X-Secret': 'no', 'Set-Cookie': 'a=b' }); res.end('abc'); return true; });
+    const r = await c.openDownload('/m.mp3');
+    assert.deepEqual(Object.keys(r.headers), ['content-length']);
+    assert.equal((await readAll(r)).toString(), 'abc');
+  });
+});
+
+// ---------------------------------------------------------------- the texts of the errors, without a server
+describe('DAV error texts', () => {
+  const { explain, httpError } = require('../src/main/davclient');
+  const e = (m) => explain(new Error(m)).message;
+
+  const cases = [
+    ['getaddrinfo ENOTFOUND cloud.example', /^Host not found: getaddrinfo ENOTFOUND cloud\.example$/],
+    ['getaddrinfo EAI_AGAIN x', /^Host not found: /],
+    ['connect ECONNREFUSED 127.0.0.1:80', /^Connection refused \(is the server running and the port right\?\)$/],
+    ['ETIMEDOUT', /^The server did not answer in time\.$/],
+    ['Request timeout', /^The server did not answer in time\.$/],
+    ['self-signed certificate', /^The server certificate is not trusted\. Tick "Allow an untrusted certificate" if you trust this server\.$/],
+    ['self signed certificate in certificate chain', /not trusted/],
+    ['unable to verify the first certificate', /not trusted/],
+    ['CERT_HAS_EXPIRED', /not trusted/],
+    ["Hostname/IP does not match certificate's altnames", /not trusted/],
+    ['error:0A00010B:SSL routines::wrong version number', /^The server does not speak HTTPS on this port: try http:\/\/ in the address\.$/],
+    ['write EPROTO', /does not speak HTTPS/],
+    ['something else entirely', /^something else entirely$/],
+  ];
+  for (const [msg, re] of cases) it(`DAV-Z1 "${msg}"`, () => assert.match(e(msg), re));
+
+  it('DAV-Z2 other kinds of input: a string, nothing, an object with a message; an unknown Error is returned as the same object', () => {
+    assert.match(explain('ECONNREFUSED x').message, /^Connection refused/);
+    assert.equal(explain(undefined).message, 'undefined');
+    assert.equal(explain(null).message, 'null');
+    assert.equal(explain({ message: 'ETIMEDOUT' }).message, 'The server did not answer in time.');
+    assert.equal(explain({ message: '' }).message, '[object Object]');
+    const own = new Error('whatever');
+    assert.equal(explain(own), own);
+    assert.equal(explain('plain').message, 'plain');
+  });
+
+  it('DAV-Z3 the first rule that fits wins (a refused connection that also says "timeout", a certificate message with EPROTO)', () => {
+    assert.match(e('ECONNREFUSED after timeout'), /Connection refused/);
+    assert.match(e('ENOTFOUND ECONNREFUSED'), /Host not found/);
+    assert.match(e('certificate EPROTO'), /not trusted/);
+  });
+
+  const status = [
+    [401, /^Login failed: wrong user name or password\.$/],
+    [403, /^The server refused \(403\): no permission for this\.$/],
+    [404, /^Not found on the server \(404\)\.$/],
+    [405, /^The server does not allow PUT here \(405\)\.$/],
+    [409, /^The folder does not exist on the server \(409\)\.$/],
+    [423, /^The file is locked on the server \(423\)\.$/],
+    [507, /^The server has no space left \(507\)\.$/],
+    [500, /^The server answered 500$/],
+    [418, /^The server answered 418$/],
+    [207, /^The server answered 207$/],
+  ];
+  for (const [code, re] of status) it(`DAV-Z4 status ${code}`, () => assert.match(httpError(code, '', 'PUT').message, re));
+
+  it('DAV-Z5 the message element of the answer (any prefix, entities decoded) is appended; text without one is not', () => {
+    assert.equal(httpError(500, '<s:error><s:message>disk &amp; &lt;quota&gt; &quot;full&quot; &apos;x&apos; &#65;</s:message></s:error>', 'GET').message, 'The server answered 500: disk & <quota> "full" \'x\' A');
+    assert.equal(httpError(500, '<message>plain</message>', 'GET').message, 'The server answered 500: plain');
+    assert.equal(httpError(500, '<d:MESSAGE>upper</d:MESSAGE>', 'GET').message, 'The server answered 500: upper');
+    assert.equal(httpError(500, 'no xml here', 'GET').message, 'The server answered 500');
+    assert.equal(httpError(500, undefined, 'GET').message, 'The server answered 500');
+    assert.equal(httpError(404, '<s:message>ignored for known codes</s:message>', 'GET').message, 'Not found on the server (404).');
+  });
+});

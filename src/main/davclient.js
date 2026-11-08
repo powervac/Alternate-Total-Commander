@@ -23,7 +23,6 @@ class Davfs {
   async connect(opts) {
     let u;
     try { u = new URL(/^https?:\/\//i.test(opts.url || '') ? opts.url : 'https://' + (opts.url || '')); } catch { throw new Error('The address is not valid. Example: https://cloud.example.com/remote.php/dav/files/me/'); }
-    if (!u.hostname) throw new Error('Enter the address of the WebDAV server');
     this.u = u;
     this.base = u.origin + u.pathname.replace(/\/+$/, '');
     this.basePath = u.pathname.replace(/\/+$/, ''); // '' for the root of the server
@@ -34,12 +33,11 @@ class Davfs {
     this.endpoint = u.host;
     try {
       const r = await this._request('PROPFIND', '/', { headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY });
-      const text = await readAll(r.res);
+      r.res.resume(); // only the status is needed
       if (r.status === 401) throw new Error('Login failed: wrong user name or password.');
       if (r.status === 404) throw new Error('The address was not found on the server (404). Check the path of the WebDAV folder.');
       if (r.status === 405 || r.status === 501) throw new Error('This address does not speak WebDAV (the server refused PROPFIND).');
       if (r.status >= 400) throw new Error(`The server answered ${r.status} ${r.res.statusMessage || ''}`.trim());
-      void text;
     } catch (e) {
       throw explain(e);
     }
@@ -76,7 +74,6 @@ class Davfs {
       if (ch) {
         result.res.resume();
         this.digest = ch;
-        this.basic = ch.scheme === 'basic';
         return this._request(method, rpath, { headers, body, bodyStream, length, absUrl }, hops + 1);
       }
     }
@@ -107,7 +104,7 @@ class Davfs {
   async _ok(method, rpath, opts, okCodes) {
     const r = await this._request(method, rpath, opts);
     const text = await readAll(r.res);
-    if (!(okCodes || [200, 201, 204, 207]).includes(r.status)) throw httpError(r.status, text, method);
+    if (!okCodes.includes(r.status)) throw httpError(r.status, text, method);
     return { ...r, text };
   }
 
@@ -138,7 +135,7 @@ class Davfs {
   async exists(p) {
     try {
       const r = await this._request('PROPFIND', p, { headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY });
-      await readAll(r.res);
+      r.res.resume();
       return r.status === 207 || r.status === 200;
     } catch {
       return false;
@@ -188,7 +185,7 @@ class Davfs {
     if (!overwrite && (await this.exists(target))) throw new Error('already exists');
     const st = fs.statSync(localFile);
     // a Digest server needs the challenge first: a cheap request answers it, so that the real upload (a stream) goes through at once
-    if (this.user && !this.digest) { try { const w = await this._request('OPTIONS', '/'); await readAll(w.res); } catch { /* the PUT will tell */ } }
+    if (this.user && !this.digest) { try { const w = await this._request('OPTIONS', '/'); w.res.resume(); } catch { /* the PUT will tell */ } }
     const rs = fs.createReadStream(localFile);
     rs.on('data', (c) => onData && onData(c.length));
     this._onReq = onReq ? (req) => onReq({ destroy: () => { req.destroy(); rs.destroy(); } }) : null;
@@ -261,4 +258,4 @@ function explain(e) {
   return e instanceof Error ? e : new Error(m);
 }
 
-module.exports = { Davfs };
+module.exports = { Davfs, explain, httpError };

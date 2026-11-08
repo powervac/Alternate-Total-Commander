@@ -1,1 +1,381 @@
-[]
+[
+  {
+    "file": "src/main/davclient.js",
+    "line": 61,
+    "col": 5,
+    "op": "if-false",
+    "reason": "Node sets Content-Length itself when end(data) is called before the headers go out; the explicit header is only a safeguard"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 89,
+    "col": 21,
+    "op": "return",
+    "reason": "the only caller tests the result for truthiness: null and undefined are the same"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 114,
+    "col": 50,
+    "op": "string",
+    "reason": "'/' and dir + '/' for the root give the same URL: _url() drops empty path segments"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 117,
+    "col": 69,
+    "op": "number",
+    "reason": "slice(0) keeps the text before the first <response>; it has no <href>, so the loop skips it",
+    "to": "0"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 129,
+    "col": 48,
+    "op": "number",
+    "reason": "mod[0] is the whole match, tags included; Date.parse of V8 ignores the tag text and gives the same time (mod[1] is the correct group)"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 175,
+    "col": 33,
+    "op": "if-false",
+    "reason": "an early end of the body is already reported by the 'aborted' handler of the same stream; this 'close' handler is a fallback for runtimes that no longer emit 'aborted'"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 175,
+    "col": 87,
+    "op": "message",
+    "reason": "same fallback: it is reached only when 'aborted' was not emitted, which this runtime always does"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 231,
+    "col": 3,
+    "op": "if-false",
+    "reason": "parseChallenge(undefined) reaches the same null through the later checks (no Digest, no Basic)"
+  },
+  {
+    "file": "src/main/davclient.js",
+    "line": 231,
+    "col": 11,
+    "op": "return",
+    "reason": "the only caller tests the result for truthiness: null and undefined are the same"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 106,
+    "col": 11,
+    "op": "if-true",
+    "reason": "close() of a missing client throws a TypeError that the surrounding try / catch swallows"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 239,
+    "col": 9,
+    "op": "if-false",
+    "reason": "without the check the next line throws a TypeError, caught by the same try / catch that throws the explained original error"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 249,
+    "col": 16,
+    "op": "number",
+    "reason": "a range is only ignored when both numbers are there; with an empty first number +m[1] is 0, so the test 'last < first' is false anyway"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 251,
+    "col": 7,
+    "op": "if-true",
+    "reason": "start = +'' is 0, the value it already has"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 251,
+    "col": 13,
+    "op": "number",
+    "reason": "m[0] is always true; with an empty m[1] the assignment gives 0, the value start already has"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 264,
+    "col": 5,
+    "op": "if-false",
+    "reason": "an empty file through the generic branch gives the same empty stream with the same headers (it only closes its connection a moment later)"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 282,
+    "col": 5,
+    "op": "if-true",
+    "reason": "clearInterval(null) does nothing"
+  },
+  {
+    "file": "src/main/ftpclient.js",
+    "line": 293,
+    "col": 33,
+    "op": "relational",
+    "reason": "a chunk exactly as long as what is left: subarray(0, left) is the same bytes as the chunk"
+  },
+  {
+    "file": "src/main/winscp.js",
+    "line": 16,
+    "col": 46,
+    "op": "number",
+    "reason": "the default protocol 1 and 2 are both 'SFTP' with the same kind, name and import rule"
+  },
+  {
+    "file": "src/main/winscp.js",
+    "line": 58,
+    "col": 45,
+    "op": "number",
+    "reason": "val[3] is the value, not the type: the DWORD branch never runs and the text '0x16' is read by Number() as 22, the same number"
+  },
+  {
+    "file": "src/main/winscp.js",
+    "line": 58,
+    "col": 52,
+    "op": "string",
+    "reason": "Number('0x16') understands the hex text, so converting it first with parseInt gives the same value in toSession()"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 12,
+    "col": 15,
+    "op": "number",
+    "reason": "the envelope counter is reset by write() of register 13 before the envelope can run (it is held until then)"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 12,
+    "col": 45,
+    "op": "number",
+    "reason": "the direction is set by write() of register 13 and restartEnv() before any envelope step"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 13,
+    "col": 29,
+    "op": "number",
+    "reason": "one more byte in the register file is never read or written"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 34,
+    "col": 92,
+    "op": "number",
+    "reason": "a SID phase of 1 wraps to the step at the first sample: the same as starting from 0"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 35,
+    "col": 113,
+    "op": "number",
+    "reason": "the drum value is set from the data before it is used"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 40,
+    "col": 23,
+    "op": "relational",
+    "reason": "the fourth pass touches voice 3, which does not exist (undefined): nothing happens"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 40,
+    "col": 25,
+    "op": "number",
+    "reason": "same: a fourth pass over a voice that does not exist"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 55,
+    "col": 68,
+    "op": "relational",
+    "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 55,
+    "col": 95,
+    "op": "relational",
+    "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 56,
+    "col": 68,
+    "op": "relational",
+    "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 57,
+    "col": 34,
+    "op": "relational",
+    "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 63,
+    "col": 23,
+    "op": "relational",
+    "reason": "a fourth tone channel touches array cells beyond the three channels: not heard"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 63,
+    "col": 25,
+    "op": "number",
+    "reason": "same: a fourth tone channel that is not mixed"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 64,
+    "col": 41,
+    "op": "if-false",
+    "reason": "a tone period of 0 toggles at every chip tick, exactly like the period 1 it is meant to become"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 64,
+    "col": 47,
+    "op": "relational",
+    "reason": "period 1 is set to 1: no change"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 64,
+    "col": 49,
+    "op": "number",
+    "reason": "the limit 0 or 2 changes only 1 -> 1 or 0 -> 1: the same behaviour (0 and 1 both toggle at every tick)"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 64,
+    "col": 56,
+    "op": "number",
+    "reason": "a replacement period of 0 toggles at every tick, exactly like 1"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 76,
+    "col": 23,
+    "op": "relational",
+    "reason": "a fourth mixer pass adds to a cell beyond the three channels: not heard"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 76,
+    "col": 25,
+    "op": "number",
+    "reason": "same: a fourth mixer pass"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 88,
+    "col": 16,
+    "op": "number",
+    "reason": "the per-sample channel sums are set to 0 before every sample"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 88,
+    "col": 18,
+    "op": "number",
+    "reason": "the per-sample channel sums are set to 0 before every sample"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 88,
+    "col": 20,
+    "op": "number",
+    "reason": "the per-sample channel sums are set to 0 before every sample"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 112,
+    "col": 47,
+    "op": "number",
+    "reason": "one more byte in the register file of the player is never used"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 113,
+    "col": 114,
+    "op": "number",
+    "reason": "loops 0 (no value) is treated as 'play once': Math.max(0, -1) is 0 like Math.max(0, 0)"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 114,
+    "col": 36,
+    "op": "boolean",
+    "reason": "beepUsed is written but never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 129,
+    "col": 27,
+    "op": "relational",
+    "reason": "one more pass over an index beyond the buffer: nothing is written"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 134,
+    "col": 27,
+    "op": "logical",
+    "reason": "beepUsed is written but never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 134,
+    "col": 43,
+    "op": "relational",
+    "reason": "beepUsed is written but never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 134,
+    "col": 45,
+    "op": "number",
+    "reason": "beepUsed is written but never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 134,
+    "col": 47,
+    "op": "logical",
+    "reason": "beepUsed is written but never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 136,
+    "col": 40,
+    "op": "number",
+    "reason": "the variable 'cur' is never read"
+  },
+  {
+    "file": "src/main/ay/ay.js",
+    "line": 139,
+    "col": 42,
+    "op": "relational",
+    "reason": "an event exactly at the end of a sample adds nothing to that sample (zero length) and sets the level for the next one: the same sound"
+  },
+  {
+    "file": "src/main/ay/fmt_psg.js",
+    "line": 8,
+    "col": 14,
+    "op": "relational",
+    "reason": "reading one byte beyond the data gives undefined, which is neither a marker nor a register: the loop ends"
+  },
+  {
+    "file": "src/main/ay/fmt_psg.js",
+    "line": 12,
+    "col": 12,
+    "op": "if-false",
+    "reason": "the end marker 0xFD then falls into the last 'else break' of the chain: the same end"
+  }
+]

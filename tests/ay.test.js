@@ -620,3 +620,232 @@ describe('TurboSound container', () => {
     assert.equal(q.doneB, false);
   });
 });
+
+// ---------------------------------------------------------------- second round: found by the mutation tests
+describe('AY details (second round)', () => {
+  const frames = (n, regsObj = { 7: ALL_OFF, 8: 15 }) => { let f = 0; return { frame(r) { if (f++ >= n) return false; Object.assign(r, regsObj); return true; } }; };
+
+  it('AY-M14 the length is exact for any number of frames (an odd count too): n x 882 samples', () => {
+    for (const n of [1, 2, 3, 7, 11, 25]) assert.equal(renderModule(frames(n)).L.length, n * 882, String(n));
+  });
+
+  it('AY-M15 a TurboSound mix: both channels and the first sample too (second chip rendered in step with the first)', () => {
+    const mk = () => { let n = 0; return { chips: 2, frame(r1, r2) { Object.assign(r1, { 7: ALL_OFF, 8: 15 }); Object.assign(r2, { 7: ALL_OFF, 9: 15 }); return n++ < 3; } }; };
+    const r = renderModule(mk());
+    for (const i of [0, 1, 500, 881, 882, 2000]) {
+      near(r.L[i], (0.42 + 0.3) * 0.5, 1e-5);
+      near(r.R[i], (0.18 + 0.3) * 0.5, 1e-5);
+    }
+    assert.equal(r.L.length, 3 * 882);
+  });
+
+  it('AY-M16 the beeper (1-bit sound) is sampled by time: an event exactly between two samples, and one inside a sample', () => {
+    const per = 70908 / 882;
+    const mid = renderModule({ beeper: { start: 0, ev: [[35454, 1]] }, frame(r) { Object.assign(r, { 7: ALL_OFF, 8: 0 }); return this.n++ < 1; }, n: 0 });
+    assert.equal(mid.L[440], 0);
+    near(mid.L[441], 0.45, 1e-6);
+    const inside = renderModule({ beeper: { start: 0, ev: [[441 * per + per * 0.25, 1]] }, frame(r) { Object.assign(r, { 7: ALL_OFF, 8: 0 }); return this.n++ < 1; }, n: 0 });
+    assert.equal(inside.L[440], 0);
+    near(inside.L[441], 0.75 * 0.45, 1e-6);
+    near(inside.L[442], 0.45 - 0.75 * 0.45 + 0.997 * 0.75 * 0.45, 1e-6); // the high-pass: y = x - x(previous) + 0.997 y(previous)
+    // the level before the first event, and events that switch back and forth inside one sample
+    const hi = renderModule({ beeper: { start: 1, ev: [[0, 0]] }, frame(r) { Object.assign(r, { 7: ALL_OFF, 8: 0 }); return this.n++ < 1; }, n: 0 });
+    assert.equal(hi.L[0], 0);
+    const flick = renderModule({ beeper: { start: 0, ev: [[10, 1], [30, 0], [50, 1], [60, 0]] }, frame(r) { Object.assign(r, { 7: ALL_OFF, 8: 0 }); return this.n++ < 1; }, n: 0 });
+    near(flick.L[0], ((30 - 10) + (60 - 50)) / per * 0.45, 1e-6);
+  });
+
+  it('AY-X6 an unknown kind of effect is ignored (it is not taken for a sync buzzer)', () => {
+    const c = new AYChip();
+    c.applyFx([{ type: 'bogus', freq: 10, shape: 5, voice: 0 }]);
+    assert.equal(c.sync, null);
+    assert.deepEqual(plain(c.sid), [null, null, null]);
+    assert.deepEqual(plain(c.drum), [null, null, null]);
+    assert.equal(c.shape, 0);
+  });
+
+  it('AY-X7 the SID and drum voices are the channels they name (voice 2 too); the LAST sample of a drum is not played (a quirk of the port: the voice is released while it is read)', () => {
+    const c = new AYChip();
+    c.write(regs({ 7: ALL_OFF }));
+    c.applyFx([{ type: 'sid', voice: 2, freq: 44100, vol: 15 }, { type: 'drum', voice: 0, data: Uint8Array.from([255, 255]), freq: 44100 }]);
+    const L = new Float32Array(4); const R = new Float32Array(4);
+    c.render(L, R, 0, 4);
+    near(L[0], 0.42 + 0.18, 1e-5); // drum on A (1.0 x 0.7 x 0.6) + SID on C, high in its first half (0.3 x 0.6)
+    near(L[1], 0, 1e-5); // the second (last) drum sample is dropped, the SID is low
+    assert.equal(c.drum[0], null);
+    const d = new AYChip();
+    d.write(regs({ 7: ALL_OFF }));
+    d.applyFx([{ type: 'drum', voice: 0, data: Uint8Array.from([255]), freq: 44100 }]);
+    d.render(L, R, 0, 2);
+    near(L[0], 0, 1e-5); // a drum of one sample is never heard
+  });
+});
+
+describe('PSG details (second round)', () => {
+  const header = () => { const h = Buffer.alloc(16); h.write('PSG', 0); h[3] = 0x1a; return h; };
+  const build = (...tail) => Buffer.concat([header(), Buffer.from(tail.flat())]);
+  const frames = (b) => plain(new PSGPlayer(b).frames);
+
+  it('AY-F11 bytes above 15 that are not markers end the data and are not taken as registers; 15 itself is a register (port B), 16 is not', () => {
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2)), [[[0, 1]], [[0, 2]]]);
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2, 0x20, 0xaa, 0xbb)), [[[0, 1]], [[0, 2]]]);
+    assert.deepEqual(frames(build(0, 1, 0xff, 15, 9)), [[[0, 1]], [[15, 9]]]);
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2, 16, 7, 0, 3)), [[[0, 1]], [[0, 2]]]);
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2, 0xfc, 7, 0, 3)), [[[0, 1]], [[0, 2]]]);
+  });
+
+  it('AY-F12 the data may stop right after a register number (cut file): no crash, the half pair is dropped', () => {
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2, 5)), [[[0, 1]], [[0, 2]]]);
+    assert.deepEqual(frames(build(0, 1, 0xff, 0, 2, 0xfe)), [[[0, 1]], [[0, 2]]]);
+  });
+
+  it('AY-F13 TurboSound: once both modules are done it stays done, and a finished module is not asked again', () => {
+    let aCalls = 0; let bCalls = 0;
+    const a = { clock: 1, frameRate: 50, title: '', frame() { aCalls++; return aCalls <= 1; } }; // asking a finished one again would say "true" again after a reset
+    const b = { clock: 1, frameRate: 50, title: '', frame() { bCalls++; return bCalls <= 2; } };
+    const p = new TSPlayer(a, b);
+    const r1 = new Array(14).fill(0); const r2 = new Array(14).fill(0);
+    const answers = [];
+    for (let i = 0; i < 6; i++) answers.push(p.frame(r1, r2));
+    assert.deepEqual(answers, [true, true, false, false, false, false]);
+    assert.equal(aCalls, 2); // once true, once false; never again
+    assert.equal(bCalls, 3);
+  });
+
+  it('AY-S5 the container needs 270 bytes: exactly 270 is fine, 269 is "no signature"', () => {
+    const mod = (pad, n) => Buffer.concat([header(), Buffer.from([0, n, 0xff, 0, n + 1, 0xfd]), Buffer.alloc(pad)]);
+    const ts = (m1, m2) => {
+      const f = Buffer.alloc(16);
+      f.write('psg', 0); f.writeUInt16LE(m1.length, 4); f.write('psg', 6); f.writeUInt16LE(m2.length, 10); f.write('02TS', 12);
+      return Buffer.concat([m1, m2, f]);
+    };
+    const ok = ts(mod(100, 1), mod(110, 5));
+    assert.equal(ok.length, 270);
+    assert.ok(createTS(ok) instanceof TSPlayer);
+    const short = ts(mod(100, 1), mod(109, 5));
+    assert.equal(short.length, 269);
+    assert.throws(() => createTS(short), /02TS/);
+    assert.throws(() => createTS(ts(mod(100, 1), mod(110, 5)).subarray(0, 269)), /02TS/);
+  });
+
+  it('AY-S6 an unknown module type is named in the message', () => {
+    const mod = Buffer.concat([header(), Buffer.from([0, 1, 0xff, 0, 2, 0xfd]), Buffer.alloc(110)]);
+    const f = Buffer.alloc(16);
+    f.write('psg', 0); f.writeUInt16LE(mod.length, 4); f.write('zzz', 6); f.writeUInt16LE(mod.length, 10); f.write('02TS', 12);
+    assert.throws(() => createTS(Buffer.concat([mod, mod, f])), /TS: неподдерживаемый тип модуля zzz$/);
+  });
+});
+
+// ---------------------------------------------------------------- characterisation (golden) tests
+// Scripted modules with pseudo-random register values drive the whole chip (tone, noise, mixer, all envelope shapes, SID / drum / sync
+// effects, two chips, the beeper, speed and pitch). The SHA-1 of the rendered samples is the reference: it was taken from the emulator
+// after the unit tests above (frequency, levels, envelope, noise against independent models) had passed. Any change of the sound, even in
+// the last bit, shows up here; an intended change is made by taking the new hash (and listening to the result).
+describe('AY golden renderings', () => {
+  const crypto = require('crypto');
+  const hashOf = (r) => crypto.createHash('sha1').update(Buffer.from(r.L.buffer, r.L.byteOffset, r.L.byteLength)).update(Buffer.from(r.R.buffer, r.R.byteOffset, r.R.byteLength)).digest('hex');
+
+  /** a module that writes pseudo-random (but fixed) registers: seed, number of frames, extras */
+  function scripted(seed, n, extra = {}) {
+    let x = seed >>> 0;
+    const rnd = () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296;
+    let f = 0;
+    return {
+      title: 'golden', ...extra,
+      frame(...rs) {
+        if (f++ >= n) return false;
+        for (const r of rs.filter(Boolean)) {
+          r[0] = (rnd() * 256) | 0; r[1] = (rnd() * 4) | 0; r[2] = (rnd() * 256) | 0; r[3] = (rnd() * 8) | 0; r[4] = (rnd() * 256) | 0; r[5] = (rnd() * 16) | 0;
+          r[6] = (rnd() * 32) | 0; r[7] = (rnd() * 64) | 0; r[8] = (rnd() * 32) | 0; r[9] = (rnd() * 32) | 0; r[10] = (rnd() * 32) | 0;
+          r[11] = (rnd() * 256) | 0; r[12] = rnd() < 0.3 ? 1 : 0;
+          if (rnd() < 0.4) r[13] = (rnd() * 16) | 0;
+        }
+        return true;
+      },
+      loopBack() { return extra.loops ? (f = 0, extra.loops--, true) : false; },
+    };
+  }
+  const FX = [{ type: 'sid', voice: 0, freq: 3000, vol: 12 }, { type: 'drum', voice: 1, data: Uint8Array.from({ length: 50 }, (_, i) => (i * 37) & 255), freq: 8000 }, { type: 'sid', voice: 2, freq: 777, vol: 9 }, { type: 'sync', freq: 200, shape: 13 }];
+  const BEEP = { start: 1, ev: [[1000, 0], [5000.5, 1], [20000, 0], [40000, 1], [65000, 0]] };
+
+  const scenes = {
+    'one chip, 60 frames': () => renderModule(scripted(1, 60)),
+    'two chips (TurboSound), 40 frames': () => renderModule(scripted(2, 40, { chips: 2 })),
+    'effects: SID on A and C, drum on B, sync buzzer': () => renderModule(scripted(3, 40, { fx: FX })),
+    'beeper': () => renderModule(scripted(4, 30, { beeper: BEEP })),
+    'speed 1.25, pitch 0.8, two plays': () => renderModule(scripted(5, 12, { loops: 1 }), { speed: 1.25, pitch: 0.8, loops: 2 }),
+    'another clock and a frame rate of 55': () => renderModule(scripted(6, 30, { clock: 2000000, frameRate: 55 })),
+  };
+  const GOLD = {
+    'one chip, 60 frames': '438c6526e0c1557760d05726bece74576ea38cfa',
+    'two chips (TurboSound), 40 frames': 'd99ec5e7bcf1e66208a2bd6e86159c6efc12b7fb',
+    'effects: SID on A and C, drum on B, sync buzzer': '5158ff597eb4600eef9d2b41a8fd077b76aea5d4',
+    'beeper': '452180063f19b91899a7bf4f88192b5839bedbe6',
+    'speed 1.25, pitch 0.8, two plays': '55cd39fa009314ddb0cde142bde5c9da2591ab26',
+    'another clock and a frame rate of 55': '622e81dfff11d32c878e6c60133eb7655b8ac04c',
+  };
+  for (const [name, make] of Object.entries(scenes)) {
+    it(`AY-G1 ${name}`, () => {
+      const r = make();
+      assert.ok(r.L.length > 10000);
+      assert.equal(hashOf(r), GOLD[name]);
+    });
+  }
+
+  it('AY-G2 the golden scenes are not silent and not clipped (a sanity check of the reference itself)', () => {
+    for (const [name, make] of Object.entries(scenes)) {
+      const r = make();
+      let peak = 0;
+      for (const v of r.L) peak = Math.max(peak, Math.abs(v));
+      assert.ok(peak > 0.05 && peak < 2.5, `${name}: peak ${peak}`);
+      assert.ok(r.L.every(Number.isFinite) && r.R.every(Number.isFinite), `${name}: not finite`);
+    }
+  });
+});
+
+describe('AY details (third round)', () => {
+  it('AY-X8 a sync buzzer restart puts the envelope where writing the shape register would: every one of the 16 shapes', () => {
+    for (let shape = 0; shape < 16; shape++) {
+      const written = new AYChip();
+      written.write(regs({ 13: shape }));
+      const restarted = new AYChip();
+      restarted.shape = shape;
+      restarted.restartEnv();
+      assert.equal(restarted.evol, written.evol, `shape ${shape}: level`);
+      assert.equal(restarted.edir, written.edir, `shape ${shape}: direction`);
+      assert.equal(restarted.ehold, false);
+      assert.equal(restarted.ec, 0);
+      assert.equal(restarted.evol, shape & 4 ? 0 : 15);
+      assert.equal(restarted.edir, shape & 4 ? 1 : -1);
+    }
+  });
+
+  it('AY-X9 a sync buzzer at the sample rate restarts the envelope at every sample (a phase of exactly one half counts)', () => {
+    const c = new AYChip();
+    let restarts = 0;
+    const orig = c.restartEnv.bind(c);
+    c.restartEnv = () => { restarts++; orig(); };
+    c.applyFx([{ type: 'sync', freq: 44100, shape: 12 }]);
+    restarts = 0;
+    c.write(regs({ 7: ALL_OFF }));
+    const L = new Float32Array(100); const R = new Float32Array(100);
+    c.render(L, R, 0, 100);
+    assert.equal(restarts, 100);
+  });
+
+  it('AY-T13 the pan of every channel is used for both sides: an uneven pan table', () => {
+    const c = new AYChip();
+    c.pan = [[1, 0], [0.2, 0.8], [0, 1]];
+    c.write(regs({ 7: ALL_OFF, 9: 15 })); // only B sounds
+    const L = new Float32Array(10); const R = new Float32Array(10);
+    c.render(L, R, 0, 10);
+    near(L[5], 0.2 * 0.6, 1e-6);
+    near(R[5], 0.8 * 0.6, 1e-6);
+    const d = new AYChip();
+    d.pan = [[0.9, 0.1], [0, 0], [0.4, 0.6]];
+    d.write(regs({ 7: ALL_OFF, 8: 15, 10: 15 }));
+    d.render(L, R, 0, 10);
+    near(L[5], (0.9 + 0.4) * 0.6, 1e-6);
+    near(R[5], (0.1 + 0.6) * 0.6, 1e-6);
+  });
+});

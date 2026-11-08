@@ -32,9 +32,10 @@ async function openAbout(opts = {}) {
     '</div>' +
     '<label class="ab-dev"><input type="checkbox" class="ab-devmode"> Developer mode (a window with the detailed log opens during sync, updates and archive work)</label>' +
     '<div class="ab-credit">The ZX Spectrum emulator is Unreal Speccy Portable (GPL-3.0). The interface font is Inter.</div>' +
-    '</div><div class="dlg-btns"><button class="ab-update primary" hidden>Update</button><button class="ab-check">Check for updates</button><button class="ab-skip" hidden>Skip this version</button><button class="ab-close">Close</button></div>';
+    '</div><div class="dlg-btns"><button class="ab-help">Help</button><button class="ab-update primary" hidden>Update</button><button class="ab-check">Check for updates</button><button class="ab-skip" hidden>Skip this version</button><button class="ab-close">Close</button></div>';
   const q = (s) => box.querySelector(s);
   const close = openModal(box);
+  q('.ab-help').onclick = () => openHelp();
   q('.ab-devmode').checked = !!store.get('devMode', false);
   q('.ab-devmode').onchange = (e) => { store.set('devMode', e.target.checked); api.devSet(e.target.checked); };
   let busy = false;

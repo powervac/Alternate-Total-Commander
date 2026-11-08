@@ -67,6 +67,7 @@ const HK_COMMANDS = [
   ['playpause', 'Tools', 'Music player: play / pause', [isMac ? 'Alt+Space' : 'Ctrl+Space'], () => playerToggle()],
   ['nexttrack', 'Tools', 'Music player: next track', [HK_MOD + '+Shift+Right'], () => playerStep(1)],
   ['prevtrack', 'Tools', 'Music player: previous track', [HK_MOD + '+Shift+Left'], () => playerStep(-1)],
+  ['help', 'Tools', 'Help', ['F1'], () => openHelp()],
 ];
 /** menu items (by their text) that are commands: their menu line shows the current keys */
 const HK_MENU_IDS = {
@@ -78,7 +79,7 @@ const HK_MENU_IDS = {
   'Music Player: Previous Track': 'prevtrack', 'Go Back': 'back', 'Go Forward': 'forward', 'Source<->Target': 'swap', 'Synology NAS...': 'nas',
   'SSH server...': 'ssh', 'SSH: Console / File List': 'console', 'Left drive list': 'leftdrives', 'Right drive list': 'rightdrives',
   'Quick View Panel': 'quickview', 'Thumbnails': 'thumbs', 'New Folder Tab': 'newtab', 'Close Tab': 'closetab', 'Next Tab': 'nexttab',
-  'Previous Tab': 'prevtab', 'Name': 'sortname', 'Extension': 'sortext', 'Time': 'sorttime', 'Size': 'sortsize', 'Reread Source': 'refresh',
+  'Previous Tab': 'prevtab', 'Help': 'help', 'Name': 'sortname', 'Extension': 'sortext', 'Time': 'sorttime', 'Size': 'sortsize', 'Reread Source': 'refresh',
 };
 const HK_BY_ID = new Map(HK_COMMANDS.map((c) => [c[0], c]));
 

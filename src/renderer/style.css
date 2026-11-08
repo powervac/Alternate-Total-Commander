@@ -631,3 +631,8 @@ body.dlg-window .ab-dev, .dlg.about .ab-dev { display: block; margin: 10px 0 0; 
 .dlg.help-win .dlg-btns { display: flex; }
 body.dlg-window .dlg.help-win { width: 960px; height: 640px; }
 @media (max-width: 760px) { .help-side { width: 170px; } }
+
+.pk-cols { display: flex; gap: 14px; margin: 6px 0; }
+.pk-opts { flex: 1; }
+.pk-packer { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; border: 1px solid #9a9a9a; padding: 2px 8px 4px; margin: 0; align-self: flex-start; }
+.pk-pwbox[hidden] { display: none !important; }

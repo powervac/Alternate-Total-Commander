@@ -1,7 +1,7 @@
 {
   "targets": [
     { "file": "src/main/davclient.js", "tests": ["tests/dav.test.js"], "timeoutSec": 120 },
-    { "file": "src/main/ftpclient.js", "tests": ["tests/ftp.test.js"], "timeoutSec": 180 },
+    { "file": "src/main/ftpclient.js", "tests": ["tests/ftp.test.js", "tests/ftp.unit.test.js"], "timeoutSec": 180 },
     { "file": "src/main/winscp.js", "tests": ["tests/winscp.test.js"], "timeoutSec": 60 },
     { "file": "src/main/aywav.js", "tests": ["tests/aywav.test.js"], "timeoutSec": 60 },
     { "file": "src/main/ay/ay.js", "tests": ["tests/ay.test.js"], "timeoutSec": 120 },

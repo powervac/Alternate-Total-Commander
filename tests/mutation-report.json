@@ -1,0 +1,492 @@
+{
+  "date": "2026-11-08T08:16:25.141Z",
+  "seconds": 1399,
+  "workers": 4,
+  "sample": null,
+  "files": {
+    "src/main/davclient.js": {
+      "mutants": 328,
+      "killed": 303,
+      "timeout": 16,
+      "survived": 0,
+      "equivalent": 9,
+      "error": 0,
+      "score": 100,
+      "survivors": [],
+      "equivalents": [
+        {
+          "line": 61,
+          "op": "if-false",
+          "from": "body != null",
+          "to": "false",
+          "reason": "Node sets Content-Length itself when end(data) is called before the headers go out; the explicit header is only a safeguard"
+        },
+        {
+          "line": 89,
+          "op": "return",
+          "from": "null",
+          "to": "undefined",
+          "reason": "the only caller tests the result for truthiness: null and undefined are the same"
+        },
+        {
+          "line": 114,
+          "op": "string",
+          "from": "'/'",
+          "to": "'__mutant__'",
+          "reason": "'/' and dir + '/' for the root give the same URL: _url() drops empty path segments"
+        },
+        {
+          "line": 117,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "slice(0) keeps the text before the first <response>; it has no <href>, so the loop skips it"
+        },
+        {
+          "line": 129,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "mod[0] is the whole match, tags included; Date.parse of V8 ignores the tag text and gives the same time (mod[1] is the correct group)"
+        },
+        {
+          "line": 175,
+          "op": "if-false",
+          "from": "!r.res.complete",
+          "to": "false",
+          "reason": "an early end of the body is already reported by the 'aborted' handler of the same stream; this 'close' handler is a fallback for runtimes that no longer emit 'aborted'"
+        },
+        {
+          "line": 175,
+          "op": "message",
+          "from": "'Download was interrupted'",
+          "to": "'__mutant__'",
+          "reason": "same fallback: it is reached only when 'aborted' was not emitted, which this runtime always does"
+        },
+        {
+          "line": 231,
+          "op": "if-false",
+          "from": "!h",
+          "to": "false",
+          "reason": "parseChallenge(undefined) reaches the same null through the later checks (no Digest, no Basic)"
+        },
+        {
+          "line": 231,
+          "op": "return",
+          "from": "null",
+          "to": "undefined",
+          "reason": "the only caller tests the result for truthiness: null and undefined are the same"
+        }
+      ]
+    },
+    "src/main/ftpclient.js": {
+      "mutants": 358,
+      "killed": 306,
+      "timeout": 43,
+      "survived": 0,
+      "equivalent": 9,
+      "error": 0,
+      "score": 100,
+      "survivors": [],
+      "equivalents": [
+        {
+          "line": 106,
+          "op": "if-true",
+          "from": "this.client",
+          "to": "true",
+          "reason": "close() of a missing client throws a TypeError that the surrounding try / catch swallows"
+        },
+        {
+          "line": 239,
+          "op": "if-false",
+          "from": "!hit",
+          "to": "false",
+          "reason": "without the check the next line throws a TypeError, caught by the same try / catch that throws the explained original error"
+        },
+        {
+          "line": 249,
+          "op": "number",
+          "from": "1",
+          "to": "2",
+          "reason": "a range is only ignored when both numbers are there; with an empty first number +m[1] is 0, so the test 'last < first' is false anyway"
+        },
+        {
+          "line": 249,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "a range is only ignored when both numbers are there; with an empty first number +m[1] is 0, so the test 'last < first' is false anyway"
+        },
+        {
+          "line": 251,
+          "op": "if-true",
+          "from": "m[1]",
+          "to": "true",
+          "reason": "start = +'' is 0, the value it already has"
+        },
+        {
+          "line": 251,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "m[0] is always true; with an empty m[1] the assignment gives 0, the value start already has"
+        },
+        {
+          "line": 264,
+          "op": "if-false",
+          "from": "total === 0",
+          "to": "false",
+          "reason": "an empty file through the generic branch gives the same empty stream with the same headers (it only closes its connection a moment later)"
+        },
+        {
+          "line": 282,
+          "op": "if-true",
+          "from": "this.timer",
+          "to": "true",
+          "reason": "clearInterval(null) does nothing"
+        },
+        {
+          "line": 293,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "a chunk exactly as long as what is left: subarray(0, left) is the same bytes as the chunk"
+        }
+      ]
+    },
+    "src/main/winscp.js": {
+      "mutants": 122,
+      "killed": 119,
+      "timeout": 0,
+      "survived": 0,
+      "equivalent": 3,
+      "error": 0,
+      "score": 100,
+      "survivors": [],
+      "equivalents": [
+        {
+          "line": 16,
+          "op": "number",
+          "from": "1",
+          "to": "2",
+          "reason": "the default protocol 1 and 2 are both 'SFTP' with the same kind, name and import rule"
+        },
+        {
+          "line": 58,
+          "op": "number",
+          "from": "2",
+          "to": "3",
+          "reason": "val[3] is the value, not the type: the DWORD branch never runs and the text '0x16' is read by Number() as 22, the same number"
+        },
+        {
+          "line": 58,
+          "op": "string",
+          "from": "'DWORD'",
+          "to": "'__mutant__'",
+          "reason": "Number('0x16') understands the hex text, so converting it first with parseInt gives the same value in toSession()"
+        }
+      ]
+    },
+    "src/main/aywav.js": {
+      "mutants": 50,
+      "killed": 50,
+      "timeout": 0,
+      "survived": 0,
+      "equivalent": 0,
+      "error": 0,
+      "score": 100,
+      "survivors": [],
+      "equivalents": []
+    },
+    "src/main/ay/ay.js": {
+      "mutants": 450,
+      "killed": 396,
+      "timeout": 19,
+      "survived": 1,
+      "equivalent": 34,
+      "error": 0,
+      "score": 99.8,
+      "survivors": [
+        {
+          "line": 107,
+          "col": 41,
+          "op": "number",
+          "from": "1800",
+          "to": "1801",
+          "code": "const maxFrames = (opts.maxSeconds || 1800) * rate;"
+        }
+      ],
+      "equivalents": [
+        {
+          "line": 12,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the envelope counter is reset by write() of register 13 before the envelope can run (it is held until then)"
+        },
+        {
+          "line": 12,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the direction is set by write() of register 13 and restartEnv() before any envelope step"
+        },
+        {
+          "line": 13,
+          "op": "number",
+          "from": "16",
+          "to": "17",
+          "reason": "one more byte in the register file is never read or written"
+        },
+        {
+          "line": 34,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "a SID phase of 1 wraps to the step at the first sample: the same as starting from 0"
+        },
+        {
+          "line": 35,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the drum value is set from the data before it is used"
+        },
+        {
+          "line": 40,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "the fourth pass touches voice 3, which does not exist (undefined): nothing happens"
+        },
+        {
+          "line": 40,
+          "op": "number",
+          "from": "3",
+          "to": "4",
+          "reason": "same: a fourth pass over a voice that does not exist"
+        },
+        {
+          "line": 55,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+        },
+        {
+          "line": 55,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+        },
+        {
+          "line": 56,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+        },
+        {
+          "line": 57,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "the direction is +1 or -1 after write() of register 13; it is 0 only while the envelope is held and not stepped"
+        },
+        {
+          "line": 63,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "a fourth tone channel touches array cells beyond the three channels: not heard"
+        },
+        {
+          "line": 63,
+          "op": "number",
+          "from": "3",
+          "to": "4",
+          "reason": "same: a fourth tone channel that is not mixed"
+        },
+        {
+          "line": 64,
+          "op": "if-false",
+          "from": "p < 1",
+          "to": "false",
+          "reason": "a tone period of 0 toggles at every chip tick, exactly like the period 1 it is meant to become"
+        },
+        {
+          "line": 64,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "period 1 is set to 1: no change"
+        },
+        {
+          "line": 64,
+          "op": "number",
+          "from": "1",
+          "to": "2",
+          "reason": "the limit 0 or 2 changes only 1 -> 1 or 0 -> 1: the same behaviour (0 and 1 both toggle at every tick)"
+        },
+        {
+          "line": 64,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "the limit 0 or 2 changes only 1 -> 1 or 0 -> 1: the same behaviour (0 and 1 both toggle at every tick)"
+        },
+        {
+          "line": 64,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "a replacement period of 0 toggles at every tick, exactly like 1"
+        },
+        {
+          "line": 76,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "a fourth mixer pass adds to a cell beyond the three channels: not heard"
+        },
+        {
+          "line": 76,
+          "op": "number",
+          "from": "3",
+          "to": "4",
+          "reason": "same: a fourth mixer pass"
+        },
+        {
+          "line": 88,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the per-sample channel sums are set to 0 before every sample"
+        },
+        {
+          "line": 88,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the per-sample channel sums are set to 0 before every sample"
+        },
+        {
+          "line": 88,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the per-sample channel sums are set to 0 before every sample"
+        },
+        {
+          "line": 112,
+          "op": "number",
+          "from": "14",
+          "to": "15",
+          "reason": "one more byte in the register file of the player is never used"
+        },
+        {
+          "line": 113,
+          "op": "number",
+          "from": "1",
+          "to": "0",
+          "reason": "loops 0 (no value) is treated as 'play once': Math.max(0, -1) is 0 like Math.max(0, 0)"
+        },
+        {
+          "line": 114,
+          "op": "boolean",
+          "from": "false",
+          "to": "true",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 129,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "one more pass over an index beyond the buffer: nothing is written"
+        },
+        {
+          "line": 134,
+          "op": "logical",
+          "from": "||",
+          "to": "&&",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 134,
+          "op": "relational",
+          "from": ">",
+          "to": ">=",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 134,
+          "op": "relational",
+          "from": ">",
+          "to": "<=",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 134,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 134,
+          "op": "logical",
+          "from": "||",
+          "to": "&&",
+          "reason": "beepUsed is written but never read"
+        },
+        {
+          "line": 136,
+          "op": "number",
+          "from": "0",
+          "to": "1",
+          "reason": "the variable 'cur' is never read"
+        },
+        {
+          "line": 139,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "an event exactly at the end of a sample adds nothing to that sample (zero length) and sets the level for the next one: the same sound"
+        }
+      ]
+    },
+    "src/main/ay/fmt_psg.js": {
+      "mutants": 174,
+      "killed": 167,
+      "timeout": 5,
+      "survived": 0,
+      "equivalent": 2,
+      "error": 0,
+      "score": 100,
+      "survivors": [],
+      "equivalents": [
+        {
+          "line": 8,
+          "op": "relational",
+          "from": "<",
+          "to": "<=",
+          "reason": "reading one byte beyond the data gives undefined, which is neither a marker nor a register: the loop ends"
+        },
+        {
+          "line": 12,
+          "op": "if-false",
+          "from": "r === 0xfd",
+          "to": "false",
+          "reason": "the end marker 0xFD then falls into the last 'else break' of the chain: the same end"
+        }
+      ]
+    }
+  },
+  "total": {
+    "killed": 1424,
+    "survived": 1,
+    "score": 99.9
+  }
+}

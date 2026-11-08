@@ -111,18 +111,22 @@ class Ftpfs {
   _run(fn) {
     this.pending++;
     const job = this.queue.then(async () => {
-      if (this.closedByUs) throw new Error('The connection was closed.');
-      if (!this.client || this.client.closed) {
-        try { this.client = await this._open(); } catch (e) { this._drop(); throw explain(e); }
-      }
       try {
-        return await fn(this.client);
-      } catch (e) {
-        if (this.client && this.client.closed) this._drop(); // the next operation reconnects
-        throw explain(e);
+        if (this.closedByUs) throw new Error('The connection was closed.');
+        if (!this.client || this.client.closed) {
+          try { this.client = await this._open(); } catch (e) { this._drop(); throw explain(e); }
+        }
+        try {
+          return await fn(this.client);
+        } catch (e) {
+          if (this.client && this.client.closed) this._drop(); // the next operation reconnects
+          throw explain(e);
+        }
+      } finally {
+        this.pending--; // before the caller sees the result: "pending" is exactly the number of jobs waiting or running
       }
     });
-    this.queue = job.catch(() => {}).then(() => { this.pending--; });
+    this.queue = job.catch(() => {});
     return job;
   }
 
@@ -241,7 +245,8 @@ class Ftpfs {
     }
     let start = 0;
     let end = total - 1;
-    const m = total > 0 && range && /bytes=(\d*)-(\d*)/.exec(range); // an empty file has no ranges: 200 and nothing
+    let m = total > 0 && range && /bytes=(\d*)-(\d*)/.exec(range); // an empty file has no ranges: 200 and nothing
+    if (m && m[1] && m[2] && +m[2] < +m[1]) m = null; // an invalid range (last byte before the first) is ignored, as the RFC says: the whole file
     if (m) {
       if (m[1]) start = +m[1];
       if (m[2]) end = Math.min(+m[2], total - 1);
@@ -256,22 +261,12 @@ class Ftpfs {
       s.headers = { 'content-length': '0', 'content-range': `bytes */${total}` };
       return s;
     }
-    if (total === 0 || length === 0) {
+    if (total === 0) {
       own.close();
       s = Readable.from([]);
     } else {
       const pt = new PassThrough();
-      let left = length;
-      const cut = new Transform({
-        transform(chunk, _enc, cb) {
-          if (left <= 0) return cb();
-          const part = chunk.length > left ? chunk.subarray(0, left) : chunk;
-          left -= part.length;
-          cb(null, part);
-          if (left <= 0) own.close(); // the wanted range is complete: stop the transfer
-        },
-      });
-      const limited = pt.pipe(cut);
+      const limited = pt.pipe(limitStream(length, () => own.close())); // the wanted range is complete: stop the transfer
       limited.on('close', () => own.close()); // the player went away
       own.downloadTo(pt, remotePath, start).then(() => pt.end(), () => pt.end());
       s = limited;
@@ -287,6 +282,20 @@ class Ftpfs {
     if (this.timer) clearInterval(this.timer);
     this._drop();
   }
+}
+
+/** passes the first `length` bytes of what is written to it, drops the rest, and calls onDone() once, when the last wanted byte has passed */
+function limitStream(length, onDone) {
+  let left = length;
+  return new Transform({
+    transform(chunk, _enc, cb) {
+      if (left <= 0) return cb();
+      const part = chunk.length > left ? chunk.subarray(0, left) : chunk;
+      left -= part.length;
+      cb(null, part);
+      if (left <= 0) onDone();
+    },
+  });
 }
 
 Ftpfs.MIN_KEEP_S = 10; // the shortest keep-alive interval (tests lower it)
@@ -305,4 +314,4 @@ function explain(e) {
   return e instanceof Error ? e : new Error(m);
 }
 
-module.exports = { Ftpfs, parseRawDate };
+module.exports = { Ftpfs, parseRawDate, explain, limitStream };

@@ -1,6 +1,6 @@
 {
   "name": "commander",
-  "version": "0.1.932",
+  "version": "0.1.933",
   "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
   "main": "src/main/main.js",
   "scripts": {

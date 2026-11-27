@@ -35,6 +35,7 @@ const isSevenArchive = (f) => EXT.test(f);
 const passwords = new Map();
 const setPassword = (archive, pw) => { if (pw) passwords.set(archive, pw); else passwords.delete(archive); };
 const hasPassword = (archive) => passwords.has(archive);
+const checked = new Map(); // archive -> the password that opened its smallest encrypted file
 const pwArg = (archive) => '-p' + (passwords.get(archive) || '');
 /** the error means that a password is needed (or was wrong) */
 const needsPassword = (msg) => /password|encrypted|headers error|data error/i.test(String(msg));
@@ -110,7 +111,7 @@ async function listRar(archive) {
   for (const h of fileHeaders) {
     const dir = !!(h.flags && h.flags.directory);
     const t = Date.parse(h.time || '');
-    out.push({ name: String(h.name).replace(/\\/g, '/'), size: dir ? -1 : h.unpSize || 0, mtime: Number.isFinite(t) ? t : 0, dir });
+    out.push({ name: String(h.name).replace(/\\/g, '/'), size: dir ? -1 : h.unpSize || 0, mtime: Number.isFinite(t) ? t : 0, dir, enc: !!(h.flags && h.flags.encrypted) });
   }
   return out;
 }
@@ -141,6 +142,33 @@ async function list(archive) {
     entries.push({ name: path.basename(archive).replace(SINGLE, ''), size: m ? parseInt(m[1], 10) : 0, mtime: mt, dir: false });
   }
   return entries;
+}
+
+/** does the password open the archive? entry = the smallest encrypted file of the listing. A list of names can be read without the
+ *  password (zip, 7z without encrypted names, most rar), so without this check a wrong one was found out only while copying. */
+async function checkPassword(archive, entry) {
+  const pw = passwords.get(archive) || '';
+  if (checked.get(archive) === pw) return true;
+  try {
+    if (isRar(archive)) {
+      const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-zip-'));
+      try { await extractRar(archive, [entry], tmp); } finally { fsp.rm(tmp, { recursive: true, force: true }).catch(() => {}); }
+    } else {
+      await new Promise((resolve, reject) => {
+        const p = spawn(bin, ['t', '-spd', '-p' + pw, '--', archive, entry], { windowsHide: true });
+        let all = '';
+        p.stdout.on('data', (c) => { if (all.length < 20000) all += c; });
+        p.stderr.on('data', (c) => { if (all.length < 20000) all += c; });
+        p.on('error', reject);
+        p.on('close', (code) => (code > 1 ? reject(new Error(all || '7za exited with code ' + code)) : resolve()));
+      });
+    }
+  } catch (err) {
+    if (needsPassword(err.message) || isRar(archive)) return false;
+    throw err;
+  }
+  checked.set(archive, pw);
+  return true;
 }
 
 /** extract the given archive paths (files or folders, with everything inside) into destDir, keeping their paths */
@@ -238,4 +266,4 @@ async function pack(kind, cwd, names, archive, { onPct, hold, password, level } 
   }
 }
 
-module.exports = { isSevenArchive, isRar, list, extract, run, unpackAll, pack, setPassword, hasPassword, needsPassword };
+module.exports = { checkPassword, isSevenArchive, isRar, list, extract, run, unpackAll, pack, setPassword, hasPassword, needsPassword };

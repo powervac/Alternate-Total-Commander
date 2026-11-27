@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.1.936",
+    "date": "2026-11-27",
+    "items": [
+      "The program no longer stays in memory after Quit",
+      "One running copy per settings folder",
+      "Archive passwords are checked when the archive is opened, also in the viewer",
+      "A missing saved folder opens its parent without an error",
+      "macOS fixes: hotkey labels, duplicate disk, file permissions",
+      "More translated messages and dates in the order of the language",
+      "Smaller macOS and Linux packages"
+    ]
+  },
+  {
     "version": "0.1.935",
     "date": "2026-11-27",
     "items": [

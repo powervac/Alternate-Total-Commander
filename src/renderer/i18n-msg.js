@@ -1,0 +1,96 @@
+'use strict';
+// Messages with names or numbers inside. A row: the English pattern, then ru, uk, be, pl, pt, es, de, it (the order of I18N_COLS).
+// {0}, {1} stand for any text (a file name), {#0} for a number; the parts are put into the translation as they are.
+// The rows are tried from the top: the more exact one stands first.
+const I18N_MSG = [
+  // ---- the free space of a disk
+  ['{#0} k of {#1} k free', '{0} к из {1} к свободно', '{0} к з {1} к вільно', '{0} к з {1} к вольна', '{0} k z {1} k wolne', '{0} k de {1} k livres', '{0} k de {1} k libres', '{0} k von {1} k frei', '{0} k di {1} k liberi'],
+  // ---- copy, move, rename
+  ['Rename "{0}" to:', 'Переименовать «{0}» в:', 'Перейменувати «{0}» на:', 'Перайменаваць «{0}» у:', 'Zmień nazwę „{0}” na:', 'Renomear "{0}" para:', 'Cambiar el nombre de «{0}» a:', '„{0}“ umbenennen in:', 'Rinomina «{0}» in:'],
+  ['Copy "{0}" to:', 'Копировать «{0}» в:', 'Копіювати «{0}» до:', 'Капіяваць «{0}» у:', 'Kopiuj „{0}” do:', 'Copiar "{0}" para:', 'Copiar «{0}» a:', '„{0}“ kopieren nach:', 'Copia «{0}» in:'],
+  ['Move "{0}" to:', 'Переместить «{0}» в:', 'Перемістити «{0}» до:', 'Перамясціць «{0}» у:', 'Przenieś „{0}” do:', 'Mover "{0}" para:', 'Mover «{0}» a:', '„{0}“ verschieben nach:', 'Sposta «{0}» in:'],
+  ['Copy {#0} file(s)/dir(s) to:', 'Копировать объектов: {0}, в:', "Копіювати об'єктів: {0}, до:", "Капіяваць аб'ектаў: {0}, у:", 'Kopiuj elementów: {0}, do:', 'Copiar {0} arquivo(s)/pasta(s) para:', 'Copiar {0} archivo(s)/carpeta(s) a:', '{0} Datei(en)/Ordner kopieren nach:', 'Copia {0} file/cartelle in:'],
+  ['Move {#0} file(s)/dir(s) to:', 'Переместить объектов: {0}, в:', "Перемістити об'єктів: {0}, до:", "Перамясціць аб'ектаў: {0}, у:", 'Przenieś elementów: {0}, do:', 'Mover {0} arquivo(s)/pasta(s) para:', 'Mover {0} archivo(s)/carpeta(s) a:', '{0} Datei(en)/Ordner verschieben nach:', 'Sposta {0} file/cartelle in:'],
+  ['{#0} file(s) to:', 'Файлов: {0}, в:', 'Файлів: {0}, до:', 'Файлаў: {0}, у:', 'Plików: {0}, do:', '{0} arquivo(s) para:', '{0} archivo(s) a:', '{0} Datei(en) nach:', '{0} file in:'],
+  ['Already exist in the target folder:\n{0}', 'Уже есть в папке назначения:\n{0}', 'Вже є в теці призначення:\n{0}', 'Ужо ёсць у тэчцы прызначэння:\n{0}', 'Już istnieją w folderze docelowym:\n{0}', 'Já existem na pasta de destino:\n{0}', 'Ya existen en la carpeta de destino:\n{0}', 'Im Zielordner bereits vorhanden:\n{0}', 'Esistono già nella cartella di destinazione:\n{0}'],
+  ['{0}: files that already exist in the target folder:', '{0}: файлы, которые уже есть в папке назначения:', '{0}: файли, які вже є в теці призначення:', '{0}: файлы, якія ўжо ёсць у тэчцы прызначэння:', '{0}: pliki, które już istnieją w folderze docelowym:', '{0}: arquivos que já existem na pasta de destino:', '{0}: archivos que ya existen en la carpeta de destino:', '{0}: Dateien, die im Zielordner bereits vorhanden sind:', '{0}: file già presenti nella cartella di destinazione:'],
+  ['"{0}" already exists.\nOverwrite?', '«{0}» уже существует.\nПерезаписать?', '«{0}» вже існує.\nПерезаписати?', '«{0}» ужо існуе.\nПеразапісаць?', '„{0}” już istnieje.\nZastąpić?', '"{0}" já existe.\nSubstituir?', '«{0}» ya existe.\n¿Sobrescribir?', '„{0}“ ist bereits vorhanden.\nÜberschreiben?', '«{0}» esiste già.\nSovrascrivere?'],
+  // ---- delete
+  ['Permanently delete "{0}"?\nThis cannot be undone.', 'Удалить «{0}» безвозвратно?\nОтменить это нельзя.', 'Видалити «{0}» назавжди?\nЦе не можна скасувати.', 'Выдаліць «{0}» назаўсёды?\nГэта нельга адрабіць.', 'Usunąć trwale „{0}”?\nNie można tego cofnąć.', 'Excluir "{0}" permanentemente?\nNão é possível desfazer.', '¿Eliminar «{0}» definitivamente?\nNo se puede deshacer.', '„{0}“ endgültig löschen?\nDas kann nicht rückgängig gemacht werden.', 'Eliminare definitivamente «{0}»?\nL\'operazione non si può annullare.'],
+  ['Permanently delete {#0} selected item(s)?\nThis cannot be undone.', 'Удалить безвозвратно выбранные объекты ({0})?\nОтменить это нельзя.', "Видалити назавжди вибрані об'єкти ({0})?\nЦе не можна скасувати.", "Выдаліць назаўсёды выбраныя аб'екты ({0})?\nГэта нельга адрабіць.", 'Usunąć trwale zaznaczone elementy ({0})?\nNie można tego cofnąć.', 'Excluir permanentemente {0} item(ns) selecionado(s)?\nNão é possível desfazer.', '¿Eliminar definitivamente {0} elemento(s) seleccionado(s)?\nNo se puede deshacer.', '{0} ausgewählte(s) Element(e) endgültig löschen?\nDas kann nicht rückgängig gemacht werden.', 'Eliminare definitivamente {0} elementi selezionati?\nL\'operazione non si può annullare.'],
+  ['Move "{0}" to the Recycle Bin?', 'Переместить «{0}» в корзину?', 'Перемістити «{0}» до кошика?', 'Перамясціць «{0}» у сметніцу?', 'Przenieść „{0}” do Kosza?', 'Mover "{0}" para a Lixeira?', '¿Mover «{0}» a la Papelera de reciclaje?', '„{0}“ in den Papierkorb verschieben?', 'Spostare «{0}» nel Cestino?'],
+  ['Move {#0} selected item(s) to the Recycle Bin?', 'Переместить выбранные объекты ({0}) в корзину?', "Перемістити вибрані об'єкти ({0}) до кошика?", "Перамясціць выбраныя аб'екты ({0}) у сметніцу?", 'Przenieść zaznaczone elementy ({0}) do Kosza?', 'Mover {0} item(ns) selecionado(s) para a Lixeira?', '¿Mover {0} elemento(s) seleccionado(s) a la Papelera de reciclaje?', '{0} ausgewählte(s) Element(e) in den Papierkorb verschieben?', 'Spostare {0} elementi selezionati nel Cestino?'],
+  ['Move "{0}" to the Trash?', 'Переместить «{0}» в корзину?', 'Перемістити «{0}» до кошика?', 'Перамясціць «{0}» у сметніцу?', 'Przenieść „{0}” do Kosza?', 'Mover "{0}" para o Lixo?', '¿Mover «{0}» a la Papelera?', '„{0}“ in den Papierkorb legen?', 'Spostare «{0}» nel Cestino?'],
+  ['Move {#0} selected item(s) to the Trash?', 'Переместить выбранные объекты ({0}) в корзину?', "Перемістити вибрані об'єкти ({0}) до кошика?", "Перамясціць выбраныя аб'екты ({0}) у сметніцу?", 'Przenieść zaznaczone elementy ({0}) do Kosza?', 'Mover {0} item(ns) selecionado(s) para o Lixo?', '¿Mover {0} elemento(s) seleccionado(s) a la Papelera?', '{0} ausgewählte(s) Element(e) in den Papierkorb legen?', 'Spostare {0} elementi selezionati nel Cestino?'],
+  ['Delete "{0}" from the archive?\nThis cannot be undone.', 'Удалить «{0}» из архива?\nОтменить это нельзя.', 'Видалити «{0}» з архіву?\nЦе не можна скасувати.', 'Выдаліць «{0}» з архіва?\nГэта нельга адрабіць.', 'Usunąć „{0}” z archiwum?\nNie można tego cofnąć.', 'Excluir "{0}" do arquivo compactado?\nNão é possível desfazer.', '¿Eliminar «{0}» del archivo comprimido?\nNo se puede deshacer.', '„{0}“ aus dem Archiv löschen?\nDas kann nicht rückgängig gemacht werden.', 'Eliminare «{0}» dall\'archivio?\nL\'operazione non si può annullare.'],
+  ['Delete {#0} selected item(s) from the archive?\nThis cannot be undone.', 'Удалить выбранные объекты ({0}) из архива?\nОтменить это нельзя.', "Видалити вибрані об'єкти ({0}) з архіву?\nЦе не можна скасувати.", "Выдаліць выбраныя аб'екты ({0}) з архіва?\nГэта нельга адрабіць.", 'Usunąć zaznaczone elementy ({0}) z archiwum?\nNie można tego cofnąć.', 'Excluir {0} item(ns) selecionado(s) do arquivo compactado?\nNão é possível desfazer.', '¿Eliminar {0} elemento(s) seleccionado(s) del archivo comprimido?\nNo se puede deshacer.', '{0} ausgewählte(s) Element(e) aus dem Archiv löschen?\nDas kann nicht rückgängig gemacht werden.', 'Eliminare {0} elementi selezionati dall\'archivio?\nL\'operazione non si può annullare.'],
+  // ---- archives
+  ['"{0}" is protected by a password:', '«{0}» защищён паролем:', '«{0}» захищено паролем:', '«{0}» абаронены паролем:', '„{0}” jest chroniony hasłem:', '"{0}" está protegido por senha:', '«{0}» está protegido con contraseña:', '„{0}“ ist mit einem Passwort geschützt:', '«{0}» è protetto da password:'],
+  ['Wrong password for "{0}". Try again:', 'Неверный пароль для «{0}». Попробуйте ещё раз:', 'Неправильний пароль для «{0}». Спробуйте ще раз:', 'Няправільны пароль для «{0}». Паспрабуйце яшчэ раз:', 'Błędne hasło do „{0}”. Spróbuj ponownie:', 'Senha incorreta para "{0}". Tente novamente:', 'Contraseña incorrecta para «{0}». Inténtelo de nuevo:', 'Falsches Passwort für „{0}“. Bitte erneut eingeben:', 'Password errata per «{0}». Riprova:'],
+  ['Unpack all files from "{0}" to:', 'Распаковать все файлы из «{0}» в:', 'Розпакувати всі файли з «{0}» до:', 'Распакаваць усе файлы з «{0}» у:', 'Rozpakuj wszystkie pliki z „{0}” do:', 'Extrair todos os arquivos de "{0}" para:', 'Extraer todos los archivos de «{0}» en:', 'Alle Dateien aus „{0}“ entpacken nach:', 'Estrai tutti i file da «{0}» in:'],
+  ['Unpack all files from {#0} archives to:', 'Распаковать все файлы из архивов ({0}) в:', 'Розпакувати всі файли з архівів ({0}) до:', 'Распакаваць усе файлы з архіваў ({0}) у:', 'Rozpakuj wszystkie pliki z archiwów ({0}) do:', 'Extrair todos os arquivos de {0} arquivos compactados para:', 'Extraer todos los archivos de {0} archivos comprimidos en:', 'Alle Dateien aus {0} Archiven entpacken nach:', 'Estrai tutti i file da {0} archivi in:'],
+  ['Pack "{0}" into the archive:', 'Упаковать «{0}» в архив:', 'Запакувати «{0}» в архів:', 'Запакаваць «{0}» у архіў:', 'Spakuj „{0}” do archiwum:', 'Compactar "{0}" no arquivo:', 'Comprimir «{0}» en el archivo:', '„{0}“ in das Archiv packen:', 'Comprimi «{0}» nell\'archivio:'],
+  ['Pack {#0} file(s)/dir(s) into the archive:', 'Упаковать объекты ({0}) в архив:', "Запакувати об'єкти ({0}) в архів:", "Запакаваць аб'екты ({0}) у архіў:", 'Spakuj elementy ({0}) do archiwum:', 'Compactar {0} arquivo(s)/pasta(s) no arquivo:', 'Comprimir {0} archivo(s)/carpeta(s) en el archivo:', '{0} Datei(en)/Ordner in das Archiv packen:', 'Comprimi {0} file/cartelle nell\'archivio:'],
+  // ---- the viewer
+  ['{#0} bytes, showing first {#1} - {2}', 'байт: {0}, показаны первые {1} - {2}', 'байт: {0}, показано перші {1} - {2}', 'байт: {0}, паказаны першыя {1} - {2}', 'bajtów: {0}, pokazano pierwsze {1} - {2}', '{0} bytes, mostrando os primeiros {1} - {2}', '{0} bytes, se muestran los primeros {1} - {2}', '{0} Bytes, die ersten {1} werden gezeigt - {2}', '{0} byte, mostrati i primi {1} - {2}'],
+  ['{#0} bytes, showing first {#1}', 'байт: {0}, показаны первые {1}', 'байт: {0}, показано перші {1}', 'байт: {0}, паказаны першыя {1}', 'bajtów: {0}, pokazano pierwsze {1}', '{0} bytes, mostrando os primeiros {1}', '{0} bytes, se muestran los primeros {1}', '{0} Bytes, die ersten {1} werden gezeigt', '{0} byte, mostrati i primi {1}'],
+  ['{#0} bytes - {1}', 'байт: {0} - {1}', 'байт: {0} - {1}', 'байт: {0} - {1}', 'bajtów: {0} - {1}', '{0} bytes - {1}', '{0} bytes - {1}', '{0} Bytes - {1}', '{0} byte - {1}'],
+  ['{#0} bytes', 'байт: {0}', 'байт: {0}', 'байт: {0}', 'bajtów: {0}', '{0} bytes', '{0} bytes', '{0} Bytes', '{0} byte'],
+  ['line {#0} / {#1}   {#2} %', 'строка {0} / {1}   {2} %', 'рядок {0} / {1}   {2} %', 'радок {0} / {1}   {2} %', 'wiersz {0} / {1}   {2} %', 'linha {0} / {1}   {2} %', 'línea {0} / {1}   {2} %', 'Zeile {0} / {1}   {2} %', 'riga {0} / {1}   {2} %'],
+  ['offset {0}   {#1} %', 'смещение {0}   {1} %', 'зміщення {0}   {1} %', 'зрушэнне {0}   {1} %', 'pozycja {0}   {1} %', 'posição {0}   {1} %', 'posición {0}   {1} %', 'Position {0}   {1} %', 'posizione {0}   {1} %'],
+  ['Find (F7)', 'Поиск (F7)', 'Пошук (F7)', 'Пошук (F7)', 'Szukaj (F7)', 'Localizar (F7)', 'Buscar (F7)', 'Suchen (F7)', 'Cerca (F7)'],
+  ['loading...', 'загрузка...', 'завантаження...', 'загрузка...', 'wczytywanie...', 'carregando...', 'cargando...', 'wird geladen...', 'caricamento...'],
+  ['Find works in text mode', 'Поиск работает в текстовом режиме', 'Пошук працює в текстовому режимі', 'Пошук працуе ў тэкставым рэжыме', 'Szukanie działa w trybie tekstowym', 'A busca funciona no modo de texto', 'La búsqueda funciona en el modo de texto', 'Die Suche funktioniert im Textmodus', 'La ricerca funziona in modalità testo'],
+  ['This file is too large to display here (over 64 MB).\nPress O to open it with the default application.', 'Файл слишком велик для показа здесь (больше 64 МБ).\nНажмите O, чтобы открыть его программой по умолчанию.', 'Файл завеликий для показу тут (понад 64 МБ).\nНатисніть O, щоб відкрити його типовою програмою.', 'Файл завялікі для паказу тут (больш за 64 МБ).\nНацісніце O, каб адкрыць яго праграмай па змаўчанні.', 'Plik jest zbyt duży, aby go tu pokazać (ponad 64 MB).\nNaciśnij O, aby otworzyć go w domyślnym programie.', 'O arquivo é grande demais para ser exibido aqui (mais de 64 MB).\nPressione O para abri-lo no programa padrão.', 'El archivo es demasiado grande para mostrarlo aquí (más de 64 MB).\nPulse O para abrirlo con el programa predeterminado.', 'Die Datei ist zu groß für diese Anzeige (über 64 MB).\nMit O mit dem Standardprogramm öffnen.', 'Il file è troppo grande per essere mostrato qui (oltre 64 MB).\nPremi O per aprirlo con il programma predefinito.'],
+  ['Esc close   n/p next/prev file   Left/Right next/prev picture   1 text   3 hex   e encoding   F7 find, F3 next   z image fit   o open externally   video: Space play, ←/→ seek, ↑/↓ volume, f fullscreen, t native/ffmpeg player',
+    'Esc закрыть   n/p след./пред. файл   Влево/Вправо след./пред. картинка   1 текст   3 hex   e кодировка   F7 поиск, F3 далее   z картинка по размеру окна   o открыть в программе   видео: Пробел пуск, ←/→ перемотка, ↑/↓ громкость, f на весь экран, t встроенный/ffmpeg плеер',
+    'Esc закрити   n/p наст./попер. файл   Ліворуч/Праворуч наст./попер. зображення   1 текст   3 hex   e кодування   F7 пошук, F3 далі   z зображення за розміром вікна   o відкрити в програмі   відео: Пробіл пуск, ←/→ перемотування, ↑/↓ гучність, f на весь екран, t вбудований/ffmpeg програвач',
+    'Esc закрыць   n/p наст./папяр. файл   Улева/Управа наст./папяр. выява   1 тэкст   3 hex   e кадзіроўка   F7 пошук, F3 далей   z выява па памеры акна   o адкрыць у праграме   відэа: Прабел пуск, ←/→ перамотка, ↑/↓ гучнасць, f на ўвесь экран, t убудаваны/ffmpeg плэер',
+    'Esc zamknij   n/p następny/poprzedni plik   Lewo/Prawo następny/poprzedni obraz   1 tekst   3 hex   e kodowanie   F7 szukaj, F3 dalej   z dopasuj obraz   o otwórz w programie   wideo: Spacja odtwarzaj, ←/→ przewijanie, ↑/↓ głośność, f pełny ekran, t odtwarzacz wbudowany/ffmpeg',
+    'Esc fechar   n/p próximo/anterior arquivo   Esquerda/Direita próxima/anterior imagem   1 texto   3 hex   e codificação   F7 localizar, F3 próximo   z ajustar imagem   o abrir no programa   vídeo: Espaço reproduzir, ←/→ avançar, ↑/↓ volume, f tela cheia, t player nativo/ffmpeg',
+    'Esc cerrar   n/p archivo siguiente/anterior   Izquierda/Derecha imagen siguiente/anterior   1 texto   3 hex   e codificación   F7 buscar, F3 siguiente   z ajustar imagen   o abrir en el programa   vídeo: Espacio reproducir, ←/→ saltar, ↑/↓ volumen, f pantalla completa, t reproductor nativo/ffmpeg',
+    'Esc schließen   n/p nächste/vorige Datei   Links/Rechts nächstes/voriges Bild   1 Text   3 Hex   e Kodierung   F7 suchen, F3 weiter   z Bild anpassen   o extern öffnen   Video: Leertaste Wiedergabe, ←/→ spulen, ↑/↓ Lautstärke, f Vollbild, t eingebauter/ffmpeg-Player',
+    'Esc chiudi   n/p file successivo/precedente   Sinistra/Destra immagine successiva/precedente   1 testo   3 hex   e codifica   F7 cerca, F3 successivo   z adatta immagine   o apri nel programma   video: Spazio riproduci, ←/→ scorri, ↑/↓ volume, f schermo intero, t lettore nativo/ffmpeg'],
+];
+
+/** a date in the order of the language: month/day/year in English, day.month.year or day/month/year elsewhere (day and month come padded) */
+function dateText(day, month, year, lang) {
+  if (lang === 'en') return `${month}/${day}/${year}`;
+  const sep = lang === 'pt' || lang === 'es' || lang === 'it' ? '/' : '.';
+  return [day, month, year].join(sep);
+}
+
+const I18N_MSG_COLS = ['ru', 'uk', 'be', 'pl', 'pt', 'es', 'de', 'it'];
+const i18nMsgCache = new Map(); // language -> [[regex, order of the numbers of its groups, translation]]
+
+function i18nMsgRules(lang) {
+  let rules = i18nMsgCache.get(lang);
+  if (rules) return rules;
+  const col = I18N_MSG_COLS.indexOf(lang);
+  rules = col < 0 ? [] : I18N_MSG.map((row) => {
+    const order = [];
+    const src = row[0].split(/(\{#?\d\})/).map((part) => {
+      const m = /^\{(#?)(\d)\}$/.exec(part);
+      if (!m) return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      order.push(+m[2]);
+      return m[1] ? '([\\d,]+)' : '([\\s\\S]+?)';
+    }).join('');
+    return [new RegExp('^' + src + '$'), order, row[col + 1]];
+  });
+  i18nMsgCache.set(lang, rules);
+  return rules;
+}
+
+/** the translation of a message with names or numbers inside, or null when no pattern fits */
+function trMsg(s, lang) {
+  for (const [re, order, out] of i18nMsgRules(lang)) {
+    const m = re.exec(s);
+    if (!m) continue;
+    const val = {};
+    order.forEach((n, i) => { val[n] = m[i + 1]; });
+    return out.replace(/\{(\d)\}/g, (all, n) => (val[n] !== undefined ? val[n] : all));
+  }
+  return null;
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { I18N_MSG, I18N_MSG_COLS, trMsg, dateText };

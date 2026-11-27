@@ -281,6 +281,17 @@ if (process.env.PORTABLE_EXECUTABLE_DIR && !process.env.COMMANDER_USER_DATA) {
   } catch { /* keep the default */ }
 }
 
+// One running program per settings folder: a second copy would write the same files and settings would get lost. It shows the first one instead.
+// (A copy with another --user-data-dir is a different program here and starts normally.)
+const firstCopy = app.requestSingleInstanceLock();
+if (!firstCopy) app.exit(0);
+app.on('second-instance', () => {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
+
 // An AppImage has no installer that would register an icon and a menu entry: the program does it itself at start (the dock and the launcher then show the real icon, not a gear)
 const DESKTOP_ID = 'alternate-total-commander';
 if (process.platform === 'linux') app.setDesktopName(DESKTOP_ID + '.desktop');
@@ -384,6 +395,7 @@ ipcMain.handle('fs:list', async (_e, dir) => {
               mtime: st.mtimeMs,
               ro: !(st.mode & 0o200),
               hidden: d.name.startsWith('.'),
+              ...(isWin ? {} : { mode: st.mode & 0o777 }),
               link: d.isSymbolicLink(),
             };
           } catch {
@@ -538,7 +550,11 @@ ipcMain.handle('drives:list', async () => {
   }
   const out = [{ path: '/', label: '/' }, { path: os.homedir(), label: '~' }];
   try {
-    for (const v of await fsp.readdir('/Volumes')) out.push({ path: path.join('/Volumes', v), label: v });
+    for (const v of await fsp.readdir('/Volumes')) {
+      const full = path.join('/Volumes', v);
+      if ((await fsp.realpath(full).catch(() => full)) === '/') continue; // the startup disk ("Macintosh HD") is "/" already
+      out.push({ path: full, label: v });
+    }
   } catch {}
   return out;
 });
@@ -1187,7 +1203,12 @@ async function zipIndex(archive) {
   if (c && c.sig === sig) return c.entries;
   if (viaSeven(archive)) {
     const list = await sevenzip.list(archive);
+    const locked = list.filter((en) => en.enc && !en.dir);
     if (!sevenzip.hasPassword(archive) && list.some((en) => en.enc)) throw new NeedPassword();
+    if (locked.length) {
+      const probe = locked.reduce((a, b) => (b.size < a.size ? b : a));
+      if (!(await sevenzip.checkPassword(archive, probe.name))) throw new NeedPassword();
+    }
     const norm = list.map((en) => ({ name: en.dir ? en.name + '/' : en.name, size: en.size, mtime: en.mtime }));
     zipCache.set(archive, { sig, entries: norm });
     return norm;
@@ -1333,9 +1354,11 @@ ipcMain.handle('zip:open', async (_e, { archive, inner, name }) => {
 /** same extraction, but just return the temp path (used by the viewer) */
 ipcMain.handle('zip:temp', async (_e, { archive, inner, name }) => {
   try {
+    await zipIndex(archive); // asks for the password (and checks it) before anything is taken out
     return { file: await extractToTemp(archive, inner, name) };
   } catch (err) {
-    return { error: err.message };
+    const need = !!err.needPassword || sevenzip.needsPassword(err.message);
+    return { error: err.message, needPassword: need, wrong: need && sevenzip.hasPassword(archive) };
   }
 });
 
@@ -2055,7 +2078,15 @@ ipcMain.handle('index:build', (_e, cfg) => { fileindex.start(app.getPath('userDa
 ipcMain.handle('index:stop', () => { fileindex.stop(); return true; });
 ipcMain.handle('index:clear', () => { fileindex.clear(); return true; });
 ipcMain.handle('index:off', () => { fileindex.stopWorker(); return true; });
-app.on('before-quit', () => fileindex.stopWorker());
+// The quit waits until the index thread is gone (at most 2 s). If something else still holds the process 5 s after that, it is ended by force.
+let indexEnded = false;
+app.on('before-quit', (e) => {
+  if (indexEnded) return;
+  e.preventDefault();
+  indexEnded = true;
+  Promise.race([fileindex.shutdown(), new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
+});
+app.on('quit', () => { setTimeout(() => process.exit(0), 5000).unref(); });
 
 ipcMain.handle('search:run', async (e, { id, params }) => {
   const ctx = { cancel: false };

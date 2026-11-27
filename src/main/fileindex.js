@@ -67,6 +67,16 @@ function build(cfg) {
   worker.postMessage({ cmd: 'build', roots: cfg.roots, exclude: cfg.exclude || [], gentle: cfg.gentle !== false });
 }
 
+/** end the thread for the quit of the program: resolves when it is gone. A thread that is still alive keeps the process alive (macOS: the
+ *  program stayed in memory after Quit), so the quit waits for it. */
+function shutdown() {
+  const w = worker;
+  if (!w) return Promise.resolve();
+  worker = null;
+  w.postMessage({ cmd: 'stop' });
+  return w.terminate().catch(() => {});
+}
+
 const stop = () => worker && worker.postMessage({ cmd: 'stop' });
 const getStatus = () => ({ ...last, progress });
 function clear() { if (worker) worker.postMessage({ cmd: 'clear' }); }
@@ -91,4 +101,4 @@ function search(id, params, emit) {
 }
 const cancel = (id) => worker && worker.postMessage({ cmd: 'cancel', id });
 
-module.exports = { init, start, build, stop, stopWorker, getStatus, clear, canServe, search, cancel };
+module.exports = { shutdown, init, start, build, stop, stopWorker, getStatus, clear, canServe, search, cancel };

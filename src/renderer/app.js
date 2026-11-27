@@ -9,7 +9,7 @@ const fmtK = (b) => fmtNum(b / 1024);
 const pad = (n) => String(n).padStart(2, '0');
 function fmtDate(ms) {
   const d = new Date(ms);
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${dateText(pad(d.getDate()), pad(d.getMonth() + 1), d.getFullYear(), typeof LANG === 'string' ? LANG : 'en')} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function splitExt(name) {
   const i = name.lastIndexOf('.');
@@ -651,6 +651,7 @@ class Panel {
 
   attrOf(it) {
     if (it.up) return '----';
+    if (it.mode !== undefined) return it.mode.toString(8).padStart(3, '0'); // macOS, Linux: the rights, as chmod takes them
     return (it.ro ? 'r' : '-') + (it.isDir ? '-' : 'a') + (it.hidden ? 'h' : '-') + '-';
   }
 
@@ -1962,7 +1963,7 @@ const FKEYS = [
   ['F6 Move', () => copyMove('move')],
   ['F7 NewFolder', () => makeDir()],
   ['F8 Delete', () => deleteSel(false)],
-  ['Alt+F4 Exit', () => api.quit()],
+  [isMac ? 'Cmd+Q Exit' : 'Alt+F4 Exit', () => api.quit()],
 ];
 function buildFkeys() {
   for (const [label, fn] of FKEYS) {
@@ -2080,16 +2081,25 @@ document.addEventListener('keydown', async (e) => {
   places = await api.places();
   panels = [new Panel(0, $('#p0')), new Panel(1, $('#p1'))];
   applyColWidths();
-  const startDir = (i) => store.get(`dir${i}`, null) || api.home;
+  // a saved folder that does not exist any more (deleted, a stick taken out): its nearest folder that does, else home - without an error box
+  const nearest = async (d) => {
+    for (let p = d; p; p = P.dirname(p)) {
+      if ((await api.stat(p)).isDir) return p;
+      if (P.dirname(p) === p) break;
+    }
+    return api.home;
+  };
+  const startDir = (i) => nearest(store.get(`dir${i}`, null) || api.home);
   for (const i of [1, 0]) {
     const p = panels[i];
     const saved = store.get(`tabs${i}`, null);
     if (saved && Array.isArray(saved.list) && saved.list.length > 1) {
       // restore the tabs of the previous session
-      p.tabs = saved.list.map((d) => ({ nav: { dir: d }, focus: undefined, sortKey: p.sortKey, sortRev: p.sortRev, hist: [], hi: -1 }));
+      const dirs = await Promise.all(saved.list.map(nearest));
+      p.tabs = dirs.map((d) => ({ nav: { dir: d }, focus: undefined, sortKey: p.sortKey, sortRev: p.sortRev, hist: [], hi: -1 }));
       await p.applyTab(Math.min(Math.max(0, saved.ti | 0), p.tabs.length - 1));
     } else {
-      const ok = await p.load(startDir(i));
+      const ok = await p.load(await startDir(i));
       if (!ok) await p.load(api.home);
     }
   }

@@ -10,7 +10,7 @@ const fmtNum = (n) => Math.floor(n).toLocaleString('en-US');
 const pad = (n) => String(n).padStart(2, '0');
 function fmtDate(ms) {
   const d = new Date(ms);
-  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${dateText(pad(d.getDate()), pad(d.getMonth() + 1), d.getFullYear(), typeof LANG === 'string' ? LANG : 'en')} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 // the same storage as the main window (one origin): the settings of the search are shared
 const store = {

@@ -106,7 +106,9 @@ function hkCombo(e) {
 }
 
 /** the combos of a command as the user sees them (Cmd on a Mac) */
-const hkShow = (combo) => (isMac ? combo.replace(/^Ctrl\+/, 'Cmd+').replace(/\+Ctrl\+/, '+Cmd+') : combo);
+// macOS keeps Cmd+Q (quit) and Cmd+Tab (other program) for itself: these are pressed with Ctrl there and must be shown so
+const HK_CTRL_ON_MAC = new Set(['Ctrl+Q', 'Ctrl+Tab', 'Ctrl+Shift+Tab']);
+const hkShow = (combo) => (isMac && !HK_CTRL_ON_MAC.has(combo) ? combo.replace(/^Ctrl\+/, 'Cmd+').replace(/\+Ctrl\+/, '+Cmd+') : combo);
 const hkNorm = (c) => String(c).replace(/^Cmd\+/, 'Ctrl+').replace(/\+Cmd\+/, '+Ctrl+').replace(/\+Cmd$/, '+Ctrl');
 
 let hkCache = null;
@@ -127,7 +129,7 @@ function hkMap() {
 }
 const hkReset = () => { hkCache = null; };
 /** text for menus: the first key of a command */
-const hkLabel = (id) => { const k = hkKeys(id)[0]; return k ? hkShow(k) : ''; };
+const hkLabel = (id) => { const k = hkKeys(id)[0]; if (isMac && id === 'quit' && (!k || k === 'Alt+F4')) return 'Cmd+Q'; return k ? hkShow(k) : ''; };
 
 /** keys that edit the command line when it has text: they must not run commands then */
 const HK_TEXT = new Set(['Backspace', 'Delete', 'Home', 'End', ' ', 'ArrowLeft', 'ArrowRight']);

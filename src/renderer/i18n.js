@@ -471,6 +471,8 @@ function tr(s) {
   if (k && I18N_DICT.has(k[1])) return I18N_DICT.get(k[1]) + ' ' + k[2];
   const st = /^([\d,]+) k \/ ([\d,]+) k in (\d+) \/ (\d+) file\(s\)(?:, (\d+) \/ (\d+) dir\(s\))?$/.exec(t); // status line of a panel
   if (st && I18N_WORDS[LANG]) { const w = I18N_WORDS[LANG]; return `${st[1]} k / ${st[2]} k ${w[2]} ${st[3]} / ${st[4]} ${w[0]}${st[5] !== undefined ? `, ${st[5]} / ${st[6]} ${w[1]}` : ''}`; }
+  const msg = typeof trMsg === 'function' ? trMsg(t, LANG) : null; // messages with names and numbers (i18n-msg.js)
+  if (msg !== null) return s.replace(t, () => msg);
   return s;
 }
 

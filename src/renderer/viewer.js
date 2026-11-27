@@ -391,7 +391,28 @@ function openViewer(panelArg, force) {
     $info.textContent = s;
   }
 
+  /** the (temp) copy of a file inside an archive; asks for the password of the archive, again when it was wrong */
+  async function arcTemp(spec) {
+    let t = await api.zipTemp(spec);
+    for (let tries = 0; t.error && t.needPassword && tries < 5; tries++) {
+      const name = P.basename(spec.archive);
+      const c = await dialog({
+        title: 'Password',
+        text: t.wrong ? `Wrong password for "${name}". Try again:` : `"${name}" is protected by a password:`,
+        input: '',
+        inputType: 'password',
+        buttons: OKCANCEL,
+      });
+      if (c.value !== 'ok' || !c.input) { await api.arcSetPassword({ archive: spec.archive, password: '' }); break; }
+      await api.arcSetPassword({ archive: spec.archive, password: c.input });
+      t = await api.zipTemp(spec);
+    }
+    return t;
+  }
+
   function message(text) {
+    $info.textContent = '';
+    $mode.innerHTML = '';
     vv = null;
     bytes = null;
     $body.className = 'v-body msg';
@@ -414,12 +435,12 @@ function openViewer(panelArg, force) {
     } else {
       let path;
       if (panel.list && f.arc) {
-        const t = await api.zipTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
+        const t = await arcTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
         if (token !== loadToken) return;
         if (t.error) return message(t.error);
         path = t.file;
       } else if (panel.arc) {
-        const t = await api.zipTemp({ archive: panel.arc.file, inner: panel.arc.inner, name: f.name });
+        const t = await arcTemp({ archive: panel.arc.file, inner: panel.arc.inner, name: f.name });
         if (token !== loadToken) return;
         if (t.error) return message(t.error);
         path = t.file;
@@ -457,7 +478,7 @@ function openViewer(panelArg, force) {
     if (V_VIDEO[ext()] || V_AUDIO[ext()]) return loadMedia(token, f);
     let path;
     if (panel.list && f.arc) {
-      const t = await api.zipTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
+      const t = await arcTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
       if (token !== loadToken) return;
       if (t.error) return message(t.error);
       path = t.file;
@@ -467,7 +488,7 @@ function openViewer(panelArg, force) {
       if (t.error) return message(t.error);
       path = t.file;
     } else if (panel.arc) {
-      const t = await api.zipTemp({ archive: panel.arc.file, inner: panel.arc.inner, name: f.name });
+      const t = await arcTemp({ archive: panel.arc.file, inner: panel.arc.inner, name: f.name });
       if (token !== loadToken) return;
       if (t.error) return message(t.error);
       path = t.file;

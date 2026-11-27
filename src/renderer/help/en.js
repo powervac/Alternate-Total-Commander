@@ -105,7 +105,8 @@ HELP_TEXT.en = {
 <p>The other panel shows a preview of the file under the cursor and follows the cursor while you move it. <kbd>Ctrl+Q</kbd> again brings the file list back.</p>
 <p>Other ways to open a file: <kbd>Enter</kbd> runs it with the application that the operating system has for it; Files > <b>Open With Default Application</b> does the same for any file.</p>
 <h3>HEIC pictures</h3>
-<p>HEIC / HEIF photos are shown by the viewer, quick view and the thumbnail view. <b>Files > Convert HEIC / JPG...</b> turns the chosen HEIC files into JPG, and JPG or PNG files into HEIC; the quality can be chosen. The originals stay, existing files are not overwritten.</p>`,
+<p>HEIC / HEIF photos are shown by the viewer, quick view and the thumbnail view. <b>Files > Convert HEIC / JPG...</b> turns the chosen HEIC files into JPG, and JPG or PNG files into HEIC; the quality can be chosen. The originals stay, existing files are not overwritten.</p>
+<p>Enter and a double click show pictures (HEIC too), video, PDF, text and office documents in the built-in viewer. For the program of the system use Files > Open With Default Application; the setting "Enter and double click open ... in the built-in viewer" turns this off.</p>`,
     },
     {
       id: 'media', t: 'Music and video',

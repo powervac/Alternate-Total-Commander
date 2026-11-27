@@ -6,6 +6,8 @@ const isHeicName = (e) => e === 'heic' || e === 'heif'; // the page cannot show 
 const V_IMG = { heic: 'image/jpeg', heif: 'image/jpeg', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif' };
 const V_VIDEO = Object.fromEntries('mp4 m4v mov webm mkv ogv avi wmv flv mpg mpeg 3gp ts m2ts'.split(' ').map((e) => [e, 1]));
 const V_AUDIO = Object.fromEntries('mp3 wav wave flac ogg oga m4a aac opus wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
+// text files that Enter / a double click shows in the viewer. Scripts, programs and pages of the web are not here: they are run or opened by the system
+const V_TEXT_OPEN = Object.fromEntries('txt md log ini cfg conf json xml yaml yml toml csv tsv nfo diz srt sub vtt properties diff patch'.split(' ').map((e) => [e, 1]));
 /** documents rendered by our own code (main/docview.js), no Office needed */
 const V_DOC = Object.fromEntries('docx docm dotx xlsx xlsm pptx pptm odt ods odp doc rtf'.split(' ').map((e) => [e, 1]));
 /** file:// URL of a local path (Windows or POSIX) */

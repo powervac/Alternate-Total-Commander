@@ -2,6 +2,7 @@
 // Italian texts of the interface, by the English text. i18n.js adds them to its table as one more column
 // (a text without an entry here stays English). New English texts of the program need a line here too.
 const I18N_IT = {
+  'Enter and double click open pictures, video, PDF and text in the built-in viewer': 'Invio e doppio clic aprono immagini, video, PDF e testo nel visualizzatore integrato',
   'Server File Database...': 'Database dei file del server...',
   'Server File Database': 'Database dei file del server',
   'Folder to scan:': 'Cartella da analizzare:',

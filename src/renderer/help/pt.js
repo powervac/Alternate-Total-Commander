@@ -105,7 +105,8 @@ HELP_TEXT.pt = {
 <p>O outro painel mostra uma prévia do arquivo sob o cursor e acompanha o cursor. <kbd>Ctrl+Q</kbd> de novo traz de volta a lista de arquivos.</p>
 <p>Outras formas de abrir um arquivo: <kbd>Enter</kbd> o executa com o aplicativo que o sistema tem para ele; Arquivos > <b>Abrir com o aplicativo padrão</b> faz o mesmo para qualquer arquivo.</p>
 <h3>Imagens HEIC</h3>
-<p>Fotos HEIC / HEIF aparecem no visualizador, na visualização rápida e nas miniaturas. <b>Arquivos > Converter HEIC / JPG...</b> transforma os HEIC escolhidos em JPG, e JPG ou PNG em HEIC; a qualidade pode ser escolhida. Os originais ficam e nada é substituído.</p>`,
+<p>Fotos HEIC / HEIF aparecem no visualizador, na visualização rápida e nas miniaturas. <b>Arquivos > Converter HEIC / JPG...</b> transforma os HEIC escolhidos em JPG, e JPG ou PNG em HEIC; a qualidade pode ser escolhida. Os originais ficam e nada é substituído.</p>
+<p>Enter e clique duplo mostram imagens (também HEIC), vídeo, PDF, texto e documentos de escritório no visualizador interno. Para o programa do sistema use "Open With Default Application" no menu de arquivos; isso pode ser desligado nas configurações.</p>`,
     },
     {
       id: 'media', t: 'Música e vídeo',

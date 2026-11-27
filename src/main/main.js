@@ -2304,6 +2304,34 @@ async function heicImage(bytes) {
   const p = await heic.decode(bytes);
   return require('electron').nativeImage.createFromBitmap(p.data, { width: p.width, height: p.height });
 }
+/** the picture of a file with a .heic name, however it can be read: -> { img } or { raw } (bytes the page shows by itself) */
+async function openHeic(file, bytes) {
+  const kind = heic.sniff(bytes);
+  // the name says HEIC, the content is something else (phones and sync tools do that): it is shown as what it is
+  if (kind && kind !== 'heif' && kind !== 'tiff') {
+    const img = require('electron').nativeImage.createFromBuffer(bytes);
+    return img.isEmpty() ? { raw: bytes, kind } : { img, raw: bytes, kind };
+  }
+  let first;
+  try { return { img: await heicImage(bytes), kind: 'heif' }; } catch (e) { first = e; }
+  // our decoder cannot: the system may have a codec for it (Windows HEIF extensions, macOS) ...
+  try {
+    const img = await require('electron').nativeImage.createThumbnailFromPath(file, { width: 4096, height: 4096 });
+    if (img && !img.isEmpty()) return { img, kind: 'heif' };
+  } catch { /* no system codec */ }
+  // ... or ffmpeg can (for example a picture coded with AV1)
+  const ffmpeg = ffmpegBinary();
+  if (ffmpeg) {
+    const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'commander-thumb-'));
+    try {
+      const out = path.join(dir, 'p.png');
+      await new Promise((resolve, reject) => require('child_process').execFile(ffmpeg, ['-v', 'error', '-nostdin', '-y', '-i', file, '-frames:v', '1', out], { windowsHide: true, timeout: 30000 }, (err) => (err ? reject(err) : resolve())));
+      const img = require('electron').nativeImage.createFromPath(out);
+      if (!img.isEmpty()) return { img, kind: 'heif' };
+    } catch { /* not for ffmpeg either */ } finally { fsp.rm(dir, { recursive: true, force: true }).catch(() => {}); }
+  }
+  throw new Error(`${first.message} (${heic.describe(bytes)}; ${bytes.length} bytes)`);
+}
 /** the picture made smaller until it fits into max x max */
 function scaled(img, max) {
   const s = img.getSize();
@@ -2314,7 +2342,9 @@ function scaled(img, max) {
 ipcMain.handle('heic:view', async (_e, { file, max }) => {
   try {
     const bytes = await heic.readHeic(file);
-    let img = await heicImage(bytes);
+    const got = await openHeic(file, bytes);
+    if (got.raw) return { data: got.raw, size: bytes.length }; // already something the page can show
+    let img = got.img;
     const { width, height } = img.getSize();
     if (max) img = scaled(img, max);
     const jpeg = heic.jpegWithMeta(img.toJPEG(92), { icc: heic.heicMeta(bytes).icc });
@@ -2353,9 +2383,11 @@ ipcMain.handle('heic:convert', async (e, { id, files, destDir, quality }) => {
         if (toJpg) {
           const bytes = await heic.readHeic(f);
           const meta = heic.heicMeta(bytes);
-          const img = await heicImage(bytes);
+          const got = await openHeic(f, bytes);
           if (ctx.cancel) break;
-          await fsp.writeFile(target, heic.jpegWithMeta(img.toJPEG(heic.clampQuality(quality)), { exif: heic.uprightExif(meta.exif), icc: meta.icc }), { flag: 'wx' });
+          if (got.kind === 'jpeg') await fsp.writeFile(target, bytes, { flag: 'wx' }); // it is a JPEG already, only the name was wrong
+          else if (!got.img) throw new Error(heic.describe(bytes));
+          else await fsp.writeFile(target, heic.jpegWithMeta(got.img.toJPEG(heic.clampQuality(quality)), { exif: heic.uprightExif(meta.exif), icc: meta.icc }), { flag: 'wx' });
         } else {
           await heic.toHeicFile(f, target, { quality, hold, ffmpeg: ffmpegBinary() });
         }
@@ -2392,7 +2424,7 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
     if (img && !img.isEmpty()) url = img.toDataURL();
   } catch { /* no thumbnail handler / unsupported platform */ }
   if (!url && heic.isHeic(file)) {
-    try { url = scaled(await heicImage(await heic.readHeic(file)), size).toDataURL(); } catch { /* damaged: the file icon stays */ }
+    try { const got = await openHeic(file, await heic.readHeic(file)); if (got.img) url = scaled(got.img, size).toDataURL(); } catch { /* damaged: the file icon stays */ }
   }
   if (thumbCache.size > 4000) thumbCache.clear();
   thumbCache.set(key, url);
@@ -2432,7 +2464,8 @@ ipcMain.handle('thumb:remote', async (_e, { id, path: rpath, size, key, fsize })
       const tmp = path.join(os.tmpdir(), `commander-thumb-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.heic`);
       try {
         await c.download(rpath, tmp, {});
-        url = scaled(await heicImage(await heic.readHeic(tmp)), size).toDataURL();
+        const got = await openHeic(tmp, await heic.readHeic(tmp));
+        if (got.img) url = scaled(got.img, size).toDataURL();
       } finally { fsp.rm(tmp, { force: true }).catch(() => {}); }
     }
   } catch { /* the session is gone, the file is not readable: no picture */ }

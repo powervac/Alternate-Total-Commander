@@ -276,6 +276,47 @@ function mp4Picture(buf) {
   return { hvcC: Buffer.from(buf.subarray(hvcC.start, hvcC.end)), sample: Buffer.from(buf.subarray(at, at + size)), width: buf.readUInt16BE(entry.start + 24), height: buf.readUInt16BE(entry.start + 26) };
 }
 
+// ------------------------------------------------------------ what a file really is
+/** by the first bytes, not by the name: 'jpeg' | 'png' | 'gif' | 'bmp' | 'webp' | 'tiff' | 'heif' | null */
+function sniff(buf) {
+  const at = (o, s) => buf.length >= o + s.length && buf.toString('latin1', o, o + s.length) === s;
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg';
+  if (at(0, '\x89PNG')) return 'png';
+  if (at(0, 'GIF8')) return 'gif';
+  if (at(0, 'BM')) return 'bmp';
+  if (at(0, 'RIFF') && at(8, 'WEBP')) return 'webp';
+  if (at(0, 'II*\0') || at(0, 'MM\0*')) return 'tiff';
+  if (at(4, 'ftyp')) return 'heif';
+  return null;
+}
+
+/** a short account of a file, for the error message: it tells why a picture could not be read */
+function describe(buf) {
+  const kind = sniff(buf);
+  if (kind !== 'heif') return kind ? `the file is really a ${kind.toUpperCase()} picture` : `the file is not a picture of a known kind (it starts with ${buf.subarray(0, 8).toString('hex') || 'nothing'})`;
+  const out = [`kind ${buf.toString('latin1', 8, 12).replace(/[^\x20-\x7e]/g, '?')}`];
+  try {
+    const top = boxes(buf);
+    const meta = top.find((b) => b.type === 'meta');
+    const iinf = child(buf, meta, 'iinf', 4);
+    if (iinf) {
+      const types = new Set();
+      for (const e of boxes(buf, iinf.start + (buf[iinf.start] === 0 ? 6 : 8), iinf.end)) {
+        const v = buf[e.start];
+        if (e.type !== 'infe' || v < 2) continue;
+        const t = e.start + 4 + (v === 2 ? 2 : 4) + 2;
+        types.add(buf.toString('latin1', t, t + 4));
+      }
+      out.push(`parts ${[...types].join(' ')}`);
+    }
+    // a box that says it is longer than what is left: the file was cut off (an unfinished download, a cloud file)
+    let end = 0;
+    for (const b of top) end = b.end;
+    if (!meta || end < buf.length) out.push('the file is incomplete or damaged');
+  } catch { out.push('damaged'); }
+  return out.join(', ');
+}
+
 // ------------------------------------------------------------ writing
 const clampQuality = (q) => (Number.isFinite(+q) && +q > 0 ? Math.min(100, Math.max(1, Math.round(+q))) : 90);
 /** the quality of the dialog (1..100) as the CRF of x265 (smaller = better) */
@@ -330,4 +371,4 @@ async function toHeicFile(source, target, { quality, ffmpeg, hold, platform = pr
   await fs.promises.writeFile(target, await encodeHeic(ffmpeg, source, { quality, hold }), { flag: 'wx' });
 }
 
-module.exports = { isHeic, isHeicSource, decode, stopWorker, readHeic, jpegExif, jpegIcc, exifOrientation, uprightExif, jpegWithMeta, heicMeta, muxHeic, mp4Picture, encodeHeic, toHeicFile, clampQuality, crfOf };
+module.exports = { sniff, describe, isHeic, isHeicSource, decode, stopWorker, readHeic, jpegExif, jpegIcc, exifOrientation, uprightExif, jpegWithMeta, heicMeta, muxHeic, mp4Picture, encodeHeic, toHeicFile, clampQuality, crfOf };

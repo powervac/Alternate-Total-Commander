@@ -103,3 +103,22 @@ test('a file that is not HEIC gives an error, and the decoder keeps working', { 
   const img = await heic.decode(await heic.encodeHeic(ffmpeg, jpeg('again.jpg', 64, 64), {}));
   assert.strictEqual(img.width, 64);
 });
+
+test('what a file really is shows in its first bytes, not in its name', () => {
+  const b = (s) => Buffer.from(s, 'latin1');
+  assert.strictEqual(heic.sniff(b('\xff\xd8\xff\xe0 rest')), 'jpeg');
+  assert.strictEqual(heic.sniff(b('\x89PNG\r\n')), 'png');
+  assert.strictEqual(heic.sniff(b('GIF89a....')), 'gif');
+  assert.strictEqual(heic.sniff(b('RIFF....WEBPVP8 ')), 'webp');
+  assert.strictEqual(heic.sniff(b('\0\0\0\x18ftypheic\0\0\0\0')), 'heif');
+  assert.strictEqual(heic.sniff(b('hello')), null);
+  assert.strictEqual(heic.sniff(Buffer.alloc(0)), null);
+  assert.match(heic.describe(b('\xff\xd8\xff\xe0 rest')), /really a JPEG/);
+  assert.match(heic.describe(Buffer.alloc(100)), /not a picture.*0000000000000000/);
+});
+
+test('the account of a HEIC names its kind and parts, and says when it is cut off', { skip: !have }, async () => {
+  const bytes = await heic.encodeHeic(ffmpeg, jpeg('d.jpg', 64, 64), {});
+  assert.match(heic.describe(bytes), /^kind heic, parts hvc1$/);
+  assert.match(heic.describe(bytes.subarray(0, bytes.length - 100)), /incomplete or damaged/);
+});

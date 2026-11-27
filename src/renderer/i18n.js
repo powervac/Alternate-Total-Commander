@@ -6,6 +6,7 @@
 const LANGS = [['en', 'English'], ['ru', 'Русский'], ['pl', 'Polski'], ['pt', 'Português'], ['es', 'Español'], ['de', 'Deutsch'], ['it', 'Italiano'], ['be', 'Беларуская'], ['uk', 'Українська']];
 const I18N_COLS = ['ru', 'uk', 'be', 'pl', 'pt', 'es', 'de', 'it'];
 const I18N_ROWS = [
+  ['Enter and double click open pictures, video, PDF and text in the built-in viewer', 'Enter и двойной щелчок открывают картинки, видео, PDF и текст во встроенном просмотрщике', 'Enter і подвійне клацання відкривають зображення, відео, PDF і текст у вбудованому переглядачі', 'Enter і двайны пстрык адкрываюць выявы, відэа, PDF і тэкст ва ўбудаваным праглядальніку', 'Enter i dwukrotne kliknięcie otwierają obrazy, wideo, PDF i tekst we wbudowanej przeglądarce', 'Enter e clique duplo abrem imagens, vídeo, PDF e texto no visualizador interno', 'Enter y doble clic abren imágenes, vídeo, PDF y texto en el visor integrado', 'Enter und Doppelklick öffnen Bilder, Video, PDF und Text im eingebauten Betrachter'],
   // ---- pictures and the server file database
   ['Server File Database...', 'База файлов сервера...', 'База файлів сервера...', 'База файлаў сервера...', 'Baza plików serwera...', 'Banco de arquivos do servidor...', 'Base de archivos del servidor...', 'Dateidatenbank des Servers...'],
   ['Server File Database', 'База файлов сервера', 'База файлів сервера', 'База файлаў сервера', 'Baza plików serwera', 'Banco de arquivos do servidor', 'Base de archivos del servidor', 'Dateidatenbank des Servers'],

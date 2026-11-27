@@ -876,7 +876,7 @@ class Panel {
       if (it.isDir) return this.loadRem(this.rem, full);
       if (isArc(it.name)) return openRemoteArchive(this, it); // a zip on the NAS / SSH server opens like a folder
       if (isAudioFile(it.name)) return playerStart(this, it);
-      if (isDocFile(it.name)) return openViewer(); // our own document viewer
+      if (isDocFile(it.name) || opensInViewer(it.name)) return openViewer(); // our own viewer
       const t = await api.nasTemp({ id: this.rem.id, path: full });
       if (t.error) return msg('NAS', t.error);
       if (isSpeccyFile(it.name)) return openEmulator(t.file);
@@ -888,7 +888,7 @@ class Panel {
       const { file, inner } = this.arc;
       if (it.isDir) return this.loadArc(file, inner ? inner + '/' + it.name : it.name);
       if (isAudioFile(it.name)) return playerStart(this, it);
-      if (isDocFile(it.name)) return openViewer();
+      if (isDocFile(it.name) || opensInViewer(it.name)) return openViewer();
       if (isSpeccyFile(it.name)) { const t = await api.zipTemp({ archive: file, inner, name: it.name }); return t.error ? msg('Archive', t.error) : openEmulator(t.file); }
       const err = await api.zipOpen({ archive: file, inner, name: it.name });
       if (err) msg('Error', err);
@@ -899,7 +899,7 @@ class Panel {
       const t = await api.zipTemp({ archive: it.arc.file, inner: it.arc.inner, name: it.entry });
       if (t.error) return msg('Archive', t.error);
       if (isSpeccyFile(it.entry)) return openEmulator(t.file);
-      if (isDocFile(it.entry)) return openViewer();
+      if (isDocFile(it.entry) || opensInViewer(it.entry)) return openViewer();
       const err = await api.open(t.file);
       if (err) msg('Error', err);
       return;
@@ -909,7 +909,8 @@ class Panel {
     if (isArc(it.name)) return this.loadArc(full, '');
     if (isAudioFile(it.name)) return playerStart(this, it); // music: our player (F3 = viewer, Alt+Enter-like: "Open With Default Application" in Files menu)
     if (isSpeccyFile(it.name)) return openEmulator(full); // .trd .scl .tap ...: the built-in ZX Spectrum emulator
-    if (isDocFile(it.name)) return openViewer(); // docx / xlsx / pptx / odf: built-in viewer, no Office required (Files > Open With Default Application for the system one)
+    // pictures, video, PDF, text and office documents: the built-in viewer (Files > Open With Default Application for the system one)
+    if (isDocFile(it.name) || opensInViewer(it.name)) return openViewer();
     const err = await api.open(full);
     if (err) msg('Error', err);
   }
@@ -1588,6 +1589,12 @@ const isZip = (n) => /\.zip$/i.test(n);
 const isSevenArc = (n) => /\.(7z|tar|cab|tgz|tbz2?|txz|gz|bz2|xz|lzma|rar|tar\.(gz|bz2|xz))$/i.test(n); // browsed read-only through 7za / unrar (sevenzip.js)
 const isDocFile = (n) => typeof V_DOC !== 'undefined' && !!V_DOC[splitExt(n)[1].toLowerCase()];
 const isArc = (n) => isZip(n) || isSevenArc(n);
+/** does Enter / a double click open this file in the built-in viewer? (Configuration > Settings can give it back to the system) */
+function opensInViewer(name) {
+  if (typeof V_IMG === 'undefined' || store.get('openInternal', true) === false) return false;
+  const e = splitExt(name)[1].toLowerCase();
+  return !!(V_IMG[e] || V_VIDEO[e] || V_TEXT_OPEN[e] || e === 'pdf');
+}
 const arcReadOnly = (a) => !!(a.remote || isSevenArc(a.file));
 
 /** run a main-process job with a progress dialog */

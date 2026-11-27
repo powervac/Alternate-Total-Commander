@@ -105,7 +105,8 @@ HELP_TEXT.it = {
 <p>L'altro pannello mostra l'anteprima del file sotto il cursore e lo segue mentre ti muovi. <kbd>Ctrl+Q</kbd> di nuovo riporta l'elenco dei file.</p>
 <p>Altri modi per aprire un file: <kbd>Invio</kbd> lo avvia con l'applicazione associata dal sistema operativo; File > <b>Apri con l'applicazione predefinita</b> fa lo stesso con qualsiasi file.</p>
 <h3>Immagini HEIC</h3>
-<p>Le foto HEIC / HEIF sono mostrate dal visualizzatore, dalla vista rapida e dalle miniature. <b>File > Converti HEIC / JPG...</b> trasforma i file HEIC scelti in JPG, e JPG o PNG in HEIC; si può scegliere la qualità. Gli originali restano e niente viene sovrascritto.</p>`,
+<p>Le foto HEIC / HEIF sono mostrate dal visualizzatore, dalla vista rapida e dalle miniature. <b>File > Converti HEIC / JPG...</b> trasforma i file HEIC scelti in JPG, e JPG o PNG in HEIC; si può scegliere la qualità. Gli originali restano e niente viene sovrascritto.</p>
+<p>Invio e doppio clic mostrano immagini (anche HEIC), video, PDF, testo e documenti per ufficio nel visualizzatore integrato. Per il programma di sistema usa "Open With Default Application" nel menu dei file; si può disattivare nelle impostazioni.</p>`,
     },
     {
       id: 'media', t: 'Musica e video',

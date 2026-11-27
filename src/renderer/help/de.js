@@ -105,7 +105,8 @@ HELP_TEXT.de = {
 <p>Das andere Panel zeigt eine Vorschau der Datei unter dem Cursor und folgt dem Cursor. Noch einmal <kbd>Ctrl+Q</kbd> bringt die Dateiliste zurück.</p>
 <p>Weitere Wege, eine Datei zu öffnen: <kbd>Enter</kbd> führt sie mit der Anwendung aus, die das System dafür kennt; Dateien > <b>Mit Standardanwendung öffnen</b> macht dasselbe für jede Datei.</p>
 <h3>HEIC-Bilder</h3>
-<p>HEIC- / HEIF-Fotos zeigen der Betrachter, die Schnellansicht und die Vorschaubilder. <b>Dateien > HEIC / JPG umwandeln...</b> macht aus gewählten HEIC-Dateien JPG und aus JPG oder PNG HEIC; die Qualität ist wählbar. Die Originale bleiben, nichts wird überschrieben.</p>`,
+<p>HEIC- / HEIF-Fotos zeigen der Betrachter, die Schnellansicht und die Vorschaubilder. <b>Dateien > HEIC / JPG umwandeln...</b> macht aus gewählten HEIC-Dateien JPG und aus JPG oder PNG HEIC; die Qualität ist wählbar. Die Originale bleiben, nichts wird überschrieben.</p>
+<p>Enter und Doppelklick zeigen Bilder (auch HEIC), Video, PDF, Text und Office-Dokumente im eingebauten Betrachter. Für das Systemprogramm gibt es "Open With Default Application" im Dateimenü; in den Einstellungen lässt sich das abschalten.</p>`,
     },
     {
       id: 'media', t: 'Musik und Video',

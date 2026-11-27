@@ -437,7 +437,12 @@ function openViewer(panelArg, force) {
       size = f.size;
     } else {
       let path;
-      if (panel.list && f.arc) {
+      if (panel.list && f.srv) {
+      const t = await api.nasTemp({ id: f.srv.conn.id, path: f.srv.path });
+      if (token !== loadToken) return;
+      if (t.error) return message(t.error);
+      path = t.file;
+    } else if (panel.list && f.arc) {
         const t = await arcTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
         if (token !== loadToken) return;
         if (t.error) return message(t.error);
@@ -480,7 +485,12 @@ function openViewer(panelArg, force) {
     mediaSpec = null;
     if (V_VIDEO[ext()] || V_AUDIO[ext()]) return loadMedia(token, f);
     let path;
-    if (panel.list && f.arc) {
+    if (panel.list && f.srv) {
+      const t = await api.nasTemp({ id: f.srv.conn.id, path: f.srv.path });
+      if (token !== loadToken) return;
+      if (t.error) return message(t.error);
+      path = t.file;
+    } else if (panel.list && f.arc) {
       const t = await arcTemp({ archive: f.arc.file, inner: f.arc.inner, name: f.entry });
       if (token !== loadToken) return;
       if (t.error) return message(t.error);

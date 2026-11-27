@@ -51,8 +51,8 @@ let thumbBusy = 0;
 function thumbLoad(panel, cell) {
   const it = panel.view[+cell.dataset.i];
   if (!it) return;
-  const rem = panel.rem;
-  const file = rem ? remJoin(rem.path, it.name) : P.join(panel.dir, it.name);
+  const rem = it.srv ? it.srv.conn : panel.rem;
+  const file = it.srv ? it.srv.path : rem ? remJoin(rem.path, it.name) : P.join(panel.dir, it.name);
   const size = thumbRequest(panel.thumbSize(), window.devicePixelRatio);
   const key = `${rem ? 'rem:' + rem.id + '|' : ''}${file}|${it.mtime}|${it.size}|${size}`;
   thumbQueue.push({ panel, cell, it, file, key, size, remId: rem ? rem.id : null });
@@ -605,7 +605,7 @@ class Panel {
     this.dir = '';
     this.dirSizes.clear();
     // a file inside a zip archive keeps where it is: arc = { file, inner }, entry = its name there (the name shown is the path through the archive)
-    this.items = entries.map((e) => ({ name: P.join(e.dir, e.name), isDir: !!e.isDir, size: e.isDir ? -1 : e.size || 0, mtime: e.mtime || 0, ro: false, hidden: String(e.name).startsWith('.'), link: false, arc: e.arc || null, entry: e.arc ? e.name : null }));
+    this.items = entries.map((e) => ({ srv: e.srv || null, name: e.srv ? e.label : P.join(e.dir, e.name), isDir: !!e.isDir, size: e.isDir ? -1 : e.size || 0, mtime: e.mtime || 0, ro: false, hidden: String(e.name).startsWith('.'), link: false, arc: e.arc || null, entry: e.arc ? e.name : null }));
     this.sel = new Set();
     this.hist = this.hist.slice(0, this.hi + 1);
     this.rebuild(undefined);
@@ -619,6 +619,7 @@ class Panel {
   async refreshList() {
     const keep = [];
     for (const it of this.items) {
+      if (it.srv) { keep.push({ label: it.name, dir: '', name: it.srv.path.slice(it.srv.path.lastIndexOf('/') + 1), isDir: it.isDir, size: it.size, mtime: it.mtime, srv: it.srv }); continue; }
       if (it.arc) { if ((await api.stat(it.arc.file)).exists) keep.push({ dir: P.dirname(it.name), name: it.entry, isDir: false, size: it.size, mtime: it.mtime, arc: it.arc }); continue; }
       const st = await api.stat(it.name);
       if (st.exists) keep.push({ dir: P.dirname(it.name), name: P.basename(it.name), isDir: st.isDir, size: st.size, mtime: st.mtime });
@@ -654,7 +655,8 @@ class Panel {
     const dcmp = store.get('dirSort', 'like') === 'name' ? byName : cmp;
     const dirs = shown.filter((i) => i.isDir).sort((a, b) => rev * dcmp(a, b));
     const files = shown.filter((i) => !i.isDir).sort((a, b) => rev * cmp(a, b));
-    const hasParent = this.arc || this.rem || this.list ? true : P.dirname(this.dir) !== this.dir;
+    // (the root of a server has no "..": it is left through the drive list; before, ".." there dropped into some local folder)
+    const hasParent = this.arc || this.list ? true : this.rem ? this.rem.path !== '/' : P.dirname(this.dir) !== this.dir;
     this.view = [...(hasParent ? [{ name: '..', isDir: true, up: true, size: -1, mtime: 0 }] : []), ...dirs, ...files];
     let idx = focusName ? this.view.findIndex((i) => i.name === focusName) : -1;
     if (idx < 0) idx = Math.min(this.cursor, this.view.length - 1);
@@ -871,6 +873,7 @@ class Panel {
     const it = this.cur();
     if (!it) return;
     if (it.up) return this.goUp();
+    if (this.list && it.srv) return openServerFound(this, it);
     if (this.rem) {
       const full = remJoin(this.rem.path, it.name);
       if (it.isDir) return this.loadRem(this.rem, full);
@@ -919,7 +922,7 @@ class Panel {
     if (this.list) return this.go(this.listFrom || { dir: api.home }, { push: false }); // out of the list of search results: back to where it began
     if (this.rem) {
       const { path } = this.rem;
-      if (path === '/') return this.load(this.lastLocal || api.home); // leave the NAS
+      if (path === '/') return; // the top of the server: Backspace does not leave it (drive list or Net > Disconnect do)
       const i = path.lastIndexOf('/');
       return this.loadRem(this.rem, i <= 0 ? '/' : path.slice(0, i), { focusName: path.slice(i + 1) });
     }
@@ -1064,7 +1067,7 @@ function openDrivePicker(p) {
     const conns = (typeof nasLoad === 'function' ? nasLoad() : []).filter((c) => !(typeof liveConns !== 'undefined' && liveConns.has(c.id)));
     if (conns.length) {
       sep();
-      for (const c of conns) add('', `${REC_ICON[c.type] || REC_ICON.nas}  ${c.name || c.url}   ${c.account || c.user || (c.url ? nasDefaultName(c.url) : remTitle(RECORD_REM[c.type] || 'nas'))}`, { conn: c });
+      for (const c of conns) add('', `${c.auto && typeof autoNote === 'function' && autoNote(c.id) ? '\u26a0 ' + autoNote(c.id) + '  |  ' : ''}${REC_ICON[c.type] || REC_ICON.nas}  ${c.name || c.url}   ${c.account || c.user || (c.url ? nasDefaultName(c.url) : remTitle(RECORD_REM[c.type] || 'nas'))}`, { conn: c });
     }
     const cur = driveFor(p.realDir());
     let i = keepPath ? rows.findIndex((x) => x.drive && x.drive.path === keepPath) : rows.findIndex((x) => x.drive === cur);
@@ -1404,6 +1407,61 @@ function needLocal(feature, ...ps) {
   return false;
 }
 
+// ---------------------------------------------------------------- a list of files found on a server (Server File Database > Feed to listbox)
+const baseOf = (p) => p.slice(p.lastIndexOf('/') + 1);
+async function openServerFound(panel, it) {
+  const { conn, path } = it.srv;
+  if (it.isDir) return panel.loadRem(conn, path);
+  const name = baseOf(path);
+  if (isDocFile(name) || opensInViewer(name)) return openViewer();
+  const t = await api.nasTemp({ id: conn.id, path });
+  if (t.error) return msg('Server File Database', t.error);
+  const err = await api.open(t.file);
+  if (err) msg('Error', err);
+}
+
+/** names for copies into one folder: files of the same name from different folders get " (2)", " (3)" ... */
+function uniqueNames(paths) {
+  const used = new Set();
+  return paths.map((p) => {
+    const name = baseOf(p);
+    const dot = name.lastIndexOf('.');
+    const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+    let out = name;
+    for (let n = 2; used.has(out.toLowerCase()); n++) out = `${stem} (${n})${ext}`;
+    used.add(out.toLowerCase());
+    return out;
+  });
+}
+
+/** F5 in such a list: the files are downloaded into the folder of the other panel, all into one folder */
+async function copyFromServerList(items, dst) {
+  if (dst.rem || dst.arc || dst.list) return msg('Copy', 'Open a normal folder in the other panel first.');
+  const r = await dialog({ title: 'Copy', text: `${items.length} file(s) to:`, input: dst.dir, buttons: OKCANCEL });
+  if (r.value !== 'ok' || !r.input) return;
+  const names = uniqueNames(items.map((i) => i.srv.path));
+  const byConn = new Map();
+  items.forEach((i, k) => {
+    const id = i.srv.conn.id;
+    if (!byConn.has(id)) byConn.set(id, []);
+    const dir = i.srv.path.slice(0, i.srv.path.lastIndexOf('/')) || '/';
+    byConn.get(id).push({ dir, name: baseOf(i.srv.path), as: names[k], isDir: i.isDir, size: i.size, mtime: i.mtime });
+  });
+  const errors = [];
+  let skipped = 0;
+  for (const [id, list] of byConn) {
+    const res = await withProgress('Downloading', (jobId) => api.nasDownload({ id, jobId, base: '/', destDir: r.input, items: list, overwrite: 'skip' }));
+    if (res.error) errors.push(res.error);
+    errors.push(...(res.errors || []));
+    skipped += res.skipped || 0;
+    if (res.cancelled) break;
+  }
+  await Promise.all(panels.map((p) => p.refresh()));
+  if (skipped) errors.push(`${skipped} file(s) exist already in the target folder and were not overwritten.`);
+  await showErrors(errors);
+}
+const serverListMsg = () => msg('Server File Database', 'In this list of found files you can view, open and copy them to this computer (F5). To change them, open their folder first (Go to file in the database window).');
+
 /** F5 / F6 in a list of search results that has files inside zip archives: those are extracted, the others copied or moved as usual */
 async function copyFromList(kind, items, dst) {
   if (dst.rem || dst.arc || dst.list) return msg('Copy', 'Open a normal folder in the other panel first.');
@@ -1441,6 +1499,7 @@ async function copyMove(kind, opts = {}) {
   const src = A(), dst = O();
   const items = src.targets();
   if (!items.length) return;
+  if (src.list && items.some((i) => i.srv)) return kind === 'copy' && !opts.renameOnly ? copyFromServerList(items, dst) : serverListMsg();
   if (src.list && items.some((i) => i.arc)) return copyFromList(kind, items, dst);
   if (src.consoleOn) return;
   if (kind === 'move' && src.arc && arcReadOnly(src.arc)) return remoteArcMsg(); // "move" would delete from the archive
@@ -1565,6 +1624,7 @@ async function deleteSel(permanent) {
   const wantPermanent = !!permanent;
   if (!permanent && store.get('useTrash', true) === false) permanent = true; // Configuration > Copy/Delete: F8 deletes for good
   const p = A();
+  if (p.list && p.targets().some((i) => i.srv)) return serverListMsg();
   if (p.rem) return deleteRemote();
   if (p.arc) return deleteFromArc();
   const items = p.targets();
@@ -1609,6 +1669,7 @@ const PACK_KINDS = { zip: ['zip', '.zip'], '7z': ['7z', '.7z'], tar: ['tar', '.t
 const packKindOf = (name) => (/\.rar$/i.test(name) ? 'rar' : /\.tar\.gz$|\.tgz$/i.test(name) ? 'tgz' : /\.tar\.bz2$|\.tbz2?$/i.test(name) ? 'tbz2' : /\.tar\.xz$|\.txz$/i.test(name) ? 'txz' : /\.7z$/i.test(name) ? '7z' : /\.tar$/i.test(name) ? 'tar' : /\.gz$/i.test(name) ? 'gz' : /\.bz2$/i.test(name) ? 'bz2' : /\.xz$/i.test(name) ? 'xz' : 'zip');
 
 async function packSel() {
+  if (A().list && A().targets().some((i) => i.srv)) return serverListMsg();
   const src = A(), dst = O();
   if (needLocal('Pack', src, dst)) return;
   if (src.arc || dst.arc) return msg('Pack', 'Packing from or into an archive is not supported yet.');
@@ -1712,6 +1773,7 @@ async function retryWithPassword(res, name, run) {
 }
 
 async function unpackSel() {
+  if (A().list && A().targets().some((i) => i.srv)) return serverListMsg();
   const src = A(), dst = O();
   if (needLocal('Unpack', src, dst)) return;
   const archives = src.arc

@@ -93,7 +93,8 @@ HELP_TEXT.it = {
 <h3>Indice dei file (ricerca veloce)</h3>
 <p>Configurazione > <b>Indice dei file...</b> crea un indice dei nomi dei file nelle cartelle che scegli (lavora in background e viene salvato compresso nella cartella dati del programma). Con "Usa l'indice" attivo, le ricerche per nome, dimensione e data sono immediate se ogni cartella cercata si trova dentro una cartella indicizzata; altrimenti viene eseguita la normale ricerca sul disco. La ricerca di testo legge sempre i file.</p>
 <h3>File su un server</h3>
-<p>La ricerca dei file legge solo i dischi di questo computer. Per un server aperto in un pannello (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) usa <b>Rete > Database dei file del server...</b> o <kbd>Alt+F7</kbd> sul suo pannello. Analizza percorre le cartelle una volta e ricorda nomi, dimensioni e date. Poi la ricerca risponde subito; <kbd>Enter</kbd> o un doppio clic va al file. Maschere: <code>*.jpg;*.heic</code>, parte del nome, <code>| *.tmp</code> esclude. Il testo dentro i file non viene cercato. Il database è su questo computer. Un'unità di rete con lettera si indicizza nella configurazione (File index).</p>`,
+<p>La ricerca dei file legge solo i dischi di questo computer. Per un server aperto in un pannello (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) usa <b>Rete > Database dei file del server...</b> o <kbd>Alt+F7</kbd> sul suo pannello. Analizza percorre le cartelle una volta e ricorda nomi, dimensioni e date. Poi la ricerca risponde subito; <kbd>Enter</kbd> o un doppio clic va al file. Maschere: <code>*.jpg;*.heic</code>, parte del nome, <code>| *.tmp</code> esclude. Il testo dentro i file non viene cercato. Il database è su questo computer. Un'unità di rete con lettera si indicizza nella configurazione (File index).</p>
+<p>"Feed to listbox" nella finestra del database mette tutti i file trovati (fino a 20.000) nel pannello in un unico elenco. Lì si possono vedere, aprire e copiare su questo computer con <kbd>F5</kbd> (i nomi uguali ricevono un numero). <kbd>Backspace</kbd> esce dall'elenco.</p>`,
     },
     {
       id: 'viewer', t: 'Visualizzatore, editor e vista rapida',
@@ -132,7 +133,8 @@ HELP_TEXT.it = {
 <li><b>Connetti</b>. La connessione viene salvata nell'elenco a sinistra della finestra; la volta successiva basta un doppio clic.</li>
 </ol>
 <p>Nel pannello si può sfogliare, copiare in entrambe le direzioni (con avanzamento), creare cartelle, rinominare, eliminare, visualizzare, modificare e riprodurre video e musica in streaming. <b>Rete > Disconnetti</b> chiude la connessione; l'elenco delle unità (<kbd>Alt+F1</kbd>) mostra quelle aperte e permette di tornarci.</p>
-<p><b>macOS:</b> se la copia da un NAS nella tua rete è lenta, apri <b>System Settings > Privacy & Security > Local Network</b>: Commander deve essere attivo lì. Senza questa autorizzazione la connessione passa da internet. La riga sopra il pannello mostra il percorso: local network, direct over the internet o QuickConnect relay.</p>`,
+<p><b>macOS:</b> se la copia da un NAS nella tua rete è lenta, apri <b>System Settings > Privacy & Security > Local Network</b>: Commander deve essere attivo lì. Senza questa autorizzazione la connessione passa da internet. La riga sopra il pannello mostra il percorso: local network, direct over the internet o QuickConnect relay.</p>
+<p>La casella "Connetti all'avvio del programma e mantieni la connessione" nella finestra di connessione (serve l'accesso salvato) collega il server a ogni avvio, lo controlla ogni tanto e lo ricollega dopo un'interruzione. Un accesso rifiutato o un NAS che chiede il codice in due passaggi non viene ritentato; l'elenco delle unità mostra il motivo. Dopo una disconnessione manuale non si ricollega da solo. In cima al server non c'è la riga "..": si esce dall'elenco delle unità o disconnettendo.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP e console',

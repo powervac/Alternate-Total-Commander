@@ -8,6 +8,8 @@ const https = require('https');
 const crypto = require('crypto');
 const path = require('path');
 
+const { errorText } = require('./errortext');
+
 const posix = path.posix;
 const md5 = (s) => crypto.createHash('md5').update(s).digest('hex');
 const decodeXml = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(+n)).replace(/&amp;/g, '&');
@@ -249,13 +251,14 @@ function httpError(status, text, method) {
 }
 
 function explain(e) {
-  const m = e && e.message ? e.message : String(e);
+  // (a refused connection to a name with two addresses has an empty message: the reason is in its list of errors or its code)
+  const m = e && e.message ? e.message : e && (e.errors || e.code) ? errorText(e) : String(e);
   if (/ENOTFOUND|EAI_AGAIN/.test(m)) return new Error('Host not found: ' + m);
   if (/ECONNREFUSED/.test(m)) return new Error('Connection refused (is the server running and the port right?)');
   if (/ETIMEDOUT|timeout/i.test(m)) return new Error('The server did not answer in time.');
   if (/self[- ]signed|unable to verify|CERT_|certificate|altnames/i.test(m)) return new Error('The server certificate is not trusted. Tick "Allow an untrusted certificate" if you trust this server.');
   if (/wrong version number|EPROTO/i.test(m)) return new Error('The server does not speak HTTPS on this port: try http:// in the address.');
-  return e instanceof Error ? e : new Error(m);
+  return e instanceof Error && e.message ? e : new Error(m);
 }
 
 module.exports = { Davfs, explain, httpError };

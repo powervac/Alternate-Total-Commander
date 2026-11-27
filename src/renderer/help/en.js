@@ -93,7 +93,8 @@ HELP_TEXT.en = {
 <h3>File index (fast search)</h3>
 <p>Configuration > <b>File index...</b> builds an index of the file names of the folders you choose (it runs in the background and is stored compressed in the program's data folder). With "Use the index" ticked, searches by name, size and date are instant when every searched folder lies inside an indexed folder; otherwise the normal search of the disk runs. Searching for text inside files always reads the files.</p>
 <h3>Files on a server</h3>
-<p>Find Files reads only the disks of this computer. For a server that is open in a panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) use <b>Net > Server File Database...</b>, or press <kbd>Alt+F7</kbd> on its panel. "Scan now" walks through the folders once and remembers names, sizes and dates; "Update" does it again. Then the search answers at once; <kbd>Enter</kbd> or a double click goes to the file. Masks work as in Find Files: <code>*.jpg;*.heic</code>, a part of a name, <code>| *.tmp</code> excludes. Text inside files is not searched. The database is a file on this computer. A network drive with a letter is indexed in Configuration > File index.</p>`,
+<p>Find Files reads only the disks of this computer. For a server that is open in a panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) use <b>Net > Server File Database...</b>, or press <kbd>Alt+F7</kbd> on its panel. "Scan now" walks through the folders once and remembers names, sizes and dates; "Update" does it again. Then the search answers at once; <kbd>Enter</kbd> or a double click goes to the file. Masks work as in Find Files: <code>*.jpg;*.heic</code>, a part of a name, <code>| *.tmp</code> excludes. Text inside files is not searched. The database is a file on this computer. A network drive with a letter is indexed in Configuration > File index.</p>
+<p>"Feed to listbox" in the database window puts all found files (up to 20,000) into the panel as one list. There they can be viewed, opened and copied to this computer with <kbd>F5</kbd> (files of the same name get a number). <kbd>Backspace</kbd> leaves the list.</p>`,
     },
     {
       id: 'viewer', t: 'Viewer, editor and quick view',
@@ -132,7 +133,8 @@ HELP_TEXT.en = {
 <li><b>Connect</b>. The connection is saved in the list on the left of the window; double-click it next time.</li>
 </ol>
 <p>In the panel you can browse, copy both ways (with progress), create folders, rename, delete, view, edit and stream video and music. <b>Net > Disconnect</b> closes the connection; the drive list (<kbd>Alt+F1</kbd>) shows the open ones and lets you return to them.</p>
-<p><b>macOS:</b> if copying from a NAS next to you is slow, check <b>System Settings > Privacy & Security > Local Network</b>: Commander must be on there. Without this permission the connection goes over the internet. The line above the panel shows the way: local network, direct over the internet or QuickConnect relay.</p>`,
+<p><b>macOS:</b> if copying from a NAS next to you is slow, check <b>System Settings > Privacy & Security > Local Network</b>: Commander must be on there. Without this permission the connection goes over the internet. The line above the panel shows the way: local network, direct over the internet or QuickConnect relay.</p>
+<p>The box "Connect when the program starts and keep connected" in a connection window (it needs the saved login) connects that server after every start, checks now and then that it answers and connects it again after a break. A refused login or a NAS that wants a 2-step code is not tried again by itself; the drive list shows why. After a manual disconnect the server is left alone until you connect it again or restart the program. The top of a server has no ".." line: leave it through the drive list or Net > Disconnect.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP and the console',

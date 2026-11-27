@@ -21,7 +21,7 @@ async function openCatalog() {
     `<div class="cat-line"><label>Folder to scan:</label><input class="cat-root" spellcheck="false" value="${esc(here)}"><button class="cat-build" type="button">Scan now</button><button class="cat-stop" type="button" disabled>Stop</button><button class="cat-del" type="button" disabled>Delete the database</button></div>` +
     '<div class="cat-line"><label>Search for:</label><input class="cat-mask" spellcheck="false" placeholder="*.jpg;*.heic   or a part of the name"><button class="cat-find primary" type="button" disabled>Search</button></div>' +
     '<div class="cat-list" tabindex="0"></div><div class="cat-count">&nbsp;</div>' +
-    '</div><div class="dlg-btns"><button class="cat-go" disabled>Go to file</button><button class="cat-close">Close</button></div>';
+    '</div><div class="dlg-btns"><button class="cat-go" disabled>Go to file</button><button class="cat-feed" title="Put the found files into the panel as one list" disabled>Feed to listbox</button><button class="cat-close">Close</button></div>';
   const q = (s) => box.querySelector(s);
   const $state = q('.cat-state'), $list = q('.cat-list'), $count = q('.cat-count'), $mask = q('.cat-mask'), $root = q('.cat-root');
   let info = null;
@@ -52,10 +52,13 @@ async function openCatalog() {
     sel = Math.max(-1, Math.min(items.length - 1, i));
     if (row(sel)) { row(sel).classList.add('on'); row(sel).scrollIntoView({ block: 'nearest' }); }
     q('.cat-go').disabled = sel < 0;
+    q('.cat-feed').disabled = !items.length;
   };
+  let found = ''; // the mask of the results that are shown
   const find = async () => {
     if (!info) return;
-    const r = await api.catalogSearch({ key: conn.id, mask: $mask.value.trim() });
+    found = $mask.value.trim();
+    const r = await api.catalogSearch({ key: conn.id, mask: found });
     if (closed) return;
     if (r.error) { $count.textContent = r.error; return; }
     items = r.items;
@@ -64,6 +67,20 @@ async function openCatalog() {
     $count.textContent = r.total > items.length ? `Found: ${fmtNum(r.total)}, the first ${fmtNum(items.length)} are shown` : `Found: ${fmtNum(r.total)}`;
     mark(items.length ? 0 : -1);
   };
+  /** all found files (not only the shown ones) go into the panel as one list: view, open, copy them to this computer */
+  const feed = async () => {
+    const r = await api.catalogSearch({ key: conn.id, mask: found, limit: 20000 });
+    if (closed || r.error || !r.items.length) return;
+    finish();
+    panel.focus();
+    panel.loadList(r.items.map((x) => {
+      const full = remJoin(x.dir, x.name);
+      // the shown name starts with the name of the server and a colon: it can never be taken for a file of this computer
+      return { label: `${conn.name}:${full}`, dir: '', name: x.name, isDir: x.isDir, size: x.size, mtime: x.mtime, srv: { conn, path: full } };
+    }), `Found on ${conn.name}`);
+    if (r.total > r.items.length) msg('Server File Database', `Found: ${fmtNum(r.total)}, the first ${fmtNum(r.items.length)} are shown`);
+  };
+  q('.cat-feed').onclick = feed;
   const go = async () => {
     const x = items[sel];
     if (!x) return;

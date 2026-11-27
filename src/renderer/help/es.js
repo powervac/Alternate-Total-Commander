@@ -93,7 +93,8 @@ HELP_TEXT.es = {
 <h3>Índice de archivos (búsqueda rápida)</h3>
 <p>Configuración > <b>Índice de archivos (búsqueda rápida)...</b> crea un índice de los nombres de archivo de las carpetas que elija (en segundo plano; se guarda comprimido en la carpeta de datos del programa). Con “Usar el índice” marcado, las búsquedas por nombre, tamaño y fecha son instantáneas cuando todas las carpetas buscadas están dentro de carpetas indexadas; si no, se hace la búsqueda normal en el disco. La búsqueda de texto dentro de los archivos siempre lee los archivos.</p>
 <h3>Archivos en un servidor</h3>
-<p>La búsqueda de archivos lee solo los discos de este equipo. Para un servidor abierto en un panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive), use <b>Red > Base de archivos del servidor...</b> o <kbd>Alt+F7</kbd> en su panel. Examinar recorre las carpetas una vez y guarda nombres, tamaños y fechas. Después la búsqueda responde al instante; <kbd>Enter</kbd> o doble clic va al archivo. Máscaras: <code>*.jpg;*.heic</code>, parte del nombre, <code>| *.tmp</code> excluye. No se busca texto dentro de los archivos. La base está en este equipo. Una unidad de red con letra se indexa en la configuración (File index).</p>`,
+<p>La búsqueda de archivos lee solo los discos de este equipo. Para un servidor abierto en un panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive), use <b>Red > Base de archivos del servidor...</b> o <kbd>Alt+F7</kbd> en su panel. Examinar recorre las carpetas una vez y guarda nombres, tamaños y fechas. Después la búsqueda responde al instante; <kbd>Enter</kbd> o doble clic va al archivo. Máscaras: <code>*.jpg;*.heic</code>, parte del nombre, <code>| *.tmp</code> excluye. No se busca texto dentro de los archivos. La base está en este equipo. Una unidad de red con letra se indexa en la configuración (File index).</p>
+<p>"Feed to listbox" en la ventana de la base pone todos los archivos encontrados (hasta 20 000) en el panel como una lista. Allí se pueden ver, abrir y copiar a este equipo con <kbd>F5</kbd> (los nombres iguales reciben un número). <kbd>Backspace</kbd> sale de la lista.</p>`,
     },
     {
       id: 'viewer', t: 'Visor, editor y vista rápida',
@@ -132,7 +133,8 @@ HELP_TEXT.es = {
 <li><b>Conectar</b>. La conexión se guarda en la lista de la izquierda de la ventana; la próxima vez haga doble clic en ella.</li>
 </ol>
 <p>En el panel puede examinar, copiar en ambos sentidos (con progreso), crear carpetas, renombrar, eliminar, visualizar, editar y reproducir vídeo y música en flujo. <b>Red > Desconectar (NAS / SSH)</b> cierra la conexión; la lista de unidades (<kbd>Alt+F1</kbd>) muestra las abiertas y permite volver a ellas.</p>
-<p><b>macOS:</b> si copiar desde un NAS de su red va lento, abra <b>System Settings > Privacy & Security > Local Network</b>: Commander debe estar activado ahí. Sin este permiso la conexión va por internet. La línea sobre el panel muestra el camino: local network, direct over the internet o QuickConnect relay.</p>`,
+<p><b>macOS:</b> si copiar desde un NAS de su red va lento, abra <b>System Settings > Privacy & Security > Local Network</b>: Commander debe estar activado ahí. Sin este permiso la conexión va por internet. La línea sobre el panel muestra el camino: local network, direct over the internet o QuickConnect relay.</p>
+<p>La casilla "Conectar al iniciar el programa y mantener la conexión" de la ventana de conexión (necesita el inicio de sesión guardado) conecta el servidor en cada arranque, lo comprueba de vez en cuando y lo reconecta tras un corte. Un inicio rechazado o un NAS que pide el código de 2 pasos no se reintenta; la lista de unidades muestra el motivo. Tras desconectar a mano no se reconecta solo. En la raíz del servidor no hay línea "..": salga por la lista de unidades o desconectando.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP y la consola',

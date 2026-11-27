@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld('api', {
   thumbRemote: inv('thumb:remote'),
   heicView: inv('heic:view'),
   heicConvert: inv('heic:convert'),
+  nasPing: inv('nas:ping'),
   catalogInfo: inv('catalog:info'),
   catalogSearch: inv('catalog:search'),
   catalogDelete: inv('catalog:delete'),

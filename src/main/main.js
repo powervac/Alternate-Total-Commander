@@ -23,6 +23,7 @@ const fsp = fs.promises;
 const os = require('os');
 const { spawn } = require('child_process');
 const sevenzip = require('./sevenzip');
+const volumes = require('./volumes');
 
 const isWin = process.platform === 'win32';
 const isMac = process.platform === 'darwin';
@@ -457,12 +458,8 @@ app.whenReady().then(refreshWsl);
 
 ipcMain.handle('places:list', async () => {
   refreshWsl();
-  const out = [];
-  const add = (label, p) => {
-    try {
-      if (p && fs.existsSync(p)) out.push({ label, path: p });
-    } catch {}
-  };
+  const found = [];
+  const add = (label, p) => { if (p) found.push({ label, path: p }); }; // checked together at the end, each with a time limit
   add('Home', os.homedir());
   for (const [label, key] of [['Desktop', 'desktop'], ['Documents', 'documents'], ['Downloads', 'downloads'], ['Pictures', 'pictures'], ['Music', 'music'], ['Videos', 'videos']]) {
     try {
@@ -485,12 +482,13 @@ ipcMain.handle('places:list', async () => {
   try {
     const cs = path.join(os.homedir(), 'Library', 'CloudStorage');
     for (const d of fs.readdirSync(cs)) {
-      if (/^GoogleDrive-/i.test(d)) add(`Google Drive (${d.replace(/^GoogleDrive-/i, '')})`, fs.existsSync(path.join(cs, d, 'My Drive')) ? path.join(cs, d, 'My Drive') : path.join(cs, d));
+      if (/^GoogleDrive-/i.test(d)) add(`Google Drive (${d.replace(/^GoogleDrive-/i, '')})`, (await volumes.existsSoon(fsp, path.join(cs, d, 'My Drive'))) ? path.join(cs, d, 'My Drive') : path.join(cs, d));
     }
   } catch {}
   add('Google Drive', path.join(os.homedir(), 'Google Drive'));
-  for (const w of wslPlaces) out.push(w);
-  return out;
+  // fs.existsSync would stop the whole program while a sleeping or lost network disk does not answer
+  const there = await Promise.all(found.map((x) => volumes.existsSoon(fsp, x.path)));
+  return [...found.filter((_x, i) => there[i]), ...wslPlaces];
 });
 
 /** mapped network drives (also the disconnected ones): letter -> \\server\share, from `net use` */
@@ -550,11 +548,7 @@ ipcMain.handle('drives:list', async () => {
   }
   const out = [{ path: '/', label: '/' }, { path: os.homedir(), label: '~' }];
   try {
-    for (const v of await fsp.readdir('/Volumes')) {
-      const full = path.join('/Volumes', v);
-      if ((await fsp.realpath(full).catch(() => full)) === '/') continue; // the startup disk ("Macintosh HD") is "/" already
-      out.push({ path: full, label: v });
-    }
+    out.push(...(await volumes.macVolumes(fsp))); // nothing is asked from the volumes themselves: one that does not answer must not hang the list
   } catch {}
   return out;
 });
@@ -1489,12 +1483,14 @@ const nasGet = (id) => {
   return c;
 };
 const MAC_LAN_HINT = 'On a Mac check System Settings > Privacy & Security > Local Network: Commander must be on there (if it is, switch it off and on), then connect again.';
+const { errorText } = require('./errortext');
 const nasWrap = (fn) => async (e, a) => {
   try {
     return await fn(e, a || {});
   } catch (err) {
-    const hint = isMac && /EHOSTUNREACH/.test(err.message) ? '\n' + MAC_LAN_HINT : '';
-    return { error: err.message + hint, code: err.code };
+    const text = errorText(err);
+    const hint = isMac && /EHOSTUNREACH/.test(text) ? '\n' + MAC_LAN_HINT : '';
+    return { error: text + hint, code: err.code };
   }
 };
 const rjoin = (a, b) => (a === '/' || !a ? '' : a.replace(/\/+$/, '')) + '/' + b;
@@ -1507,6 +1503,15 @@ ipcMain.handle('nas:connect', nasWrap(async (_e, { id, url, user, pass, otp, ins
   if (old) old.logout();
   nasSessions.set(id, c);
   return { ok: true, base: c.base, route: c.route, lanFailed: c.lanFailed };
+}));
+
+// is a connection still alive? Not asked while files are being copied: a new login would end the transfer
+ipcMain.handle('nas:ping', nasWrap(async (_e, { id, path: p }) => {
+  if (jobs.size) return { ok: true };
+  const c = nasGet(id);
+  const answered = await volumes.within(c.list(p || '/').then(() => true), 20000, false);
+  if (!answered) throw new Error('The server does not answer.');
+  return { ok: true };
 }));
 
 ipcMain.handle('nas:disconnect', nasWrap(async (_e, { id }) => {
@@ -1555,7 +1560,7 @@ ipcMain.handle('nas:download', nasWrap(async (e, { id, jobId, base, items, destD
         ctx.filesTotal = (ctx.filesTotal || 0) + 1;
       }
     };
-    for (const it of items) await plan(rjoin(base, it.name), path.join(destDir, items.length === 1 && rename ? rename : it.name), it);
+    for (const it of items) await plan(rjoin(it.dir || base, it.name), path.join(destDir, items.length === 1 && rename ? rename : it.as || it.name), it);
     for (const t of tasks) {
       if (ctx.cancel) break;
       try {

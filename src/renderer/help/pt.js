@@ -93,7 +93,8 @@ HELP_TEXT.pt = {
 <h3>Índice de arquivos (busca rápida)</h3>
 <p>Configuração > <b>Índice de arquivos (busca rápida)...</b> cria um índice dos nomes de arquivos das pastas escolhidas (em segundo plano; é guardado compactado na pasta de dados do programa). Com “Usar o índice” marcado, as buscas por nome, tamanho e data são instantâneas quando todas as pastas pesquisadas estão dentro de pastas indexadas; caso contrário, roda a pesquisa normal no disco. A busca de texto dentro de arquivos sempre lê os arquivos.</p>
 <h3>Arquivos em um servidor</h3>
-<p>A busca de arquivos lê apenas os discos deste computador. Para um servidor aberto em um painel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive), use <b>Rede > Banco de arquivos do servidor...</b> ou <kbd>Alt+F7</kbd> no painel dele. Examinar percorre as pastas uma vez e guarda nomes, tamanhos e datas. Depois a busca responde na hora; <kbd>Enter</kbd> ou clique duplo vai ao arquivo. Máscaras: <code>*.jpg;*.heic</code>, parte do nome, <code>| *.tmp</code> exclui. O texto dentro dos arquivos não é pesquisado. O banco fica neste computador. Uma unidade de rede com letra é indexada na configuração (File index).</p>`,
+<p>A busca de arquivos lê apenas os discos deste computador. Para um servidor aberto em um painel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive), use <b>Rede > Banco de arquivos do servidor...</b> ou <kbd>Alt+F7</kbd> no painel dele. Examinar percorre as pastas uma vez e guarda nomes, tamanhos e datas. Depois a busca responde na hora; <kbd>Enter</kbd> ou clique duplo vai ao arquivo. Máscaras: <code>*.jpg;*.heic</code>, parte do nome, <code>| *.tmp</code> exclui. O texto dentro dos arquivos não é pesquisado. O banco fica neste computador. Uma unidade de rede com letra é indexada na configuração (File index).</p>
+<p>"Feed to listbox" na janela do banco coloca todos os arquivos encontrados (até 20.000) no painel em uma lista. Ali podem ser vistos, abertos e copiados para este computador com <kbd>F5</kbd> (nomes iguais recebem um número). <kbd>Backspace</kbd> sai da lista.</p>`,
     },
     {
       id: 'viewer', t: 'Visualizador, editor e visualização rápida',
@@ -132,7 +133,8 @@ HELP_TEXT.pt = {
 <li><b>Conectar</b>. A conexão fica salva na lista à esquerda da janela; da próxima vez, clique duas vezes nela.</li>
 </ol>
 <p>No painel você pode navegar, copiar nos dois sentidos (com progresso), criar pastas, renomear, excluir, visualizar, editar e transmitir vídeo e música. <b>Rede > Desconectar (NAS / SSH)</b> encerra a conexão; a lista de unidades (<kbd>Alt+F1</kbd>) mostra as abertas e permite voltar a elas.</p>
-<p><b>macOS:</b> se a cópia de um NAS na sua rede estiver lenta, abra <b>System Settings > Privacy & Security > Local Network</b>: o Commander precisa estar ativado ali. Sem essa permissão a conexão passa pela internet. A linha acima do painel mostra o caminho: local network, direct over the internet ou QuickConnect relay.</p>`,
+<p><b>macOS:</b> se a cópia de um NAS na sua rede estiver lenta, abra <b>System Settings > Privacy & Security > Local Network</b>: o Commander precisa estar ativado ali. Sem essa permissão a conexão passa pela internet. A linha acima do painel mostra o caminho: local network, direct over the internet ou QuickConnect relay.</p>
+<p>A opção "Conectar ao iniciar o programa e manter a conexão" na janela de conexão (precisa do login salvo) conecta o servidor a cada início, verifica de tempos em tempos e reconecta após uma queda. Um login recusado ou um NAS que pede o código de 2 etapas não é repetido; a lista de unidades mostra o motivo. Depois de desconectar manualmente, o servidor não é reconectado sozinho. No topo do servidor não há a linha "..": saia pela lista de unidades ou desconectando.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP e o console',

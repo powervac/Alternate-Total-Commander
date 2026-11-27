@@ -40,6 +40,7 @@ async function openLive(p, l) {
 async function nasDisconnect(p = A()) {
   if (!p.rem) return;
   const id = p.rem.id;
+  if (typeof autoSuspend === 'function') autoSuspend(id); // disconnected by hand: do not connect it again behind the user's back
   liveConns.delete(id);
   if (typeof sshDispose === 'function') sshDispose(id);
   await api.nasDisconnect({ id });
@@ -86,6 +87,20 @@ const DAV_VENDORS = {
     hint: 'First turn on WebDAV on the UGREEN: Control Panel > File Service > WebDAV. The usual ports are 5006 (HTTPS) and 5005 (HTTP, the password is not encrypted). The certificate that the NAS made itself needs "Allow an untrusted certificate": tick it only in your own network.',
   },
 };
+
+/** connect a record with a login that is already known (password / refresh token as plain text); also used by autoconnect.js */
+async function remoteConnect(kind, conn, secret, extra = {}) {
+  if (kind === 'ftp') return api.ftpConnect({ id: conn.id, host: conn.url, user: conn.user, pass: secret, security: conn.security || 'explicit', insecure: conn.insecure, keep: +conn.keep || 0, cmds: (conn.cmds || '').split(';') });
+  if (kind === 'webdav') return api.davConnect({ id: conn.id, url: conn.url, user: conn.user, pass: secret, insecure: conn.insecure });
+  if (kind === 'ssh') return api.sshConnect({ id: conn.id, host: conn.url.replace(/^ssh:\/\//i, ''), port: conn.port, user: conn.user, pass: conn.keyPath ? '' : secret, keyPath: conn.keyPath, passphrase: conn.keyPath ? secret : '' });
+  if (kind === 'nas') return api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass: secret, otp: extra.otp || '', insecure: conn.insecure });
+  // the clouds: the saved refresh token (and for Google the client secret)
+  if (kind === 'dropbox') return api.cloudConnect({ id: conn.id, kind, appKey: conn.appKey, refreshToken: secret });
+  const dec = async (enc) => (enc ? (await api.nasCrypt({ text: enc, decrypt: true })).text || '' : '');
+  const wide = (store.get('cloudApp', {}) || {}).gdrive || {};
+  const shipped = ((await api.cloudDefaults()) || {}).google || {};
+  return api.cloudConnect({ id: conn.id, kind, clientId: conn.clientId, clientSecret: (await dec(conn.sec)) || (await dec(wide.sec)) || shipped.clientSecret || '', refreshToken: secret });
+}
 
 /**
  * kind: 'nas' | 'ssh' | 'ftp' | 'webdav' | 'dropbox' | 'gdrive'. selectId (optional): a saved connection to select; its kind wins.
@@ -154,6 +169,7 @@ async function openConnections(selectId, kind, vendor) {
     row('dropbox gdrive', `<span></span><button class="n-signin n-bigbtn ${kind === 'gdrive' ? 'n-google' : 'n-dropbox'}" type="button">${signInLabel}</button>`) +
     row('dropbox gdrive', `<span></span><div class="n-note">Sign-in happens in your browser; your password stays with ${kind === 'gdrive' ? 'Google' : 'Dropbox'}.</div>`) +
     row('dropbox gdrive', '<span></span><button class="n-switch n-link" type="button">Use a different account</button>') +
+    row('nas ssh ftp webdav dropbox gdrive', '<span></span><label class="n-chk"><input type="checkbox" class="n-auto"> Connect when the program starts and keep connected</label>') +
     row('nas ssh ftp webdav dropbox gdrive', `<span></span><label class="n-chk"><input type="checkbox" class="n-remember"> ${cloud ? 'Stay signed in on this computer (saved, encrypted by the system)' : 'Remember the password (encrypted by the system)'}</label>`) +
     '</div></div>' +
     (cloud ? `<div class="nas-help"><button class="n-adv" type="button">Settings and setup help...</button><div class="n-helpbody"><button class="n-link" type="button">${CLOUD_LINKS[kind][0]}</button><div class="n-help-text"></div></div></div>` : '') +
@@ -273,6 +289,7 @@ async function openConnections(selectId, kind, vendor) {
     if ($clientid) $clientid.value = c.clientId || appWide().clientId || shipped.clientId || '';
     if ($secret) { $secret.value = ''; $secret.placeholder = c.sec || appWide().sec || shipped.clientSecret ? '(saved)' : ''; }
     $remember.checked = !!c.remember;
+    q('.n-auto').checked = !!c.auto;
     applyPassLabel();
     applyCloudUi();
   }
@@ -301,6 +318,7 @@ async function openConnections(selectId, kind, vendor) {
       clientId: $clientid ? $clientid.value.trim() : '',
       sec: cur ? cur.sec : '',
       remember: $remember.checked,
+      auto: q('.n-auto').checked,
       pw: cur ? cur.pw : '',
     };
   }
@@ -397,13 +415,7 @@ async function openConnections(selectId, kind, vendor) {
         if (ssh && !pass && !conn.keyPath) { $pass.focus(); return setStatus('Enter the password, or choose a key file.', true); }
         setStatus(ssh || plain ? 'Connecting...' : 'Connecting... (QuickConnect can take a few seconds)');
         secret = pass;
-        res = ftp
-          ? await api.ftpConnect({ id: conn.id, host: conn.url, user: conn.user, pass, security: conn.security || 'explicit', insecure: conn.insecure, keep: +conn.keep || 0, cmds: (conn.cmds || '').split(';') })
-          : kind === 'webdav'
-          ? await api.davConnect({ id: conn.id, url: conn.url, user: conn.user, pass, insecure: conn.insecure })
-          : ssh
-          ? await api.sshConnect({ id: conn.id, host: conn.url.replace(/^ssh:\/\//i, ''), port: conn.port, user: conn.user, pass: conn.keyPath ? '' : pass, keyPath: conn.keyPath, passphrase: conn.keyPath ? pass : '' })
-          : await api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass, otp: $otp.value.trim(), insecure: conn.insecure });
+        res = await remoteConnect(kind, conn, pass, { otp: $otp.value.trim() });
         if (res && res.route) nasRoutes.set(conn.id, res.route);
         // the NAS is next to the Mac but macOS did not let the program there: the slow way over the internet must not be taken in silence
         if (res && !res.error && res.lanFailed && res.lanFailed.blocked && isMac) lanWarning = `The NAS could not be reached in the local network, so the connection goes over the internet and is slow.\n\nOn a Mac check System Settings > Privacy & Security > Local Network: Commander must be on there (if it is, switch it off and on), then connect again.\n\n${res.lanFailed.errors[0]}`;
@@ -430,6 +442,7 @@ async function openConnections(selectId, kind, vendor) {
     }
     if (cloud && res.account) conn.account = res.account; // the account this connection signed in with (shown in the drive list)
     await persist(conn, secret);
+    if (typeof autoResume === 'function') autoResume(conn.id);
     closed = true;
     closeModal();
     const type = RECORD_REM[kind];
@@ -450,6 +463,10 @@ async function openConnections(selectId, kind, vendor) {
     } else if (!(want && want !== '/' && (await p.loadRem({ id: conn.id, name: conn.name, type }, want)))) await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
     if (lanWarning) await msg('Synology NAS', lanWarning);
   }
+
+  // connecting by itself needs the login to be saved
+  q('.n-auto').onchange = () => { if (q('.n-auto').checked) $remember.checked = true; };
+  $remember.addEventListener('change', () => { if (!$remember.checked && !($key && $key.value.trim()) && !plain) q('.n-auto').checked = false; });
 
   $list.addEventListener('mousedown', (e) => {
     const fo = e.target.closest('.nas-folder');

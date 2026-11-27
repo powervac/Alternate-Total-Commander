@@ -102,6 +102,7 @@ async function openEditor(panelArg, force) {
   const cur = panel.cur();
   if (!cur || cur.up || cur.isDir) return;
   const fname = cur.name;
+  if (panel.list && cur.srv) return openViewer(panel, force); // found on a server: view it
   if (panel.list && cur.arc) return openViewer(panel, force); // a file inside an archive of the search list: view it (to change it, open the archive with Enter)
   if (panel.arc && panel.arc.remote) return remoteArcMsg(); // a downloaded copy: saving would not reach the server
 

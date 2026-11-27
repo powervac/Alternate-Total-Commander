@@ -93,7 +93,8 @@ HELP_TEXT.pl = {
 <h3>Indeks plików (szybkie szukanie)</h3>
 <p>Konfiguracja > <b>Indeks plików (szybkie szukanie)...</b> buduje indeks nazw plików w wybranych folderach (w tle; zapisywany w postaci skompresowanej w folderze danych programu). Gdy zaznaczone jest „Użyj indeksu”, szukanie według nazwy, rozmiaru i daty jest natychmiastowe, jeśli wszystkie przeszukiwane foldery leżą wewnątrz zaindeksowanych; w przeciwnym razie działa zwykłe przeszukiwanie dysku. Szukanie tekstu wewnątrz plików zawsze czyta pliki.</p>
 <h3>Pliki na serwerze</h3>
-<p>Wyszukiwanie plików czyta tylko dyski tego komputera. Dla serwera otwartego w panelu (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) służy <b>Sieć > Baza plików serwera...</b> albo <kbd>Alt+F7</kbd> na jego panelu. „Skanuj” raz przechodzi foldery i zapamiętuje nazwy, rozmiary i daty. Potem wyszukiwanie działa od razu; <kbd>Enter</kbd> lub dwukrotne kliknięcie przechodzi do pliku. Maski: <code>*.jpg;*.heic</code>, część nazwy, <code>| *.tmp</code> wyklucza. Tekst w plikach nie jest przeszukiwany. Baza jest na tym komputerze. Dysk sieciowy z literą indeksuje się w ustawieniach (File index).</p>`,
+<p>Wyszukiwanie plików czyta tylko dyski tego komputera. Dla serwera otwartego w panelu (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) służy <b>Sieć > Baza plików serwera...</b> albo <kbd>Alt+F7</kbd> na jego panelu. „Skanuj” raz przechodzi foldery i zapamiętuje nazwy, rozmiary i daty. Potem wyszukiwanie działa od razu; <kbd>Enter</kbd> lub dwukrotne kliknięcie przechodzi do pliku. Maski: <code>*.jpg;*.heic</code>, część nazwy, <code>| *.tmp</code> wyklucza. Tekst w plikach nie jest przeszukiwany. Baza jest na tym komputerze. Dysk sieciowy z literą indeksuje się w ustawieniach (File index).</p>
+<p>„Feed to listbox” w oknie bazy wstawia wszystkie znalezione pliki (do 20 000) do panelu jako jedną listę. Można je przeglądać, otwierać i kopiować na ten komputer klawiszem <kbd>F5</kbd> (pliki o tej samej nazwie dostają numer). <kbd>Backspace</kbd> opuszcza listę.</p>`,
     },
     {
       id: 'viewer', t: 'Podgląd, edytor i szybki podgląd',
@@ -132,7 +133,8 @@ HELP_TEXT.pl = {
 <li><b>Połącz</b>. Połączenie zapisuje się na liście po lewej stronie okna; następnym razem wystarczy dwukrotnie je kliknąć.</li>
 </ol>
 <p>W panelu można przeglądać, kopiować w obie strony (z postępem), tworzyć foldery, zmieniać nazwy, usuwać, wyświetlać, edytować oraz odtwarzać strumieniowo wideo i muzykę. <b>Sieć > Rozłącz (NAS / SSH)</b> zamyka połączenie; lista dysków (<kbd>Alt+F1</kbd>) pokazuje otwarte połączenia i pozwala do nich wrócić.</p>
-<p><b>macOS:</b> jeśli kopiowanie z NAS w Twojej sieci jest wolne, otwórz <b>System Settings > Privacy & Security > Local Network</b>: Commander musi być tam włączony. Bez tego uprawnienia połączenie idzie przez internet. Wiersz nad panelem pokazuje drogę: local network, direct over the internet albo QuickConnect relay.</p>`,
+<p><b>macOS:</b> jeśli kopiowanie z NAS w Twojej sieci jest wolne, otwórz <b>System Settings > Privacy & Security > Local Network</b>: Commander musi być tam włączony. Bez tego uprawnienia połączenie idzie przez internet. Wiersz nad panelem pokazuje drogę: local network, direct over the internet albo QuickConnect relay.</p>
+<p>Pole „Połącz przy starcie programu i utrzymuj połączenie” w oknie połączenia (wymaga zapisanego logowania) łączy ten serwer po każdym starcie, co jakiś czas sprawdza go i łączy ponownie po przerwie. Odrzucone logowanie lub NAS żądający kodu 2FA nie są ponawiane; powód widać na liście dysków. Po ręcznym rozłączeniu serwer nie łączy się sam. Na szczycie serwera nie ma wiersza „..”: wyjdź przez listę dysków albo rozłącz.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP i konsola',

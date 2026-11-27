@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.1.943",
+    "date": "2026-11-27",
+    "items": [
+      "Connect chosen servers at start and keep them connected",
+      "Feed to listbox in the server file database",
+      "The top of a server has no .. line any more",
+      "Fixed: an unreachable server could be taken for connected",
+      "macOS protection against a hanging drive selection"
+    ]
+  },
+  {
     "version": "0.1.942",
     "date": "2026-11-27",
     "items": [

@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.1.936",
+    "version": "0.1.937",
     "date": "2026-11-27",
     "items": [
       "The program no longer stays in memory after Quit",

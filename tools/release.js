@@ -247,6 +247,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     fs.writeFileSync(tmp, JSON.stringify(lj, null, 2) + '\n');
     scp(tmp, `${SITE}/latest.json.part`);
     ssh(`cd ${SITE} && mv -f latest.json.part latest.json`);
+    // the download buttons of the front page show the size of the file: taken from what was just uploaded (it was typed in by hand and went out of date)
+    const sizes = [[withWin, 'Alternate-Total-Commander-Portable.exe', 'Portable \\.exe, '], [withLinux, 'Alternate-Total-Commander-Linux.AppImage', 'Download AppImage<small>']];
+    for (const [built, name, before] of sizes) {
+      if (built) ssh(`cd ${SITE} && sed -i -E 's/(${before})[0-9]+ MB/\\1${Math.round(info[name].size / 1048576)} MB/' index.html`, { soft: true });
+    }
     // the changelog page of the site reads changelog.json
     const clf = path.join(ROOT, 'tools', 'changelog.json');
     if (fs.existsSync(clf)) { scp(clf, `${SITE}/changelog.json.part`); ssh(`cd ${SITE} && chmod 644 changelog.json.part && mv -f changelog.json.part changelog.json`); }

@@ -1,6 +1,6 @@
-# Alternate Commander 0.1.936
+# Alternate Commander 0.1.937
 
-Changes since 0.1.935: fixes from a test report.
+Changes since 0.1.935: fixes from a test report. (0.1.936 was withdrawn before it was complete: its packages were far too big.)
 
 ## Quit and start
 - The program no longer stays in memory after Quit while the file name index is working (seen on macOS).

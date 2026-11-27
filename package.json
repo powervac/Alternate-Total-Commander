@@ -1,6 +1,6 @@
 {
   "name": "commander",
-  "version": "0.1.936",
+  "version": "0.1.937",
   "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
   "main": "src/main/main.js",
   "scripts": {
@@ -53,8 +53,12 @@
       "node_modules/7zip-bin/**"
     ],
     "npmRebuild": false,
+    "afterPack": "tools/check-package.js",
     "mac": {
       "files": [
+        "src/**/*",
+        "build/icon.png",
+        "package.json",
         "!node_modules/7zip-bin/{linux,win}/**"
       ],
       "category": "public.app-category.utilities",
@@ -85,6 +89,9 @@
     },
     "win": {
       "files": [
+        "src/**/*",
+        "build/icon.png",
+        "package.json",
         "!node_modules/7zip-bin/{linux,mac}/**"
       ],
       "icon": "build/icon.png",
@@ -94,6 +101,9 @@
     },
     "linux": {
       "files": [
+        "src/**/*",
+        "build/icon.png",
+        "package.json",
         "!node_modules/7zip-bin/{mac,win}/**"
       ],
       "icon": "build/icon.png",

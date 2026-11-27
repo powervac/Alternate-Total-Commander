@@ -22,6 +22,8 @@ jobs:
           OAUTH_DEFAULTS_JSON: ${{ secrets.OAUTH_DEFAULTS_JSON }}
         run: |
           if [ -n "$OAUTH_DEFAULTS_JSON" ]; then printf '%s' "$OAUTH_DEFAULTS_JSON" > src/main/oauth-defaults.json; echo "app keys written"; else echo "no app keys secret: cloud sign-in will ask for them"; fi
+      - name: HEIC on this system (write and read back)
+        run: node --test tests/heic.test.js
       - name: Build Apple Silicon (arm64)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

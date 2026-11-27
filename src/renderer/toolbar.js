@@ -3,6 +3,7 @@
 // Uses helpers from app.js (A, O, panels, api, store, openMenu helpers) and the feature files loaded before this one.
 
 const TB_ICONS = {
+  onepanel: '<path d="M3 4h14v12H3z"/><path d="M6 7.5h8M6 10h8M6 12.5h8"/>',
   thumbs: '<rect x="3" y="3" width="6" height="6"/><rect x="11" y="3" width="6" height="6"/><rect x="3" y="11" width="6" height="6"/><rect x="11" y="11" width="6" height="6"/>',
   refresh: '<path d="M16 10a6 6 0 1 1-2-4.5"/><path d="M16 3.5V7.5h-4"/>',
   back: '<path d="M12 4l-6 6 6 6"/>',
@@ -40,6 +41,7 @@ const TB_ITEMS = [
   ['targetsource', 'Target = Source', '', () => O().go(A().snap())],
   ['newtab', 'New tab', 'Ctrl+T', () => A().newTab()],
   ['quickview', 'Quick view panel', 'Ctrl+Q', () => qvToggle(), 'qv'],
+  ['onepanel', 'One panel (full width)', 'Ctrl+Shift+P', () => toggleOnePanel(), 'one'],
   ['thumbs', 'Thumbnail view', 'Ctrl+Shift+F4', () => A().setThumbs(!A().thumbs)],
   ['hotlist', 'Directory hotlist', 'Ctrl+D', () => openHotlist()],
   ['nas', 'Synology NAS', 'Ctrl+F', () => openConnections(undefined, 'nas')],
@@ -93,6 +95,7 @@ function toggleToolbar() {
 /** keep toggle buttons (quick view) in sync with the state */
 function toolbarSync() {
   document.querySelectorAll('#toolbar .tb-btn[data-toggle="qv"]').forEach((b) => b.classList.toggle('on', qvIdx !== null));
+  document.querySelectorAll('#toolbar .tb-btn[data-toggle="one"]').forEach((b) => b.classList.toggle('on', store.get('onePanel', false) === true));
   const playing = typeof pl !== 'undefined' && pl.queue.length > 0 && pl.el && !pl.el.paused;
   document.querySelectorAll('#toolbar .tb-btn[data-toggle="pl"]').forEach((b) => b.classList.toggle('on', !!playing));
 }

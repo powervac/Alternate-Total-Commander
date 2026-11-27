@@ -37,7 +37,10 @@ HELP_TEXT.it = {
 <h3>Cartelle preferite</h3>
 <p><kbd>Ctrl+D</kbd> apre le cartelle preferite. Si può aggiungere la cartella corrente, anche di un cloud, di un NAS o di un server SSH, FTP o WebDAV: scegliendo un preferito di questo tipo il programma si ricollega se necessario e va direttamente lì. I preferiti di Total Commander vengono importati una volta da <code>wincmd.ini</code>, se il programma lo trova.</p>
 <h3>Barra unità e preferiti</h3>
-<p>Si attiva con <b>Mostra &gt; Barra unità e preferiti</b>: sopra ogni pannello compare una fila di pulsanti con le unità, <b>..</b> (su), la cartella Home e i tuoi preferiti. <b>+</b> aggiunge la cartella aperta; assegnale un'etichetta breve (2-3 lettere, per esempio UD), una descrizione e un percorso. Nel percorso si possono usare <code>~</code>, <code>$HOME</code>, <code>$NAME</code> o <code>%NAME%</code>; su Windows funzionano anche le cartelle di rete come <code>\\\\server\\share</code>. Tieni il mouse su un pulsante per vedere descrizione e percorso. Con il tasto destro si aggiungono, modificano, rimuovono e spostano i preferiti. Gli stessi preferiti compaiono nell'elenco delle unità. Ogni sistema ha il proprio elenco, incluso nella sincronizzazione delle impostazioni. Ogni preferito può avere un'icona: una di quelle incluse o un'immagine propria (per esempio dal tema di icone di Linux). Con il tasto destro l'elenco si può anche importare ed esportare come <code>drivefavorites.ini</code>.</p>`,
+<p>Si attiva con <b>Mostra &gt; Barra unità e preferiti</b>: sopra ogni pannello compare una fila di pulsanti con le unità, <b>..</b> (su), la cartella Home e i tuoi preferiti. <b>+</b> aggiunge la cartella aperta; assegnale un'etichetta breve (2-3 lettere, per esempio UD), una descrizione e un percorso. Nel percorso si possono usare <code>~</code>, <code>$HOME</code>, <code>$NAME</code> o <code>%NAME%</code>; su Windows funzionano anche le cartelle di rete come <code>\\\\server\\share</code>. Tieni il mouse su un pulsante per vedere descrizione e percorso. Con il tasto destro si aggiungono, modificano, rimuovono e spostano i preferiti. Gli stessi preferiti compaiono nell'elenco delle unità. Ogni sistema ha il proprio elenco, incluso nella sincronizzazione delle impostazioni. Ogni preferito può avere un'icona: una di quelle incluse o un'immagine propria (per esempio dal tema di icone di Linux). Con il tasto destro l'elenco si può anche importare ed esportare come <code>drivefavorites.ini</code>.</p>
+<h3>Larghezza e un solo pannello</h3>
+<p>Trascina il bordo tra i pannelli per cambiarne la larghezza; un doppio clic li rende uguali. <b>Un pannello (tutta la larghezza)</b> nel menu di visualizzazione (<kbd>Ctrl+Shift+P</kbd>) mostra solo il pannello attivo, comodo per le miniature. <kbd>Tab</kbd> o il pulsante <b>⇄</b> mostra l'altro. Il pannello nascosto ricorda la sua cartella: <kbd>F5</kbd> e <kbd>F6</kbd> continuano ad andare lì, e il percorso si può cambiare nella finestra di conferma. La vista rapida mostra entrambi i pannelli finché è attiva.</p>
+<p>Nella vista a miniature il cursore in basso nel pannello cambia la dimensione delle immagini (lo fa anche <kbd>Ctrl</kbd> + la rotellina del mouse); un doppio clic sul cursore ripristina la dimensione normale. Ogni pannello ha la sua dimensione.</p>`,
     },
     {
       id: 'select', t: 'Selezionare i file',
@@ -88,7 +91,9 @@ HELP_TEXT.it = {
 <li>Doppio clic su un risultato per andare al file; <b>Elenco nel pannello</b> mostra tutti i risultati come elenco in un pannello, dove F3, F5, F8 e gli altri comandi agiscono su di essi.</li>
 </ul>
 <h3>Indice dei file (ricerca veloce)</h3>
-<p>Configurazione > <b>Indice dei file...</b> crea un indice dei nomi dei file nelle cartelle che scegli (lavora in background e viene salvato compresso nella cartella dati del programma). Con "Usa l'indice" attivo, le ricerche per nome, dimensione e data sono immediate se ogni cartella cercata si trova dentro una cartella indicizzata; altrimenti viene eseguita la normale ricerca sul disco. La ricerca di testo legge sempre i file.</p>`,
+<p>Configurazione > <b>Indice dei file...</b> crea un indice dei nomi dei file nelle cartelle che scegli (lavora in background e viene salvato compresso nella cartella dati del programma). Con "Usa l'indice" attivo, le ricerche per nome, dimensione e data sono immediate se ogni cartella cercata si trova dentro una cartella indicizzata; altrimenti viene eseguita la normale ricerca sul disco. La ricerca di testo legge sempre i file.</p>
+<h3>File su un server</h3>
+<p>La ricerca dei file legge solo i dischi di questo computer. Per un server aperto in un pannello (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) usa <b>Rete > Database dei file del server...</b> o <kbd>Alt+F7</kbd> sul suo pannello. Analizza percorre le cartelle una volta e ricorda nomi, dimensioni e date. Poi la ricerca risponde subito; <kbd>Enter</kbd> o un doppio clic va al file. Maschere: <code>*.jpg;*.heic</code>, parte del nome, <code>| *.tmp</code> esclude. Il testo dentro i file non viene cercato. Il database è su questo computer. Un'unità di rete con lettera si indicizza nella configurazione (File index).</p>`,
     },
     {
       id: 'viewer', t: 'Visualizzatore, editor e vista rapida',
@@ -98,7 +103,9 @@ HELP_TEXT.it = {
 <p>Un editor di testo semplice che mantiene la codifica, il BOM e le terminazioni di riga del file, con cerca e sostituisci. Modifica i file negli archivi zip e sui server NAS, SSH, FTP e WebDAV e li risalva. <kbd>Shift+F4</kbd> crea un nuovo file. Carattere e tabulazione si impostano in Configurazione > <b>Editor...</b>.</p>
 <h3>Vista rapida (Ctrl+Q)</h3>
 <p>L'altro pannello mostra l'anteprima del file sotto il cursore e lo segue mentre ti muovi. <kbd>Ctrl+Q</kbd> di nuovo riporta l'elenco dei file.</p>
-<p>Altri modi per aprire un file: <kbd>Invio</kbd> lo avvia con l'applicazione associata dal sistema operativo; File > <b>Apri con l'applicazione predefinita</b> fa lo stesso con qualsiasi file.</p>`,
+<p>Altri modi per aprire un file: <kbd>Invio</kbd> lo avvia con l'applicazione associata dal sistema operativo; File > <b>Apri con l'applicazione predefinita</b> fa lo stesso con qualsiasi file.</p>
+<h3>Immagini HEIC</h3>
+<p>Le foto HEIC / HEIF sono mostrate dal visualizzatore, dalla vista rapida e dalle miniature. <b>File > Converti HEIC / JPG...</b> trasforma i file HEIC scelti in JPG, e JPG o PNG in HEIC; si può scegliere la qualità. Gli originali restano e niente viene sovrascritto.</p>`,
     },
     {
       id: 'media', t: 'Musica e video',
@@ -123,7 +130,8 @@ HELP_TEXT.it = {
 <li>"Consenti un certificato non attendibile" serve per un NAS con certificato autofirmato. "Ricorda la password" la salva cifrata dal sistema operativo.</li>
 <li><b>Connetti</b>. La connessione viene salvata nell'elenco a sinistra della finestra; la volta successiva basta un doppio clic.</li>
 </ol>
-<p>Nel pannello si può sfogliare, copiare in entrambe le direzioni (con avanzamento), creare cartelle, rinominare, eliminare, visualizzare, modificare e riprodurre video e musica in streaming. <b>Rete > Disconnetti</b> chiude la connessione; l'elenco delle unità (<kbd>Alt+F1</kbd>) mostra quelle aperte e permette di tornarci.</p>`,
+<p>Nel pannello si può sfogliare, copiare in entrambe le direzioni (con avanzamento), creare cartelle, rinominare, eliminare, visualizzare, modificare e riprodurre video e musica in streaming. <b>Rete > Disconnetti</b> chiude la connessione; l'elenco delle unità (<kbd>Alt+F1</kbd>) mostra quelle aperte e permette di tornarci.</p>
+<p><b>macOS:</b> se la copia da un NAS nella tua rete è lenta, apri <b>System Settings > Privacy & Security > Local Network</b>: Commander deve essere attivo lì. Senza questa autorizzazione la connessione passa da internet. La riga sopra il pannello mostra il percorso: local network, direct over the internet o QuickConnect relay.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP e console',

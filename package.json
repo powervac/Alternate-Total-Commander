@@ -1,6 +1,6 @@
 {
   "name": "commander",
-  "version": "0.1.940",
+  "version": "0.1.941",
   "description": "Two-panel file manager (Total Commander style) for Windows and macOS: zip, Synology NAS, SSH console, viewer, music player",
   "main": "src/main/main.js",
   "scripts": {
@@ -28,6 +28,7 @@
     "basic-ftp": "^6.2.6",
     "ffmpeg-static": "^5.3.0",
     "hash-wasm": "^4.12.0",
+    "libheif-js": "^1.23.5",
     "node-unrar-js": "^2.0.2",
     "ssh2": "^1.17.0",
     "word-extractor": "^1.0.4",
@@ -80,6 +81,7 @@
         }
       ],
       "extendInfo": {
+        "NSLocalNetworkUsageDescription": "Commander connects to your NAS and servers in the local network.",
         "NSDesktopFolderUsageDescription": "Commander shows the files in your Desktop folder.",
         "NSDocumentsFolderUsageDescription": "Commander shows the files in your Documents folder.",
         "NSDownloadsFolderUsageDescription": "Commander shows the files in your Downloads folder.",

@@ -171,3 +171,7 @@ MIT, see [LICENSE](LICENSE).
 
 - **Unreal Speccy Portable** (GPL-3.0, https://github.com/djdron/UnrealSpeccyP) compiled to WebAssembly in src/renderer/emu/ (license and source note there). It runs in its own window as a separate component. The workflow .github/workflows/build-emulator.yml rebuilds it.
 - **Inter** font (SIL Open Font License 1.1) in src/renderer/fonts/.
+
+## Third-party code for HEIC
+
+HEIC pictures are decoded with [libheif](https://github.com/strukturag/libheif) and libde265, built to WebAssembly in the [libheif-js](https://github.com/catdad-experiments/libheif-js) package (LGPL-3.0). It is a separate module of the program (`node_modules/libheif-js` inside the application), which can be replaced by another build. HEIC files are written with the bundled FFmpeg (x265) on Windows and Linux and with the system's `sips` on macOS.

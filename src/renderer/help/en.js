@@ -37,7 +37,10 @@ HELP_TEXT.en = {
 <h3>Directory hotlist</h3>
 <p><kbd>Ctrl+D</kbd> opens your favourite folders. The current folder can be added to the list, including the current folder of a cloud drive, NAS, SSH, FTP or WebDAV server: choosing such a favourite reconnects if needed and goes straight there. Favourites of Total Commander are imported once from <code>wincmd.ini</code> if the program finds it.</p>
 <h3>Drive and favorites bar</h3>
-<p>Switch it on with <b>Show &gt; Drive / Favorites Bar</b>: a row of buttons appears above each panel with the disks, <b>..</b> (up), your home folder and your own favorites. <b>+</b> adds the folder that is open; give it a short button label (2-3 letters, for example UD), a description and a path. The path may use <code>~</code>, <code>$HOME</code>, <code>$NAME</code> or <code>%NAME%</code>; on Windows a network folder such as <code>\\\\server\\share</code> works too. Hold the mouse over a button to see the description and the path. The right mouse button adds, edits, removes and moves favorites. The same favorites are listed in the drive list. Every system keeps its own list, and the lists are part of Settings sync. Each favorite can have an icon: one of the built-in ones or your own picture (for example from the icon theme of Linux). The right mouse button also imports and exports the list as <code>drivefavorites.ini</code>.</p>`,
+<p>Switch it on with <b>Show &gt; Drive / Favorites Bar</b>: a row of buttons appears above each panel with the disks, <b>..</b> (up), your home folder and your own favorites. <b>+</b> adds the folder that is open; give it a short button label (2-3 letters, for example UD), a description and a path. The path may use <code>~</code>, <code>$HOME</code>, <code>$NAME</code> or <code>%NAME%</code>; on Windows a network folder such as <code>\\\\server\\share</code> works too. Hold the mouse over a button to see the description and the path. The right mouse button adds, edits, removes and moves favorites. The same favorites are listed in the drive list. Every system keeps its own list, and the lists are part of Settings sync. Each favorite can have an icon: one of the built-in ones or your own picture (for example from the icon theme of Linux). The right mouse button also imports and exports the list as <code>drivefavorites.ini</code>.</p>
+<h3>Width and one panel</h3>
+<p>Drag the border between the panels to change their widths; a double click on it makes them equal. <b>Show > One Panel (Full Width)</b> (<kbd>Ctrl+Shift+P</kbd>) shows only the active panel, handy for thumbnails. <kbd>Tab</kbd> or the button <b>⇄</b> shows the other one. The hidden panel keeps its folder: it is still where <kbd>F5</kbd> and <kbd>F6</kbd> go, and you can change the path in the window that asks. Quick view shows both panels while it is on.</p>
+<p>In the thumbnail view the slider at the bottom of the panel changes the size of the pictures (so does <kbd>Ctrl</kbd> + the mouse wheel); a double click on the slider puts the usual size back. Each panel keeps its own size.</p>`,
     },
     {
       id: 'select', t: 'Selecting files',
@@ -88,7 +91,9 @@ HELP_TEXT.en = {
 <li>Double-click a result to go to the file; <b>Feed to listbox</b> shows all results as a list in a panel, where F3, F5, F8 and the other commands work on them.</li>
 </ul>
 <h3>File index (fast search)</h3>
-<p>Configuration > <b>File index...</b> builds an index of the file names of the folders you choose (it runs in the background and is stored compressed in the program's data folder). With "Use the index" ticked, searches by name, size and date are instant when every searched folder lies inside an indexed folder; otherwise the normal search of the disk runs. Searching for text inside files always reads the files.</p>`,
+<p>Configuration > <b>File index...</b> builds an index of the file names of the folders you choose (it runs in the background and is stored compressed in the program's data folder). With "Use the index" ticked, searches by name, size and date are instant when every searched folder lies inside an indexed folder; otherwise the normal search of the disk runs. Searching for text inside files always reads the files.</p>
+<h3>Files on a server</h3>
+<p>Find Files reads only the disks of this computer. For a server that is open in a panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) use <b>Net > Server File Database...</b>, or press <kbd>Alt+F7</kbd> on its panel. "Scan now" walks through the folders once and remembers names, sizes and dates; "Update" does it again. Then the search answers at once; <kbd>Enter</kbd> or a double click goes to the file. Masks work as in Find Files: <code>*.jpg;*.heic</code>, a part of a name, <code>| *.tmp</code> excludes. Text inside files is not searched. The database is a file on this computer. A network drive with a letter is indexed in Configuration > File index.</p>`,
     },
     {
       id: 'viewer', t: 'Viewer, editor and quick view',
@@ -98,7 +103,9 @@ HELP_TEXT.en = {
 <p>A plain text editor that keeps the encoding, the BOM and the line endings of the file, with find and replace. It edits files inside zip archives and on NAS, SSH, FTP and WebDAV servers and saves them back. <kbd>Shift+F4</kbd> creates a new file. The font and tab settings are in Configuration > <b>Editor...</b>.</p>
 <h3>Quick view (Ctrl+Q)</h3>
 <p>The other panel shows a preview of the file under the cursor and follows the cursor while you move it. <kbd>Ctrl+Q</kbd> again brings the file list back.</p>
-<p>Other ways to open a file: <kbd>Enter</kbd> runs it with the application that the operating system has for it; Files > <b>Open With Default Application</b> does the same for any file.</p>`,
+<p>Other ways to open a file: <kbd>Enter</kbd> runs it with the application that the operating system has for it; Files > <b>Open With Default Application</b> does the same for any file.</p>
+<h3>HEIC pictures</h3>
+<p>HEIC / HEIF photos are shown by the viewer, quick view and the thumbnail view. <b>Files > Convert HEIC / JPG...</b> turns the chosen HEIC files into JPG, and JPG or PNG files into HEIC; the quality can be chosen. The originals stay, existing files are not overwritten.</p>`,
     },
     {
       id: 'media', t: 'Music and video',
@@ -123,7 +130,8 @@ HELP_TEXT.en = {
 <li>"Allow an untrusted certificate" is for a NAS with a self-signed certificate. "Remember the password" stores it encrypted by the operating system.</li>
 <li><b>Connect</b>. The connection is saved in the list on the left of the window; double-click it next time.</li>
 </ol>
-<p>In the panel you can browse, copy both ways (with progress), create folders, rename, delete, view, edit and stream video and music. <b>Net > Disconnect</b> closes the connection; the drive list (<kbd>Alt+F1</kbd>) shows the open ones and lets you return to them.</p>`,
+<p>In the panel you can browse, copy both ways (with progress), create folders, rename, delete, view, edit and stream video and music. <b>Net > Disconnect</b> closes the connection; the drive list (<kbd>Alt+F1</kbd>) shows the open ones and lets you return to them.</p>
+<p><b>macOS:</b> if copying from a NAS next to you is slow, check <b>System Settings > Privacy & Security > Local Network</b>: Commander must be on there. Without this permission the connection goes over the internet. The line above the panel shows the way: local network, direct over the internet or QuickConnect relay.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP and the console',

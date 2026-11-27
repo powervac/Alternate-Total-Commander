@@ -402,3 +402,29 @@ async function openWinscpImport(iniPath) {
   nasSave(list);
   msg('Import from WinSCP', `${chosen.length} connection(s) added (Net > SSH server... / FTP / WebDAV). ${keys ? `${keys} key file(s) were copied into the program's key folder (with "Settings in Dropbox" and passwords turned on they are kept in Dropbox, encrypted by your passphrase). ` : ''}Passwords are asked at the first connection.` + (notes.length ? '\n\n' + notes.join('\n') : ''));
 }
+
+// ------------------------------------------------------------ pictures: HEIC -> JPG and JPG / PNG -> HEIC
+async function ftConvertHeic() {
+  const src = A(), dst = O();
+  if (needLocal('Convert pictures', src)) return;
+  const files = src.targets().filter((i) => !i.isDir && /\.(heic|heif|jpe?g|png)$/i.test(i.name));
+  if (!files.length) return msg('Convert pictures', 'Select (or put the cursor on) HEIC, JPG or PNG files.');
+  const heics = files.filter((i) => /\.(heic|heif)$/i.test(i.name)).length;
+  const kinds = [heics ? `HEIC \u2192 JPG: ${heics}` : '', files.length > heics ? `JPG / PNG \u2192 HEIC: ${files.length - heics}` : ''].filter(Boolean).join(',   ');
+  const target = dst && !dst.arc && !dst.rem && !dst.list ? dst.dir : src.dir;
+  const box = await ftForm('Convert pictures',
+    `<div>${esc(kinds)}</div>` +
+    `<label>Target folder:</label><input class="hc-dir" spellcheck="false" value="${esc(target)}">` +
+    `<label>Quality (1-100):</label><input class="hc-q" type="number" min="1" max="100" value="${esc(String(store.get('heicQuality', 90)))}">` +
+    '<div class="s-hint">The originals stay. Existing files are not overwritten.</div>', 'Convert');
+  if (!box) return;
+  const destDir = box.querySelector('.hc-dir').value.trim();
+  const quality = Math.min(100, Math.max(1, Math.round(+box.querySelector('.hc-q').value) || 90));
+  if (!destDir) return;
+  store.set('heicQuality', quality);
+  const paths = files.map((i) => P.join(src.dir, i.name));
+  const res = await withProgress('Converting', (id) => api.heicConvert({ id, files: paths, destDir, quality }));
+  await Promise.all(panels.map((p) => p.refresh()));
+  if (res && res.errors && res.errors.length) await showErrors(res.errors);
+}
+

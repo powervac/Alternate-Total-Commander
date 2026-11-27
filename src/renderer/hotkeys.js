@@ -43,6 +43,7 @@ const HK_COMMANDS = [
   ['leftdrives', 'Panels', 'Left drive list', ['Alt+F1'], () => openDrivePicker(panels[0])],
   ['rightdrives', 'Panels', 'Right drive list', ['Alt+F2'], () => openDrivePicker(panels[1])],
   ['quickview', 'Panels', 'Quick view panel', ['Ctrl+Q'], () => qvToggle()],
+  ['onepanel', 'Panels', 'One panel (full width)', [HK_MOD + '+Shift+P'], () => toggleOnePanel()],
   ['thumbs', 'Panels', 'Thumbnail view', [HK_MOD + '+Shift+F4'], () => A().setThumbs(!A().thumbs)],
   ['sortname', 'Panels', 'Sort by name', [HK_MOD + '+F3'], () => A().setSort('name')],
   ['sortext', 'Panels', 'Sort by extension', [HK_MOD + '+F4'], () => A().setSort('ext')],
@@ -78,7 +79,7 @@ const HK_MENU_IDS = {
   'Search...': 'search', 'Directory Hotlist': 'hotlist', 'Music Player: Play / Pause': 'playpause', 'Music Player: Next Track': 'nexttrack',
   'Music Player: Previous Track': 'prevtrack', 'Go Back': 'back', 'Go Forward': 'forward', 'Source<->Target': 'swap', 'Synology NAS...': 'nas',
   'SSH server...': 'ssh', 'SSH: Console / File List': 'console', 'Left drive list': 'leftdrives', 'Right drive list': 'rightdrives',
-  'Quick View Panel': 'quickview', 'Thumbnails': 'thumbs', 'New Folder Tab': 'newtab', 'Close Tab': 'closetab', 'Next Tab': 'nexttab',
+  'Quick View Panel': 'quickview', 'One Panel (Full Width)': 'onepanel', 'Thumbnails': 'thumbs', 'New Folder Tab': 'newtab', 'Close Tab': 'closetab', 'Next Tab': 'nexttab',
   'Previous Tab': 'prevtab', 'Help': 'help', 'Name': 'sortname', 'Extension': 'sortext', 'Time': 'sorttime', 'Size': 'sortsize', 'Reread Source': 'refresh',
 };
 const HK_BY_ID = new Map(HK_COMMANDS.map((c) => [c[0], c]));

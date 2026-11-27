@@ -53,8 +53,9 @@ function thumbLoad(panel, cell) {
   if (!it) return;
   const rem = panel.rem;
   const file = rem ? remJoin(rem.path, it.name) : P.join(panel.dir, it.name);
-  const key = `${rem ? 'rem:' + rem.id + '|' : ''}${file}|${it.mtime}|${it.size}`;
-  thumbQueue.push({ panel, cell, it, file, key, remId: rem ? rem.id : null });
+  const size = thumbRequest(panel.thumbSize(), window.devicePixelRatio);
+  const key = `${rem ? 'rem:' + rem.id + '|' : ''}${file}|${it.mtime}|${it.size}|${size}`;
+  thumbQueue.push({ panel, cell, it, file, key, size, remId: rem ? rem.id : null });
   thumbPump();
 }
 function thumbPump() {
@@ -72,8 +73,8 @@ function thumbPump() {
       thumbPump();
     };
     if (thumbCache.has(job.key)) done(thumbCache.get(job.key));
-    else if (job.remId) api.thumbRemote({ id: job.remId, path: job.file, size: 192, key: job.key, fsize: job.it.size }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
-    else api.thumb({ file: job.file, size: 192, key: job.key }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
+    else if (job.remId) api.thumbRemote({ id: job.remId, path: job.file, size: job.size, key: job.key, fsize: job.it.size }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
+    else api.thumb({ file: job.file, size: job.size, key: job.key }).then((u) => { thumbCache.set(job.key, u); done(u); }, () => done(null));
   }
 }
 
@@ -259,20 +260,31 @@ class Panel {
     this.lastDirOnDrive = new Map();
     el.innerHTML =
       '<div class="favbar" hidden></div>' +
-      '<div class="top"><button class="drive" tabindex="-1"></button><select class="sshmode" tabindex="-1" hidden><option value="console">Console</option><option value="files">File manager</option></select><span class="space"></span></div>' +
+      '<div class="top"><button class="drive" tabindex="-1"></button><select class="sshmode" tabindex="-1" hidden><option value="console">Console</option><option value="files">File manager</option></select><span class="space"></span><button class="otherpanel" tabindex="-1" title="Other panel (Tab)">\u21c4</button></div>' +
       '<div class="tabs"></div>' +
       '<div class="pathbar"></div>' +
       '<div class="colhead"><div data-k="name">Name</div><div data-k="ext">Ext</div><div data-k="size" class="r">Size</div><div data-k="time">Date</div><div data-k="attr">Attr</div></div>' +
-      '<div class="list"></div><div class="qvbox"></div><div class="termbox"></div><div class="status"></div>';
+      '<div class="list"></div><div class="qvbox"></div><div class="termbox"></div><div class="foot"><div class="status"></div><input type="range" class="thumbzoom" min="64" max="384" step="8" tabindex="-1" title="Thumbnail size"></div>';
     this.consoleOn = false; // SSH panel showing the console instead of the file list
     this.qv = false;
     this.$drive = $('.drive', el);
     this.$space = $('.space', el);
+    $('.otherpanel', el).onclick = () => panels[1 - this.idx].focus(); // one panel mode: show the other one
     this.$mode = $('.sshmode', el);
     this.$mode.onchange = () => { const v = this.$mode.value; this.focus(); if (typeof sshSetMode === 'function') sshSetMode(this, v); };
     this.$path = $('.pathbar', el);
     this.$list = $('.list', el);
     this.$status = $('.status', el);
+    this.$zoom = $('.thumbzoom', el);
+    this.$zoom.oninput = () => this.setThumbSize(+this.$zoom.value);
+    this.$zoom.onchange = () => this.$zoom.blur(); // the arrow keys belong to the files again
+    this.$zoom.ondblclick = () => this.setThumbSize(THUMB_DEFAULT);
+    // Ctrl (Cmd) + the wheel over the thumbnails changes their size too
+    this.$list.addEventListener('wheel', (e) => {
+      if (!this.thumbs || !(e.ctrlKey || e.metaKey) || !e.deltaY) return;
+      e.preventDefault();
+      this.setThumbSize(this.thumbSize() + (e.deltaY < 0 ? 16 : -16));
+    }, { passive: false });
     this.$head = $('.colhead', el);
     this.$tabs = $('.tabs', el);
     this.$qv = $('.qvbox', el);
@@ -361,8 +373,10 @@ class Panel {
   focus() {
     if (this.qv) return; // the quick view panel never takes the focus
     active = this.idx;
+    const shown = this.el.classList.contains('active');
     panels.forEach((p) => p.el.classList.toggle('active', p === this));
     $('#cmdprompt').textContent = this.dir + '>';
+    if (!shown && $('#panels').classList.contains('one')) this.scrollToCursor(); // it was hidden: bring the cursor into sight
   }
 
   cur() { return this.view[this.cursor]; }
@@ -661,6 +675,22 @@ class Panel {
     store.set(`thumbs${this.idx}`, this.thumbs);
     this.render();
   }
+  thumbSize() { return clampThumb(store.get(`thumbSize${this.idx}`, THUMB_DEFAULT)); }
+  /** the side of a thumbnail: the grid follows at once; bigger pictures are fetched when the shown ones would get blurred */
+  setThumbSize(px) {
+    const size = clampThumb(px);
+    store.set(`thumbSize${this.idx}`, size);
+    this.applyThumbSize();
+    if (this.thumbs && thumbRequest(size, window.devicePixelRatio) > (this.thumbLoaded || 0)) {
+      clearTimeout(this.thumbTimer);
+      this.thumbTimer = setTimeout(() => { if (this.thumbs) this.render(); }, 200);
+    } else this.scrollToCursor();
+  }
+  applyThumbSize() {
+    const size = this.thumbSize();
+    this.$list.style.setProperty('--thumb', size + 'px');
+    this.$zoom.value = String(size);
+  }
   /** number of cells in one grid row */
   thumbCols() {
     const cells = this.$list.children;
@@ -683,6 +713,7 @@ class Panel {
       );
     });
     this.$list.innerHTML = cells.join('');
+    this.thumbLoaded = thumbRequest(this.thumbSize(), window.devicePixelRatio);
     if (this._io) this._io.disconnect();
     if (this.arc) return; // (pictures inside an archive are not previewed; folders of Dropbox, Google Drive, a NAS and SSH servers are)
     this._io = new IntersectionObserver((entries) => {
@@ -697,7 +728,9 @@ class Panel {
   render() {
     this.$list.classList.toggle('thumbs', !!this.thumbs);
     this.$head.classList.toggle('thumbs', !!this.thumbs);
+    this.el.classList.toggle('thumbview', !!this.thumbs); // shows the size slider
     if (this.thumbs) {
+      this.applyThumbSize();
       this.renderThumbs();
       this.$head.querySelectorAll('[data-k]').forEach((h) => {
         const on = h.dataset.k === this.sortKey;
@@ -1792,6 +1825,7 @@ const MENUS = [
     { l: 'Unpack Specific Files...', k: 'Alt+F9', f: () => unpackSel() },
     { l: 'Test Archive(s)', k: 'Alt+Shift+F9', f: () => ftTestArchives() },
     { l: 'Compare By Content...', f: () => ftCompare() },
+    { l: 'Convert HEIC / JPG...', f: () => ftConvertHeic() },
     '-',
     { l: 'Properties...', k: 'Alt+Enter', f: () => ftProperties() },
     { l: 'Calculate Occupied Space...', k: M + '+L', f: () => ftCalcSpace() },
@@ -1845,6 +1879,7 @@ const MENUS = [
     { l: 'QNAP NAS...', f: () => openConnections(undefined, 'webdav', 'qnap') },
     { l: 'UGREEN NAS...', f: () => openConnections(undefined, 'webdav', 'ugreen') },
     { l: 'Import from WinSCP...', f: () => openWinscpImport() },
+    { l: 'Server File Database...', f: () => openCatalog() },
     { l: 'Dropbox...', f: () => openConnections(undefined, 'dropbox') },
     { l: 'Google Drive...', f: () => openConnections(undefined, 'gdrive') },
     { l: 'SSH: Console / File List', k: M + '+O', f: () => sshToggleConsole(A()) },
@@ -1856,6 +1891,7 @@ const MENUS = [
     '-',{ l: 'FTP Connect...', k: M + '+F', f: soon, dis: true }]],
   ['Show', [
     { l: 'Quick View Panel', k: 'Ctrl+Q', f: () => qvToggle() },
+    { l: 'One Panel (Full Width)', k: M + '+Shift+P', f: () => toggleOnePanel() },
     { l: 'Thumbnails', k: M + '+Shift+F4', f: () => A().setThumbs(!A().thumbs) },
     { l: 'Drive / Favorites Bar', f: () => favToggle() },
     '-',
@@ -2085,6 +2121,8 @@ document.addEventListener('keydown', async (e) => {
   drives = await api.drives();
   places = await api.places();
   panels = [new Panel(0, $('#p0')), new Panel(1, $('#p1'))];
+  buildSplitter();
+  applyLayout();
   applyColWidths();
   // a saved folder that does not exist any more (deleted, a stick taken out): its nearest folder that does, else home - without an error box
   const nearest = async (d) => {

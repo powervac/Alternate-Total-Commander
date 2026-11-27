@@ -5,6 +5,7 @@
 
 function openSearch() {
   const p = A();
+  if (p.rem) return openCatalog(); // a server: its file database
   if (needLocal('Find Files', p)) return;
   const dirs = [0, 1].map((i) => { const x = panels[i]; return x && !x.arc && !x.rem ? x.realDir() : ''; });
   const selected = p.sel && p.sel.size > 0 && !p.arc && !p.rem && !p.list ? p.targets().map((i) => P.join(p.dir, i.name)) : [];

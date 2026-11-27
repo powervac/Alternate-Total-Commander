@@ -2,6 +2,23 @@
 // Italian texts of the interface, by the English text. i18n.js adds them to its table as one more column
 // (a text without an entry here stays English). New English texts of the program need a line here too.
 const I18N_IT = {
+  'Server File Database...': 'Database dei file del server...',
+  'Server File Database': 'Database dei file del server',
+  'Folder to scan:': 'Cartella da analizzare:',
+  'Scan now': 'Analizza',
+  'Delete the database': 'Elimina il database',
+  'There is no database of this server yet: press Scan now. A big server takes a while; it is needed only once.': 'Non c\'è ancora un database di questo server: premi Analizza. Un server grande richiede tempo; basta una volta.',
+  'Scanning ...': 'Analisi in corso...',
+  'Convert HEIC / JPG...': 'Converti HEIC / JPG...',
+  'Convert pictures': 'Conversione immagini',
+  'Converting': 'Conversione',
+  'Convert': 'Converti',
+  'Quality (1-100):': 'Qualità (1-100):',
+  'The originals stay. Existing files are not overwritten.': 'Gli originali restano. I file esistenti non vengono sovrascritti.',
+  'Select (or put the cursor on) HEIC, JPG or PNG files.': 'Seleziona file HEIC, JPG o PNG (o mettici sopra il cursore).',
+  'Thumbnail size': 'Dimensione delle miniature',
+  'One Panel (Full Width)': 'Un pannello (tutta la larghezza)',
+  'One panel (full width)': 'Un pannello (tutta la larghezza)',
   'First turn on WebDAV on the QNAP: Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV. Enter the address with the WebDAV port set there. The certificate that the NAS made itself needs "Allow an untrusted certificate": tick it only in your own network.': 'Per prima cosa attiva WebDAV sul QNAP: Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV. Inserisci l\'indirizzo con la porta WebDAV impostata lì. Il certificato creato dal NAS stesso richiede di consentire un certificato non attendibile: selezionalo solo nella tua rete.',
   'First turn on WebDAV on the UGREEN: Control Panel > File Service > WebDAV. The usual ports are 5006 (HTTPS) and 5005 (HTTP, the password is not encrypted). The certificate that the NAS made itself needs "Allow an untrusted certificate": tick it only in your own network.': 'Per prima cosa attiva WebDAV su UGREEN: Control Panel > File Service > WebDAV. Le porte abituali sono 5006 (HTTPS) e 5005 (HTTP, la password non è cifrata). Il certificato creato dal NAS stesso richiede di consentire un certificato non attendibile: selezionalo solo nella tua rete.',
   'Import from .ini...': 'Importa da .ini...',

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.1.941",
+    "date": "2026-11-27",
+    "items": [
+      "One panel over the whole width and a draggable border between panels",
+      "Thumbnail size slider and a tighter grid",
+      "HEIC photos: viewer, quick view, thumbnails and HEIC / JPG conversion",
+      "File database of a server (Synology, SSH, FTP, WebDAV, clouds) with search",
+      "macOS asks for local network access and says when it is blocked"
+    ]
+  },
+  {
     "version": "0.1.940",
     "date": "2026-11-27",
     "items": [

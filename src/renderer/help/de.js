@@ -37,7 +37,10 @@ HELP_TEXT.de = {
 <h3>Verzeichnis-Favoriten</h3>
 <p><kbd>Ctrl+D</kbd> öffnet Ihre Lieblingsordner. Der aktuelle Ordner lässt sich zur Liste hinzufügen, auch der aktuelle Ordner eines Cloud-Laufwerks, eines NAS oder eines SSH-, FTP- oder WebDAV-Servers: Beim Wählen eines solchen Favoriten verbindet das Programm bei Bedarf neu und geht direkt dorthin. Die Favoriten von Total Commander werden einmalig aus <code>wincmd.ini</code> importiert, wenn das Programm die Datei findet.</p>
 <h3>Laufwerks- und Favoritenleiste</h3>
-<p>Einschalten mit <b>Ansicht &gt; Laufwerks- und Favoritenleiste</b>: Über jedem Panel erscheint eine Reihe von Knöpfen mit den Laufwerken, <b>..</b> (nach oben), dem Benutzerordner und eigenen Favoriten. <b>+</b> fügt den geöffneten Ordner hinzu; vergeben Sie eine kurze Beschriftung (2-3 Buchstaben, zum Beispiel UD), eine Beschreibung und einen Pfad. Im Pfad sind <code>~</code>, <code>$HOME</code>, <code>$NAME</code> und <code>%NAME%</code> erlaubt; unter Windows funktionieren auch Netzwerkordner wie <code>\\\\server\\share</code>. Beim Zeigen auf einen Knopf erscheinen Beschreibung und Pfad. Mit der rechten Maustaste werden Favoriten hinzugefügt, bearbeitet, entfernt und verschoben. Dieselben Einträge stehen in der Laufwerksliste. Jedes System hat seine eigene Liste; sie gehört zur Einstellungs-Synchronisation. Jeder Favorit kann ein Symbol haben: eines der mitgelieferten oder ein eigenes Bild (zum Beispiel aus dem Symbolthema von Linux). Mit der rechten Maustaste lässt sich die Liste auch als <code>drivefavorites.ini</code> importieren und exportieren.</p>`,
+<p>Einschalten mit <b>Ansicht &gt; Laufwerks- und Favoritenleiste</b>: Über jedem Panel erscheint eine Reihe von Knöpfen mit den Laufwerken, <b>..</b> (nach oben), dem Benutzerordner und eigenen Favoriten. <b>+</b> fügt den geöffneten Ordner hinzu; vergeben Sie eine kurze Beschriftung (2-3 Buchstaben, zum Beispiel UD), eine Beschreibung und einen Pfad. Im Pfad sind <code>~</code>, <code>$HOME</code>, <code>$NAME</code> und <code>%NAME%</code> erlaubt; unter Windows funktionieren auch Netzwerkordner wie <code>\\\\server\\share</code>. Beim Zeigen auf einen Knopf erscheinen Beschreibung und Pfad. Mit der rechten Maustaste werden Favoriten hinzugefügt, bearbeitet, entfernt und verschoben. Dieselben Einträge stehen in der Laufwerksliste. Jedes System hat seine eigene Liste; sie gehört zur Einstellungs-Synchronisation. Jeder Favorit kann ein Symbol haben: eines der mitgelieferten oder ein eigenes Bild (zum Beispiel aus dem Symbolthema von Linux). Mit der rechten Maustaste lässt sich die Liste auch als <code>drivefavorites.ini</code> importieren und exportieren.</p>
+<h3>Breite und ein Panel</h3>
+<p>Die Grenze zwischen den Panels lässt sich ziehen; ein Doppelklick darauf macht beide gleich breit. <b>Ein Panel (volle Breite)</b> im Anzeigemenü (<kbd>Ctrl+Shift+P</kbd>) zeigt nur das aktive Panel, praktisch für Vorschaubilder. <kbd>Tab</kbd> oder die Schaltfläche <b>⇄</b> zeigt das andere. Das verborgene Panel behält seinen Ordner: <kbd>F5</kbd> und <kbd>F6</kbd> gehen weiterhin dorthin, und der Pfad lässt sich im Abfragefenster ändern. Die Schnellansicht zeigt beide Panels, solange sie läuft.</p>
+<p>In der Vorschaubild-Ansicht ändert der Schieberegler unten im Panel die Bildgröße (ebenso <kbd>Ctrl</kbd> + Mausrad); ein Doppelklick auf den Regler stellt die übliche Größe wieder her. Jedes Panel hat seine eigene Größe.</p>`,
     },
     {
       id: 'select', t: 'Dateien markieren',
@@ -88,7 +91,9 @@ HELP_TEXT.de = {
 <li>Ein Doppelklick auf ein Ergebnis springt zur Datei; <b>In Liste anzeigen</b> zeigt alle Ergebnisse als Liste in einem Panel, in dem F3, F5, F8 und die übrigen Befehle darauf wirken.</li>
 </ul>
 <h3>Dateiindex (Schnellsuche)</h3>
-<p>Konfiguration > <b>Dateiindex (Schnellsuche)...</b> legt einen Index der Dateinamen der gewählten Ordner an (im Hintergrund; komprimiert im Datenordner des Programms gespeichert). Ist „Index verwenden“ angehakt, sind Suchen nach Name, Größe und Datum sofort fertig, wenn alle durchsuchten Ordner innerhalb indizierter Ordner liegen; sonst läuft die normale Suche auf dem Laufwerk. Die Textsuche in Dateien liest immer die Dateien.</p>`,
+<p>Konfiguration > <b>Dateiindex (Schnellsuche)...</b> legt einen Index der Dateinamen der gewählten Ordner an (im Hintergrund; komprimiert im Datenordner des Programms gespeichert). Ist „Index verwenden“ angehakt, sind Suchen nach Name, Größe und Datum sofort fertig, wenn alle durchsuchten Ordner innerhalb indizierter Ordner liegen; sonst läuft die normale Suche auf dem Laufwerk. Die Textsuche in Dateien liest immer die Dateien.</p>
+<h3>Dateien auf einem Server</h3>
+<p>Die Dateisuche liest nur die Laufwerke dieses Computers. Für einen im Panel geöffneten Server (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) gibt es <b>Netz > Dateidatenbank des Servers...</b> oder <kbd>Alt+F7</kbd> auf seinem Panel. Jetzt einlesen geht die Ordner einmal durch und merkt sich Namen, Größen und Daten. Danach antwortet die Suche sofort; <kbd>Enter</kbd> oder Doppelklick springt zur Datei. Masken: <code>*.jpg;*.heic</code>, ein Teil des Namens, <code>| *.tmp</code> schließt aus. Text in Dateien wird nicht durchsucht. Die Datenbank liegt auf diesem Computer. Ein Netzlaufwerk mit Buchstaben wird in den Einstellungen indiziert (File index).</p>`,
     },
     {
       id: 'viewer', t: 'Anzeige, Editor und Schnellansicht',
@@ -98,7 +103,9 @@ HELP_TEXT.de = {
 <p>Ein einfacher Texteditor, der Kodierung, BOM und Zeilenenden der Datei beibehält, mit Suchen und Ersetzen. Er bearbeitet Dateien in zip-Archiven und auf NAS-, SSH-, FTP- und WebDAV-Servern und speichert sie zurück. <kbd>Shift+F4</kbd> legt eine neue Datei an. Schrift und Tabulator stellen Sie unter Konfiguration > <b>Editor...</b> ein.</p>
 <h3>Schnellansicht (Ctrl+Q)</h3>
 <p>Das andere Panel zeigt eine Vorschau der Datei unter dem Cursor und folgt dem Cursor. Noch einmal <kbd>Ctrl+Q</kbd> bringt die Dateiliste zurück.</p>
-<p>Weitere Wege, eine Datei zu öffnen: <kbd>Enter</kbd> führt sie mit der Anwendung aus, die das System dafür kennt; Dateien > <b>Mit Standardanwendung öffnen</b> macht dasselbe für jede Datei.</p>`,
+<p>Weitere Wege, eine Datei zu öffnen: <kbd>Enter</kbd> führt sie mit der Anwendung aus, die das System dafür kennt; Dateien > <b>Mit Standardanwendung öffnen</b> macht dasselbe für jede Datei.</p>
+<h3>HEIC-Bilder</h3>
+<p>HEIC- / HEIF-Fotos zeigen der Betrachter, die Schnellansicht und die Vorschaubilder. <b>Dateien > HEIC / JPG umwandeln...</b> macht aus gewählten HEIC-Dateien JPG und aus JPG oder PNG HEIC; die Qualität ist wählbar. Die Originale bleiben, nichts wird überschrieben.</p>`,
     },
     {
       id: 'media', t: 'Musik und Video',
@@ -123,7 +130,8 @@ HELP_TEXT.de = {
 <li>„Nicht vertrauenswürdiges Zertifikat zulassen“ ist für ein NAS mit selbstsigniertem Zertifikat. „Passwort merken“ speichert es vom Betriebssystem verschlüsselt.</li>
 <li><b>Verbinden</b>. Die Verbindung wird in der Liste links im Fenster gespeichert; beim nächsten Mal genügt ein Doppelklick darauf.</li>
 </ol>
-<p>Im Panel können Sie durchsuchen, in beide Richtungen kopieren (mit Fortschritt), Ordner anlegen, umbenennen, löschen, anzeigen, bearbeiten und Video und Musik streamen. <b>Netz > Trennen (NAS / SSH)</b> beendet die Verbindung; die Laufwerksliste (<kbd>Alt+F1</kbd>) zeigt die geöffneten und lässt Sie dorthin zurückkehren.</p>`,
+<p>Im Panel können Sie durchsuchen, in beide Richtungen kopieren (mit Fortschritt), Ordner anlegen, umbenennen, löschen, anzeigen, bearbeiten und Video und Musik streamen. <b>Netz > Trennen (NAS / SSH)</b> beendet die Verbindung; die Laufwerksliste (<kbd>Alt+F1</kbd>) zeigt die geöffneten und lässt Sie dorthin zurückkehren.</p>
+<p><b>macOS:</b> Wenn das Kopieren von einem NAS im eigenen Netz langsam ist, <b>System Settings > Privacy & Security > Local Network</b> öffnen: Commander muss dort eingeschaltet sein. Ohne diese Erlaubnis läuft die Verbindung über das Internet. Die Zeile über dem Panel zeigt den Weg: local network, direct over the internet oder QuickConnect relay.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP und die Konsole',

@@ -37,7 +37,10 @@ HELP_TEXT.pl = {
 <h3>Ulubione katalogi</h3>
 <p><kbd>Ctrl+D</kbd> otwiera ulubione foldery. Bieżący folder można dodać do listy, także bieżący folder dysku w chmurze, serwera NAS, SSH, FTP lub WebDAV: wybór takiej pozycji w razie potrzeby ponownie łączy i od razu przechodzi na miejsce. Ulubione z Total Commandera są jednorazowo importowane z <code>wincmd.ini</code>, jeśli program go znajdzie.</p>
 <h3>Pasek dysków i ulubionych</h3>
-<p>Włącza się go przez <b>Widok &gt; Pasek dysków i ulubionych</b>: nad każdym panelem pojawia się rząd przycisków z dyskami, <b>..</b> (w górę), folderem domowym i własnymi ulubionymi. <b>+</b> dodaje otwarty folder; nadaj mu krótką etykietę (2-3 litery, na przykład UD), opis i ścieżkę. W ścieżce można użyć <code>~</code>, <code>$HOME</code>, <code>$NAME</code> lub <code>%NAME%</code>; w Windows działają też foldery sieciowe, np. <code>\\\\server\\share</code>. Po najechaniu myszą na przycisk widać opis i ścieżkę. Prawym przyciskiem myszy dodaje się, edytuje, usuwa i przestawia ulubione. Te same pozycje są na liście dysków. Każdy system ma własną listę, objętą synchronizacją ustawień. Każdy ulubiony może mieć ikonę: wbudowaną lub własny obraz (na przykład z motywu ikon Linuksa). Prawym przyciskiem można też importować i eksportować listę jako <code>drivefavorites.ini</code>.</p>`,
+<p>Włącza się go przez <b>Widok &gt; Pasek dysków i ulubionych</b>: nad każdym panelem pojawia się rząd przycisków z dyskami, <b>..</b> (w górę), folderem domowym i własnymi ulubionymi. <b>+</b> dodaje otwarty folder; nadaj mu krótką etykietę (2-3 litery, na przykład UD), opis i ścieżkę. W ścieżce można użyć <code>~</code>, <code>$HOME</code>, <code>$NAME</code> lub <code>%NAME%</code>; w Windows działają też foldery sieciowe, np. <code>\\\\server\\share</code>. Po najechaniu myszą na przycisk widać opis i ścieżkę. Prawym przyciskiem myszy dodaje się, edytuje, usuwa i przestawia ulubione. Te same pozycje są na liście dysków. Każdy system ma własną listę, objętą synchronizacją ustawień. Każdy ulubiony może mieć ikonę: wbudowaną lub własny obraz (na przykład z motywu ikon Linuksa). Prawym przyciskiem można też importować i eksportować listę jako <code>drivefavorites.ini</code>.</p>
+<h3>Szerokość i jeden panel</h3>
+<p>Granicę między panelami można przeciągać; dwukrotne kliknięcie wyrównuje szerokości. <b>Jeden panel (cała szerokość)</b> w menu widoku (<kbd>Ctrl+Shift+P</kbd>) pokazuje tylko aktywny panel, wygodne dla miniatur. <kbd>Tab</kbd> lub przycisk <b>⇄</b> pokazuje drugi. Ukryty panel pamięta swój folder: <kbd>F5</kbd> i <kbd>F6</kbd> nadal kopiują i przenoszą tam, a ścieżkę można zmienić w oknie z pytaniem. Szybki podgląd pokazuje oba panele, dopóki jest włączony.</p>
+<p>W widoku miniatur suwak na dole panelu zmienia rozmiar obrazów (tak samo <kbd>Ctrl</kbd> + kółko myszy); dwukrotne kliknięcie suwaka przywraca zwykły rozmiar. Każdy panel ma własny rozmiar.</p>`,
     },
     {
       id: 'select', t: 'Zaznaczanie plików',
@@ -88,7 +91,9 @@ HELP_TEXT.pl = {
 <li>Dwukrotne kliknięcie wyniku przechodzi do pliku; <b>Do panelu (lista)</b> pokazuje wszystkie wyniki jako listę w panelu, gdzie F3, F5, F8 i inne polecenia działają na nich.</li>
 </ul>
 <h3>Indeks plików (szybkie szukanie)</h3>
-<p>Konfiguracja > <b>Indeks plików (szybkie szukanie)...</b> buduje indeks nazw plików w wybranych folderach (w tle; zapisywany w postaci skompresowanej w folderze danych programu). Gdy zaznaczone jest „Użyj indeksu”, szukanie według nazwy, rozmiaru i daty jest natychmiastowe, jeśli wszystkie przeszukiwane foldery leżą wewnątrz zaindeksowanych; w przeciwnym razie działa zwykłe przeszukiwanie dysku. Szukanie tekstu wewnątrz plików zawsze czyta pliki.</p>`,
+<p>Konfiguracja > <b>Indeks plików (szybkie szukanie)...</b> buduje indeks nazw plików w wybranych folderach (w tle; zapisywany w postaci skompresowanej w folderze danych programu). Gdy zaznaczone jest „Użyj indeksu”, szukanie według nazwy, rozmiaru i daty jest natychmiastowe, jeśli wszystkie przeszukiwane foldery leżą wewnątrz zaindeksowanych; w przeciwnym razie działa zwykłe przeszukiwanie dysku. Szukanie tekstu wewnątrz plików zawsze czyta pliki.</p>
+<h3>Pliki na serwerze</h3>
+<p>Wyszukiwanie plików czyta tylko dyski tego komputera. Dla serwera otwartego w panelu (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive) służy <b>Sieć > Baza plików serwera...</b> albo <kbd>Alt+F7</kbd> na jego panelu. „Skanuj” raz przechodzi foldery i zapamiętuje nazwy, rozmiary i daty. Potem wyszukiwanie działa od razu; <kbd>Enter</kbd> lub dwukrotne kliknięcie przechodzi do pliku. Maski: <code>*.jpg;*.heic</code>, część nazwy, <code>| *.tmp</code> wyklucza. Tekst w plikach nie jest przeszukiwany. Baza jest na tym komputerze. Dysk sieciowy z literą indeksuje się w ustawieniach (File index).</p>`,
     },
     {
       id: 'viewer', t: 'Podgląd, edytor i szybki podgląd',
@@ -98,7 +103,9 @@ HELP_TEXT.pl = {
 <p>Prosty edytor tekstu, który zachowuje kodowanie, BOM i zakończenia wierszy pliku, z wyszukiwaniem i zamianą. Edytuje pliki wewnątrz archiwów zip oraz na serwerach NAS, SSH, FTP i WebDAV i zapisuje je z powrotem. <kbd>Shift+F4</kbd> tworzy nowy plik. Czcionkę i tabulację ustawia się w Konfiguracja > <b>Edytor...</b>.</p>
 <h3>Szybki podgląd (Ctrl+Q)</h3>
 <p>Drugi panel pokazuje podgląd pliku pod kursorem i podąża za kursorem. Ponowne <kbd>Ctrl+Q</kbd> przywraca listę plików.</p>
-<p>Inne sposoby otwarcia pliku: <kbd>Enter</kbd> uruchamia go w programie przypisanym w systemie; Pliki > <b>Otwórz w domyślnej aplikacji</b> robi to samo dla dowolnego pliku.</p>`,
+<p>Inne sposoby otwarcia pliku: <kbd>Enter</kbd> uruchamia go w programie przypisanym w systemie; Pliki > <b>Otwórz w domyślnej aplikacji</b> robi to samo dla dowolnego pliku.</p>
+<h3>Obrazy HEIC</h3>
+<p>Zdjęcia HEIC / HEIF pokazuje przeglądarka, szybki podgląd i widok miniatur. <b>Pliki > Konwertuj HEIC / JPG...</b> zamienia wybrane HEIC na JPG, a JPG i PNG na HEIC; można wybrać jakość. Oryginały zostają, istniejące pliki nie są nadpisywane.</p>`,
     },
     {
       id: 'media', t: 'Muzyka i wideo',
@@ -123,7 +130,8 @@ HELP_TEXT.pl = {
 <li>„Zezwól na niezaufany certyfikat” jest dla NAS z certyfikatem samopodpisanym. „Zapamiętaj hasło” zapisuje je zaszyfrowane przez system operacyjny.</li>
 <li><b>Połącz</b>. Połączenie zapisuje się na liście po lewej stronie okna; następnym razem wystarczy dwukrotnie je kliknąć.</li>
 </ol>
-<p>W panelu można przeglądać, kopiować w obie strony (z postępem), tworzyć foldery, zmieniać nazwy, usuwać, wyświetlać, edytować oraz odtwarzać strumieniowo wideo i muzykę. <b>Sieć > Rozłącz (NAS / SSH)</b> zamyka połączenie; lista dysków (<kbd>Alt+F1</kbd>) pokazuje otwarte połączenia i pozwala do nich wrócić.</p>`,
+<p>W panelu można przeglądać, kopiować w obie strony (z postępem), tworzyć foldery, zmieniać nazwy, usuwać, wyświetlać, edytować oraz odtwarzać strumieniowo wideo i muzykę. <b>Sieć > Rozłącz (NAS / SSH)</b> zamyka połączenie; lista dysków (<kbd>Alt+F1</kbd>) pokazuje otwarte połączenia i pozwala do nich wrócić.</p>
+<p><b>macOS:</b> jeśli kopiowanie z NAS w Twojej sieci jest wolne, otwórz <b>System Settings > Privacy & Security > Local Network</b>: Commander musi być tam włączony. Bez tego uprawnienia połączenie idzie przez internet. Wiersz nad panelem pokazuje drogę: local network, direct over the internet albo QuickConnect relay.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP i konsola',

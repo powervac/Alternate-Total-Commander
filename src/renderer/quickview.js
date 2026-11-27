@@ -17,7 +17,7 @@ function qvToggle() {
   qvIdx = target.idx;
   target.qv = true;
   target.el.classList.add('qv');
-  toolbarSync();
+  applyLayout(); // needs both panels
   qvUpdate();
 }
 
@@ -31,7 +31,7 @@ function qvOff() {
   p.qv = false;
   p.el.classList.remove('qv');
   p.$qv.innerHTML = '';
-  toolbarSync();
+  applyLayout(); // back to one panel when that is chosen
   p.updateHeader();
   p.updateStatus();
 }
@@ -86,14 +86,18 @@ async function qvUpdate() {
     if (t.error) return msgView(t.error, '', title);
     path = t.file;
   }
-  const r = await api.viewRead({ file: path, max: isImg ? QV_IMG_MAX : QV_TEXT_MAX });
+  let r;
+  if (isHeicName(ext)) {
+    const h = await api.heicView({ file: path, max: 1600 });
+    r = h.error ? h : { size: h.size, data: h.data, whole: true };
+  } else r = await api.viewRead({ file: path, max: isImg ? QV_IMG_MAX : QV_TEXT_MAX });
   if (token !== qvToken) return;
   if (r.error) return msgView(r.error, '', title);
   const bytes = r.data;
   const status = `${fmtNum(r.size)} bytes   ${fmtDate(it.mtime)}`;
 
   if (isImg) {
-    if (r.size > bytes.length) return msgView(`${it.name}\n\nImage is too large to preview.`, status, title);
+    if (!r.whole && r.size > bytes.length) return msgView(`${it.name}\n\nImage is too large to preview.`, status, title);
     const url = URL.createObjectURL(new Blob([bytes], { type: V_IMG[ext] }));
     setView('<div class="qv-img"><img></div>', status, title);
     if (token !== qvToken) { URL.revokeObjectURL(url); return; }

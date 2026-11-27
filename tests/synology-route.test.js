@@ -79,3 +79,26 @@ test('addresses typed by hand and what counts as local', async () => {
   for (const h of ['10.0.0.5', '172.16.4.1', '172.31.255.1', '192.168.0.1', 'fd12:3456::1', '[fe80::1]', 'box.lan']) assert.ok(Syno.isLocal(h), h);
   for (const h of ['172.32.0.1', '8.8.8.8', '192.169.1.1', '10.example.com', 'example.com', '2001:db8::1']) assert.ok(!Syno.isLocal(h), h);
 });
+
+test('a local network that cannot be used is reported when another way is taken', async () => {
+  Syno.fetchJson = async (url) => {
+    if (url.includes('/Serv.php')) return { data: INFO, url };
+    if (/192[.-]168/.test(url)) throw Object.assign(new Error('connect EHOSTUNREACH 192.168.1.20:5001'), { code: 'EHOSTUNREACH' });
+    return { data: { success: true, data: {} }, url };
+  };
+  const n = new Syno();
+  const found = await n.findBase(await Syno.candidates('myds'));
+  assert.notStrictEqual(found.route, 'lan');
+  assert.ok(n.lanFailed && n.lanFailed.blocked && /EHOSTUNREACH/.test(n.lanFailed.errors[0]), JSON.stringify(n.lanFailed));
+});
+
+test('nothing is reported when the local network works', async () => {
+  fake(() => true);
+  const n = new Syno();
+  assert.strictEqual((await n.findBase(await Syno.candidates('myds'))).route, 'lan');
+  assert.strictEqual(n.lanFailed, null);
+});
+
+test('the Mac package asks for the local network', () => {
+  assert.ok(require('../package.json').build.mac.extendInfo.NSLocalNetworkUsageDescription);
+});

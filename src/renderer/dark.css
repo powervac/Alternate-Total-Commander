@@ -214,7 +214,7 @@ html, body { background: var(--face); color: #e6e6e6; }
 .row.thumb.cur { border-color: #6f6f6f; background: #22272e; }
 .panel.active .row.thumb.cur { border-color: #8c8c8c; background: var(--cursor-bg); }
 .row.thumb.sel .th-name { color: var(--sel); }
-.th-box { background: #1c1c1c; border: 1px solid #505050; }
+.th-box { background: #1c1c1c; border: 1px solid #494949; }
 .i-thumbs svg { stroke: #9cbeef; }
 .panel:not(.active) .row.cur, .panel:not(.active) .row.thumb.cur { border-color: transparent; background: transparent; }
 .mr-f { border: 1px solid #565656; }
@@ -321,6 +321,12 @@ body.dlg-window .ab-dev, .dlg.about .ab-dev { color: #b8b8b8; }
 .favbar .fb-sep { background: #434343; }
 .fv-icons .fv-pick { background: transparent; border: 1px solid #505050; }
 .fv-icons .fv-pick.on { background: #214065; border-color: #3f628d; }
+#splitter:hover, #splitter.drag { background: #404f60; }
+#panels.one .panel .otherpanel { border: 1px solid #595959; background: #1c1c1c; }
+.panel .foot { background: var(--face); }
+.cat .cat-line input { border: 1px solid #7a7a7a; }
+.cat .cat-list { border: 1px solid #7a7a7a; background: #1c1c1c; }
+.cat .cat-row.on { background: #214466; }
 #toolbar svg, .toolbar svg { filter: brightness(1.55) saturate(.9); }
 .list img.ic, .th-img img { filter: none; }
 }

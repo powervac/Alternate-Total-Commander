@@ -37,7 +37,10 @@ HELP_TEXT.es = {
 <h3>Directorios favoritos</h3>
 <p><kbd>Ctrl+D</kbd> abre sus carpetas favoritas. La carpeta actual se puede añadir a la lista, incluida la carpeta actual de un disco en la nube, un NAS o un servidor SSH, FTP o WebDAV: al elegir un favorito así, el programa vuelve a conectar si hace falta y va directamente allí. Los favoritos de Total Commander se importan una vez desde <code>wincmd.ini</code>, si el programa lo encuentra.</p>
 <h3>Barra de unidades y favoritos</h3>
-<p>Actívela en <b>Ver &gt; Barra de unidades y favoritos</b>: sobre cada panel aparece una fila de botones con las unidades, <b>..</b> (subir), su carpeta personal y sus favoritos. <b>+</b> añade la carpeta abierta; asígnele una etiqueta corta (2-3 letras, por ejemplo UD), una descripción y una ruta. La ruta admite <code>~</code>, <code>$HOME</code>, <code>$NAME</code> o <code>%NAME%</code>; en Windows también funcionan carpetas de red como <code>\\\\server\\share</code>. Al pasar el ratón por un botón se ven la descripción y la ruta. Con el botón derecho se añaden, editan, quitan y mueven los favoritos. Los mismos elementos están en la lista de unidades. Cada sistema tiene su propia lista, incluida en la sincronización de ajustes. Cada favorito puede tener un icono: uno de los incluidos o una imagen propia (por ejemplo, del tema de iconos de Linux). El botón derecho también importa y exporta la lista como <code>drivefavorites.ini</code>.</p>`,
+<p>Actívela en <b>Ver &gt; Barra de unidades y favoritos</b>: sobre cada panel aparece una fila de botones con las unidades, <b>..</b> (subir), su carpeta personal y sus favoritos. <b>+</b> añade la carpeta abierta; asígnele una etiqueta corta (2-3 letras, por ejemplo UD), una descripción y una ruta. La ruta admite <code>~</code>, <code>$HOME</code>, <code>$NAME</code> o <code>%NAME%</code>; en Windows también funcionan carpetas de red como <code>\\\\server\\share</code>. Al pasar el ratón por un botón se ven la descripción y la ruta. Con el botón derecho se añaden, editan, quitan y mueven los favoritos. Los mismos elementos están en la lista de unidades. Cada sistema tiene su propia lista, incluida en la sincronización de ajustes. Cada favorito puede tener un icono: uno de los incluidos o una imagen propia (por ejemplo, del tema de iconos de Linux). El botón derecho también importa y exporta la lista como <code>drivefavorites.ini</code>.</p>
+<h3>Ancho y un solo panel</h3>
+<p>Arrastre el borde entre los paneles para cambiar los anchos; un doble clic los iguala. <b>Un panel (ancho completo)</b> en el menú de vista (<kbd>Ctrl+Shift+P</kbd>) muestra solo el panel activo, útil para las miniaturas. <kbd>Tab</kbd> o el botón <b>⇄</b> muestra el otro. El panel oculto conserva su carpeta: <kbd>F5</kbd> y <kbd>F6</kbd> siguen yendo allí, y la ruta se puede cambiar en la ventana que pregunta. La vista rápida muestra ambos paneles mientras está activa.</p>
+<p>En la vista de miniaturas, el control deslizante de la parte inferior del panel cambia el tamaño de las imágenes (igual que <kbd>Ctrl</kbd> + la rueda del ratón); un doble clic en él recupera el tamaño habitual. Cada panel tiene su propio tamaño.</p>`,
     },
     {
       id: 'select', t: 'Seleccionar archivos',
@@ -88,7 +91,9 @@ HELP_TEXT.es = {
 <li>Haga doble clic en un resultado para ir al archivo; <b>Al panel (lista)</b> muestra todos los resultados como una lista en un panel, donde F3, F5, F8 y los demás comandos actúan sobre ellos.</li>
 </ul>
 <h3>Índice de archivos (búsqueda rápida)</h3>
-<p>Configuración > <b>Índice de archivos (búsqueda rápida)...</b> crea un índice de los nombres de archivo de las carpetas que elija (en segundo plano; se guarda comprimido en la carpeta de datos del programa). Con “Usar el índice” marcado, las búsquedas por nombre, tamaño y fecha son instantáneas cuando todas las carpetas buscadas están dentro de carpetas indexadas; si no, se hace la búsqueda normal en el disco. La búsqueda de texto dentro de los archivos siempre lee los archivos.</p>`,
+<p>Configuración > <b>Índice de archivos (búsqueda rápida)...</b> crea un índice de los nombres de archivo de las carpetas que elija (en segundo plano; se guarda comprimido en la carpeta de datos del programa). Con “Usar el índice” marcado, las búsquedas por nombre, tamaño y fecha son instantáneas cuando todas las carpetas buscadas están dentro de carpetas indexadas; si no, se hace la búsqueda normal en el disco. La búsqueda de texto dentro de los archivos siempre lee los archivos.</p>
+<h3>Archivos en un servidor</h3>
+<p>La búsqueda de archivos lee solo los discos de este equipo. Para un servidor abierto en un panel (Synology NAS, SSH, FTP, WebDAV, Dropbox, Google Drive), use <b>Red > Base de archivos del servidor...</b> o <kbd>Alt+F7</kbd> en su panel. Examinar recorre las carpetas una vez y guarda nombres, tamaños y fechas. Después la búsqueda responde al instante; <kbd>Enter</kbd> o doble clic va al archivo. Máscaras: <code>*.jpg;*.heic</code>, parte del nombre, <code>| *.tmp</code> excluye. No se busca texto dentro de los archivos. La base está en este equipo. Una unidad de red con letra se indexa en la configuración (File index).</p>`,
     },
     {
       id: 'viewer', t: 'Visor, editor y vista rápida',
@@ -98,7 +103,9 @@ HELP_TEXT.es = {
 <p>Un editor de texto sencillo que conserva la codificación, el BOM y los finales de línea del archivo, con buscar y reemplazar. Edita archivos dentro de archivos zip y en servidores NAS, SSH, FTP y WebDAV y los guarda de vuelta. <kbd>Shift+F4</kbd> crea un archivo nuevo. La fuente y el tabulador se ajustan en Configuración > <b>Editor...</b>.</p>
 <h3>Vista rápida (Ctrl+Q)</h3>
 <p>El otro panel muestra una vista previa del archivo bajo el cursor y sigue al cursor. <kbd>Ctrl+Q</kbd> otra vez devuelve la lista de archivos.</p>
-<p>Otras formas de abrir un archivo: <kbd>Enter</kbd> lo ejecuta con la aplicación que el sistema tiene para él; Archivos > <b>Abrir con la aplicación predeterminada</b> hace lo mismo con cualquier archivo.</p>`,
+<p>Otras formas de abrir un archivo: <kbd>Enter</kbd> lo ejecuta con la aplicación que el sistema tiene para él; Archivos > <b>Abrir con la aplicación predeterminada</b> hace lo mismo con cualquier archivo.</p>
+<h3>Imágenes HEIC</h3>
+<p>Las fotos HEIC / HEIF se ven en el visor, la vista rápida y las miniaturas. <b>Archivos > Convertir HEIC / JPG...</b> convierte los HEIC elegidos en JPG, y JPG o PNG en HEIC; se puede elegir la calidad. Los originales se conservan y no se sobrescribe nada.</p>`,
     },
     {
       id: 'media', t: 'Música y vídeo',
@@ -123,7 +130,8 @@ HELP_TEXT.es = {
 <li>“Permitir un certificado no fiable” es para un NAS con certificado autofirmado. “Recordar la contraseña” la guarda cifrada por el sistema operativo.</li>
 <li><b>Conectar</b>. La conexión se guarda en la lista de la izquierda de la ventana; la próxima vez haga doble clic en ella.</li>
 </ol>
-<p>En el panel puede examinar, copiar en ambos sentidos (con progreso), crear carpetas, renombrar, eliminar, visualizar, editar y reproducir vídeo y música en flujo. <b>Red > Desconectar (NAS / SSH)</b> cierra la conexión; la lista de unidades (<kbd>Alt+F1</kbd>) muestra las abiertas y permite volver a ellas.</p>`,
+<p>En el panel puede examinar, copiar en ambos sentidos (con progreso), crear carpetas, renombrar, eliminar, visualizar, editar y reproducir vídeo y música en flujo. <b>Red > Desconectar (NAS / SSH)</b> cierra la conexión; la lista de unidades (<kbd>Alt+F1</kbd>) muestra las abiertas y permite volver a ellas.</p>
+<p><b>macOS:</b> si copiar desde un NAS de su red va lento, abra <b>System Settings > Privacy & Security > Local Network</b>: Commander debe estar activado ahí. Sin este permiso la conexión va por internet. La línea sobre el panel muestra el camino: local network, direct over the internet o QuickConnect relay.</p>`,
     },
     {
       id: 'ssh', t: 'SSH, SFTP y la consola',

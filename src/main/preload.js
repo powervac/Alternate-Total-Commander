@@ -69,6 +69,17 @@ contextBridge.exposeInMainWorld('api', {
   docRender: inv('doc:render'),
   thumb: inv('thumb:get'),
   thumbRemote: inv('thumb:remote'),
+  heicView: inv('heic:view'),
+  heicConvert: inv('heic:convert'),
+  catalogInfo: inv('catalog:info'),
+  catalogSearch: inv('catalog:search'),
+  catalogDelete: inv('catalog:delete'),
+  catalogBuild: inv('catalog:build'),
+  onCatalogProgress: (cb) => {
+    const h = (_e, p) => cb(p);
+    ipcRenderer.on('catalog:progress', h);
+    return () => ipcRenderer.removeListener('catalog:progress', h);
+  },
   emuOpen: inv('emu:open'),
   winscpList: inv('winscp:list'),
   ftpConnect: inv('ftp:connect'),

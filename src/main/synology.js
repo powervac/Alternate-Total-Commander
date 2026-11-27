@@ -199,6 +199,9 @@ class Syno {
     return /\.(local|lan|home\.arpa)$/.test(x) || /^(\d+-){3}\d+\.[a-z0-9-]+\.direct\.quickconnect\.to$/.test(x) && Syno.isLocal(x.split('.')[0].replace(/-/g, '.'));
   }
 
+  /** "no route to host" at once for an address in the own network: what macOS answers when the program may not use the local network */
+  static isBlocked(text) { return /EHOSTUNREACH|ENETUNREACH/.test(String(text)); }
+
   static urlHost(h) { return String(h).includes(':') && !String(h).startsWith('[') ? `[${h}]` : String(h); }
 
   async probe(base, timeout = 9000) {
@@ -216,6 +219,8 @@ class Syno {
   async findBase(cands) {
     const wait = { lan: 3000, direct: 6000, relay: 12000 };
     let lastErr = null;
+    const lanErrors = []; // why the addresses of the local network did not work: told to the user when another way is taken
+    this.lanFailed = null;
     for (const route of ['lan', 'direct', 'relay']) {
       const group = cands.filter((c) => c.route === route);
       const tries = group.map(async (c) => {
@@ -227,8 +232,17 @@ class Syno {
         return { ...(await this.probe(c.url, wait[route])), route };
       });
       tries.forEach((p) => p.catch(() => {}));
-      for (const t of tries) {
-        try { return await t; } catch (e) { lastErr = e; }
+      for (let i = 0; i < tries.length; i++) {
+        try {
+          const found = await tries[i];
+          if (route !== 'lan' && lanErrors.length) this.lanFailed = { errors: lanErrors, blocked: lanErrors.some((x) => Syno.isBlocked(x)) };
+          return found;
+        } catch (e) {
+          lastErr = e;
+          const line = `${group[i].url}: ${e.code ? e.code + ' ' : ''}${e.message}`;
+          if (route === 'lan') lanErrors.push(line);
+          if (global.devlog) global.devlog('synology', `${route} failed - ${line}`);
+        }
       }
     }
     throw new Error('Cannot reach the NAS' + (lastErr ? ': ' + lastErr.message : '') + (cands.length ? `\nTried: ${cands.slice(0, 5).map((c) => c.url).join(', ')}` : ''));
@@ -245,7 +259,7 @@ class Syno {
     if (global.devlog) global.devlog('synology', `connected through ${info.route}: ${info.base}`);
     this.creds = { user, pass };
     await this.login(otp);
-    return { base: this.base, route: this.route };
+    return { base: this.base, route: this.route, lanFailed: this.lanFailed };
   }
 
   async login(otp) {

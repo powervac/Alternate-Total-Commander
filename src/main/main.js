@@ -1488,11 +1488,13 @@ const nasGet = (id) => {
   if (!c) throw new Error('Not connected to the NAS. Reconnect with Ctrl+F.');
   return c;
 };
+const MAC_LAN_HINT = 'On a Mac check System Settings > Privacy & Security > Local Network: Commander must be on there (if it is, switch it off and on), then connect again.';
 const nasWrap = (fn) => async (e, a) => {
   try {
     return await fn(e, a || {});
   } catch (err) {
-    return { error: err.message, code: err.code };
+    const hint = isMac && /EHOSTUNREACH/.test(err.message) ? '\n' + MAC_LAN_HINT : '';
+    return { error: err.message + hint, code: err.code };
   }
 };
 const rjoin = (a, b) => (a === '/' || !a ? '' : a.replace(/\/+$/, '')) + '/' + b;
@@ -1504,7 +1506,7 @@ ipcMain.handle('nas:connect', nasWrap(async (_e, { id, url, user, pass, otp, ins
   const old = nasSessions.get(id);
   if (old) old.logout();
   nasSessions.set(id, c);
-  return { ok: true, base: c.base, route: c.route };
+  return { ok: true, base: c.base, route: c.route, lanFailed: c.lanFailed };
 }));
 
 ipcMain.handle('nas:disconnect', nasWrap(async (_e, { id }) => {
@@ -1616,6 +1618,35 @@ ipcMain.handle('nas:upload', nasWrap(async (e, { id, jobId, sources, destPath, o
     }
     ctx.tick(true);
     return { errors: ctx.errors, cancelled: ctx.cancel };
+  } finally {
+    jobs.delete(jobId);
+  }
+}));
+
+// ---------------------------------------------------------------- the file database of a server (remotecatalog.js)
+const remoteCatalog = require('./remotecatalog');
+const catalogDir = () => path.join(app.getPath('userData'), 'server-catalogs');
+ipcMain.handle('catalog:info', nasWrap(async (_e, { key }) => ({ info: remoteCatalog.summary(await remoteCatalog.load(catalogDir(), key)) })));
+ipcMain.handle('catalog:search', nasWrap(async (_e, { key, mask, under }) => {
+  const data = await remoteCatalog.load(catalogDir(), key);
+  if (!data) throw new Error('There is no database of this server yet.');
+  return remoteCatalog.search(data, { mask, under });
+}));
+ipcMain.handle('catalog:delete', nasWrap(async (_e, { key }) => { await remoteCatalog.remove(catalogDir(), key); return { ok: true }; }));
+ipcMain.handle('catalog:build', nasWrap(async (e, { jobId, id, key, name, root }) => {
+  const c = nasGet(id);
+  const ctx = mkCtx(e, jobId);
+  jobs.set(jobId, ctx);
+  let last = 0;
+  try {
+    const old = await remoteCatalog.load(catalogDir(), key);
+    const walked = await remoteCatalog.crawl(c, root, {
+      cancelled: () => ctx.cancel,
+      onProgress: (p) => { if (Date.now() - last > 200) { last = Date.now(); e.sender.send('catalog:progress', { key, ...p }); } },
+    });
+    // a stopped scan does not replace a database that is there
+    if (ctx.cancel && old) return { cancelled: true, info: remoteCatalog.summary(old) };
+    return { cancelled: ctx.cancel, info: await remoteCatalog.save(catalogDir(), key, walked, name) };
   } finally {
     jobs.delete(jobId);
   }
@@ -2086,7 +2117,7 @@ app.on('before-quit', (e) => {
   if (indexEnded) return;
   e.preventDefault();
   indexEnded = true;
-  Promise.race([fileindex.shutdown(), new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
+  Promise.race([Promise.all([fileindex.shutdown(), require('./heic').stopWorker()]), new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
 });
 // macOS: a thread that waits in a system call (a folder of iCloud, for example) can block the very end of the process, where no timer of ours runs
 // any more. A small watchdog outside the program ends it after 8 s - only if that process number still belongs to this program.
@@ -2266,6 +2297,91 @@ ipcMain.handle('hotlist:importTC', async () => {
   return { items: [], file: null };
 });
 
+// ---------------------------------------------------------------- HEIC pictures (heic.js): shown, previewed and converted
+const heic = require('./heic');
+/** a nativeImage of a HEIC file's bytes */
+async function heicImage(bytes) {
+  const p = await heic.decode(bytes);
+  return require('electron').nativeImage.createFromBitmap(p.data, { width: p.width, height: p.height });
+}
+/** the picture made smaller until it fits into max x max */
+function scaled(img, max) {
+  const s = img.getSize();
+  if (Math.max(s.width, s.height) <= max) return img;
+  return img.resize({ ...(s.width >= s.height ? { width: max } : { height: max }), quality: 'good' });
+}
+// for the viewer and quick view: a JPEG that the page can show (max = the longer side, 0 = as it is)
+ipcMain.handle('heic:view', async (_e, { file, max }) => {
+  try {
+    const bytes = await heic.readHeic(file);
+    let img = await heicImage(bytes);
+    const { width, height } = img.getSize();
+    if (max) img = scaled(img, max);
+    const jpeg = heic.jpegWithMeta(img.toJPEG(92), { icc: heic.heicMeta(bytes).icc });
+    return { data: jpeg, size: bytes.length, width, height };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+/** HEIC -> JPG and JPG / PNG -> HEIC into destDir. Nothing is overwritten. */
+ipcMain.handle('heic:convert', async (e, { id, files, destDir, quality }) => {
+  const ctx = mkCtx(e, id);
+  jobs.set(id, ctx);
+  const hold = {};
+  ctx.abort = () => hold.kill && hold.kill();
+  try {
+    const list = [];
+    for (const f of files) {
+      const st = await fsp.stat(f).catch(() => null);
+      list.push({ f, st });
+      ctx.total += st ? st.size : 0;
+    }
+    ctx.filesTotal = list.length;
+    await fsp.mkdir(destDir, { recursive: true });
+    for (const { f, st } of list) {
+      if (ctx.cancel) break;
+      const name = path.basename(f);
+      const toJpg = heic.isHeic(f);
+      const target = path.join(destDir, name.replace(/\.[^.]+$/, '') + (toJpg ? '.jpg' : '.heic'));
+      ctx.current = f; ctx.curSrc = f; ctx.curDst = target; ctx.fileTotal = st ? st.size : 0; ctx.fileDone = 0;
+      ctx.tick(true);
+      try {
+        if (!st) throw new Error('the file is not there');
+        if (!toJpg && !heic.isHeicSource(f)) throw new Error('only HEIC, JPG and PNG pictures can be converted');
+        if (await fsp.stat(target).then(() => true, () => false)) throw new Error(path.basename(target) + ' exists already in the target folder (it was not overwritten)');
+        if (toJpg) {
+          const bytes = await heic.readHeic(f);
+          const meta = heic.heicMeta(bytes);
+          const img = await heicImage(bytes);
+          if (ctx.cancel) break;
+          await fsp.writeFile(target, heic.jpegWithMeta(img.toJPEG(heic.clampQuality(quality)), { exif: heic.uprightExif(meta.exif), icc: meta.icc }), { flag: 'wx' });
+        } else {
+          await heic.toHeicFile(f, target, { quality, hold, ffmpeg: ffmpegBinary() });
+        }
+        await fsp.utimes(target, st.atime, st.mtime).catch(() => {}); // the date of the photo stays
+        ctx.filesDone = (ctx.filesDone || 0) + 1;
+      } catch (err) {
+        if (ctx.cancel) break;
+        ctx.errors.push(name + ': ' + err.message);
+      }
+      ctx.done += st ? st.size : 0;
+      ctx.tick(true);
+    }
+    return { errors: ctx.errors, cancelled: ctx.cancel };
+  } catch (err) {
+    return { errors: [err.message], cancelled: ctx.cancel };
+  } finally {
+    jobs.delete(id);
+  }
+});
+function ffmpegBinary() {
+  try {
+    const f = require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
+    return fs.existsSync(f) ? f : null;
+  } catch { return null; }
+}
+
 // thumbnails for the thumbnail view: the system's own (video frames, images, PDF, documents) via Electron; null when there is none
 const thumbCache = new Map();
 ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
@@ -2275,6 +2391,9 @@ ipcMain.handle('thumb:get', async (_e, { file, size, key }) => {
     const img = await require('electron').nativeImage.createThumbnailFromPath(file, { width: size, height: size });
     if (img && !img.isEmpty()) url = img.toDataURL();
   } catch { /* no thumbnail handler / unsupported platform */ }
+  if (!url && heic.isHeic(file)) {
+    try { url = scaled(await heicImage(await heic.readHeic(file)), size).toDataURL(); } catch { /* damaged: the file icon stays */ }
+  }
   if (thumbCache.size > 4000) thumbCache.clear();
   thumbCache.set(key, url);
   return url;
@@ -2307,6 +2426,13 @@ ipcMain.handle('thumb:remote', async (_e, { id, path: rpath, size, key, fsize })
       try {
         await c.download(rpath, tmp, {});
         url = toUrl(await fsp.readFile(tmp));
+      } finally { fsp.rm(tmp, { force: true }).catch(() => {}); }
+    }
+    if (!url && c && heic.isHeic(rpath) && (!fsize || fsize <= 25 * 1024 * 1024)) {
+      const tmp = path.join(os.tmpdir(), `commander-thumb-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.heic`);
+      try {
+        await c.download(rpath, tmp, {});
+        url = scaled(await heicImage(await heic.readHeic(tmp)), size).toDataURL();
       } finally { fsp.rm(tmp, { force: true }).catch(() => {}); }
     }
   } catch { /* the session is gone, the file is not readable: no picture */ }

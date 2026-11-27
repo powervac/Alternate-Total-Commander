@@ -378,6 +378,7 @@ async function openConnections(selectId, kind, vendor) {
     const conn = formConn();
     let res;
     let secret = '';
+    let lanWarning = '';
     if (busy) return;
     setBusy(true);
     try {
@@ -404,6 +405,8 @@ async function openConnections(selectId, kind, vendor) {
           ? await api.sshConnect({ id: conn.id, host: conn.url.replace(/^ssh:\/\//i, ''), port: conn.port, user: conn.user, pass: conn.keyPath ? '' : pass, keyPath: conn.keyPath, passphrase: conn.keyPath ? pass : '' })
           : await api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass, otp: $otp.value.trim(), insecure: conn.insecure });
         if (res && res.route) nasRoutes.set(conn.id, res.route);
+        // the NAS is next to the Mac but macOS did not let the program there: the slow way over the internet must not be taken in silence
+        if (res && !res.error && res.lanFailed && res.lanFailed.blocked && isMac) lanWarning = `The NAS could not be reached in the local network, so the connection goes over the internet and is slow.\n\nOn a Mac check System Settings > Privacy & Security > Local Network: Commander must be on there (if it is, switch it off and on), then connect again.\n\n${res.lanFailed.errors[0]}`;
       }
     } finally {
       if (!closed) setBusy(false);
@@ -445,6 +448,7 @@ async function openConnections(selectId, kind, vendor) {
       if (!(await p.loadRem({ id: conn.id, name: conn.name, type }, first)) && first !== '/') await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
       if (conn.localDir) { try { await O().go({ dir: conn.localDir }); } catch { /* the folder is not there */ } }
     } else if (!(want && want !== '/' && (await p.loadRem({ id: conn.id, name: conn.name, type }, want)))) await p.loadRem({ id: conn.id, name: conn.name, type }, '/');
+    if (lanWarning) await msg('Synology NAS', lanWarning);
   }
 
   $list.addEventListener('mousedown', (e) => {

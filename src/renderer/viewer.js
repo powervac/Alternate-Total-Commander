@@ -2,7 +2,8 @@
 // F3 viewer: text (auto-detected encoding), hex and images, with virtual scrolling for big files.
 // Uses helpers from app.js (A, P, esc, fmtNum, splitExt, modalCount, api).
 
-const V_IMG = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif' };
+const isHeicName = (e) => e === 'heic' || e === 'heif'; // the page cannot show these: the main process hands over a JPEG
+const V_IMG = { heic: 'image/jpeg', heif: 'image/jpeg', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon', avif: 'image/avif' };
 const V_VIDEO = Object.fromEntries('mp4 m4v mov webm mkv ogv avi wmv flv mpg mpeg 3gp ts m2ts'.split(' ').map((e) => [e, 1]));
 const V_AUDIO = Object.fromEntries('mp3 wav wave flac ogg oga m4a aac opus wma ape wv tta dsf dff aiff aif aifc mka ac3 dts mpc'.split(' ').map((e) => [e, 1]));
 /** documents rendered by our own code (main/docview.js), no Office needed */
@@ -496,6 +497,16 @@ function openViewer(panelArg, force) {
     file = path;
     const isImg = !!V_IMG[ext()];
     const isDoc = !!V_DOC[ext()];
+    if (isHeicName(ext())) {
+      const h = await api.heicView({ file: path, max: 0 });
+      if (token !== loadToken) return;
+      if (h.error) return message(h.error);
+      bytes = h.data;
+      size = h.size;
+      truncated = false;
+      $mode.innerHTML = '<option value="image">Image</option>';
+      return setMode('image');
+    }
     const r0 = await api.viewRead({ file: path, max: 8 });
     // a PDF is recognised by its extension or by the %PDF- signature
     const isPdf = ext() === 'pdf' || (!r0.error && r0.data && r0.data.length >= 5 && String.fromCharCode(...r0.data.subarray(0, 5)) === '%PDF-');

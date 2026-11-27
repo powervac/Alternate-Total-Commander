@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.1.939",
+    "date": "2026-11-27",
+    "items": [
+      "Fixed: right after start the dates could be in the English order although another language was chosen"
+    ]
+  },
+  {
     "version": "0.1.938",
     "date": "2026-11-27",
     "items": [

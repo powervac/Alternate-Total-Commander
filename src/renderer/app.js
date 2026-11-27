@@ -2077,6 +2077,9 @@ document.addEventListener('keydown', async (e) => {
 (async function init() {
   buildMenu();
   buildFkeys();
+  // the panels need what the scripts after this one define (the language, tr, the hotkeys ...): wait until the whole page is read.
+  // Without this it was a race: empty panels in 0.1.936 / 0.1.937, English dates at the first drawing in 0.1.938.
+  if (document.readyState === 'loading') await new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }));
   drives = await api.drives();
   places = await api.places();
   panels = [new Panel(0, $('#p0')), new Panel(1, $('#p1'))];

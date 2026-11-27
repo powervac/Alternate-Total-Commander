@@ -14,3 +14,10 @@ for (const [page, user] of [['index.html', 'app.js'], ['find.html', 'findshim.js
     assert.ok(list.indexOf('i18n-msg.js') >= 0 && list.indexOf('i18n-msg.js') < list.indexOf(user), list.join(' '));
   });
 }
+
+test('the panels are created only after every script of the page is loaded', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'src', 'renderer', 'app.js'), 'utf8');
+  const init = app.slice(app.indexOf('(async function init()'));
+  const wait = init.indexOf("addEventListener('DOMContentLoaded'");
+  assert.ok(wait > 0 && wait < init.indexOf('new Panel('));
+});

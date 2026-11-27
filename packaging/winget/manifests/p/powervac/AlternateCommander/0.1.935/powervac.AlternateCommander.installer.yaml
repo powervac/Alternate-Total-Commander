@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.28.0.schema.json
+
+PackageIdentifier: powervac.AlternateCommander
+PackageVersion: 0.1.935
+InstallerType: portable
+Commands:
+- alternate-commander
+ReleaseDate: 2026-11-27
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/powervac/Alternate-Total-Commander/releases/download/v0.1.935/Alternate-Commander-0.1.935-Windows-portable.exe
+  InstallerSha256: 1DC44F09C053916718E5BF1405267B1976048B1F0A0FBDD48DF2DBC9F7A5EE46
+ManifestType: installer
+ManifestVersion: 1.28.0

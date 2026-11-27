@@ -1609,7 +1609,9 @@ ipcMain.handle('nas:upload', nasWrap(async (e, { id, jobId, sources, destPath, o
         ctx.filesDone = (ctx.filesDone || 0) + 1;
       } catch (err) {
         if (ctx.cancel) break;
-        ctx.errors.push(path.basename(en.rel) + ': ' + err.message);
+        // Windows says only "UNKNOWN" when it cannot fetch a file that is kept in the cloud (Dropbox, OneDrive: online-only)
+        const why = err.code === 'UNKNOWN' && err.syscall === 'read' ? 'the file cannot be read. If it is kept only in the cloud (Dropbox, OneDrive), download it to this computer first.' : err.message;
+        ctx.errors.push(path.basename(en.rel) + ': ' + why);
       }
     }
     ctx.tick(true);

@@ -154,6 +154,13 @@ HELP_TEXT.en = {
 <p>"Allow an untrusted certificate" is for a server with a self-signed TLS certificate. The program uses the passive mode (the one that works through routers and firewalls).</p>
 <h3>WebDAV</h3>
 <p><b>Net > WebDAV server...</b> takes the full address of the WebDAV folder: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NAME/</code>, Synology, Apache, nginx, IIS, Box and others. The login may be Basic or Digest; an empty user connects without a login. A redirect to another server does not take your password along.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Net > QNAP NAS...</b>, <b>Net > UGREEN NAS...</b> connect to these NAS through WebDAV. The window tells where to turn it on and keeps its own list of connections.</p>
+<ul>
+<li><b>QNAP:</b> turn on WebDAV in <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> turn on WebDAV in <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Use HTTPS. "Allow an untrusted certificate" is for the certificate that the NAS made itself: tick it only in your own network.</p>
 <p>Both kinds work like the NAS and SSH panels: browse, copy both ways with progress, create, rename, delete, view, edit, and stream video and music with seeking. Notes: a server that gives no modification dates shows empty dates; names are expected in UTF-8; there are no file locks for WebDAV.</p>`,
     },
     {

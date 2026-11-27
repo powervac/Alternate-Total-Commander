@@ -154,6 +154,13 @@ HELP_TEXT.de = {
 <p>„Nicht vertrauenswürdiges Zertifikat zulassen“ ist für einen Server mit selbstsigniertem TLS-Zertifikat. Das Programm verwendet den passiven Modus (der durch Router und Firewalls funktioniert).</p>
 <h3>WebDAV</h3>
 <p><b>Netz > WebDAV-Server...</b> erwartet die vollständige Adresse des WebDAV-Ordners: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NAME/</code>, Synology, Apache, nginx, IIS, Box und andere. Die Anmeldung kann Basic oder Digest sein; ein leerer Benutzer verbindet ohne Anmeldung. Eine Weiterleitung auf einen anderen Server nimmt Ihr Passwort nicht mit.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Netz > QNAP NAS...</b>, <b>Netz > UGREEN NAS...</b> verbinden sich per WebDAV mit diesen NAS. Das Fenster sagt, wo es eingeschaltet wird, und hat eine eigene Verbindungsliste.</p>
+<ul>
+<li><b>QNAP:</b> WebDAV einschalten unter <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> WebDAV einschalten unter <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Verwenden Sie HTTPS. Die Option für nicht vertrauenswürdige Zertifikate ist für das vom NAS selbst erstellte Zertifikat: nur im eigenen Netz ankreuzen.</p>
 <p>Beide Arten funktionieren wie die NAS- und SSH-Panels: Durchsuchen, Kopieren in beide Richtungen mit Fortschritt, Anlegen, Umbenennen, Löschen, Anzeigen, Bearbeiten sowie Streamen von Video und Musik mit Spulen. Hinweise: Ein Server, der keine Änderungsdaten liefert, zeigt leere Daten; Namen werden in UTF-8 erwartet; Dateisperren gibt es bei WebDAV nicht.</p>`,
     },
     {

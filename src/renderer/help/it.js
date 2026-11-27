@@ -154,6 +154,13 @@ HELP_TEXT.it = {
 <p>"Consenti un certificato non attendibile" serve per un server con certificato TLS autofirmato. Il programma usa la modalità passiva (quella che funziona attraverso router e firewall).</p>
 <h3>WebDAV</h3>
 <p><b>Rete > Server WebDAV...</b> richiede l'indirizzo completo della cartella WebDAV: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NAME/</code>, Synology, Apache, nginx, IIS, Box e altri. L'accesso può essere Basic o Digest; con l'utente vuoto ci si collega senza accesso. Un reindirizzamento verso un altro server non porta con sé la password.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Rete > QNAP NAS...</b>, <b>Rete > UGREEN NAS...</b> si collegano a questi NAS tramite WebDAV. La finestra indica dove attivarlo e ha un proprio elenco di connessioni.</p>
+<ul>
+<li><b>QNAP:</b> attiva WebDAV in <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> attiva WebDAV in <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Usa HTTPS. Il consenso a un certificato non attendibile serve per il certificato creato dal NAS stesso: selezionalo solo nella tua rete.</p>
 <p>Entrambi i tipi funzionano come i pannelli NAS e SSH: sfogliare, copiare in entrambe le direzioni con avanzamento, creare, rinominare, eliminare, visualizzare, modificare e riprodurre in streaming video e musica con possibilità di spostarsi. Note: un server che non fornisce le date di modifica mostra date vuote; i nomi devono essere in UTF-8; per WebDAV non ci sono blocchi dei file.</p>`,
     },
     {

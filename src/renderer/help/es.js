@@ -154,6 +154,13 @@ HELP_TEXT.es = {
 <p>“Permitir un certificado no fiable” es para un servidor con certificado TLS autofirmado. El programa usa el modo pasivo (el que funciona a través de routers y cortafuegos).</p>
 <h3>WebDAV</h3>
 <p><b>Red > Servidor WebDAV...</b> admite la dirección completa de la carpeta WebDAV: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NOMBRE/</code>, Synology, Apache, nginx, IIS, Box y otros. El acceso puede ser Basic o Digest; un usuario vacío conecta sin acceso. Una redirección a otro servidor no se lleva su contraseña.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Red > QNAP NAS...</b>, <b>Red > UGREEN NAS...</b> se conectan a estos NAS por WebDAV. La ventana indica dónde activarlo y tiene su propia lista de conexiones.</p>
+<ul>
+<li><b>QNAP:</b> active WebDAV en <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> active WebDAV en <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Use HTTPS. Permitir un certificado no fiable sirve para el certificado creado por el propio NAS: márquelo solo en su propia red.</p>
 <p>Los dos tipos funcionan como los paneles NAS y SSH: examinar, copiar en ambos sentidos con progreso, crear, renombrar, eliminar, visualizar, editar y reproducir vídeo y música en flujo con búsqueda en la línea de tiempo. Notas: un servidor que no da fechas de modificación muestra fechas vacías; se esperan nombres en UTF-8; no hay bloqueos de archivos en WebDAV.</p>`,
     },
     {

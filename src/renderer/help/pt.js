@@ -154,6 +154,13 @@ HELP_TEXT.pt = {
 <p>“Permitir certificado não confiável” serve para um servidor com certificado TLS autoassinado. O programa usa o modo passivo (o que funciona através de roteadores e firewalls).</p>
 <h3>WebDAV</h3>
 <p><b>Rede > Servidor WebDAV...</b> aceita o endereço completo da pasta WebDAV: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NOME/</code>, Synology, Apache, nginx, IIS, Box e outros. O login pode ser Basic ou Digest; usuário vazio conecta sem login. Um redirecionamento para outro servidor não leva sua senha junto.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Rede > QNAP NAS...</b>, <b>Rede > UGREEN NAS...</b> conectam a esses NAS por WebDAV. A janela indica onde ativá-lo e tem a própria lista de conexões.</p>
+<ul>
+<li><b>QNAP:</b> ative o WebDAV em <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> ative o WebDAV em <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Use HTTPS. A permissão de certificado não confiável serve para o certificado criado pelo próprio NAS: marque-a somente na sua própria rede.</p>
 <p>Os dois tipos funcionam como os painéis NAS e SSH: navegar, copiar nos dois sentidos com progresso, criar, renomear, excluir, visualizar, editar e transmitir vídeo e música com avanço e retrocesso. Observações: um servidor que não informa datas de modificação mostra datas vazias; os nomes são esperados em UTF-8; não há bloqueio de arquivos no WebDAV.</p>`,
     },
     {

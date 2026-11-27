@@ -65,7 +65,7 @@ class Davfs {
       req.on('error', reject);
       req.on('timeout', () => req.destroy(new Error('ETIMEDOUT')));
       if (this._onReq) this._onReq(req);
-      if (bodyStream) bodyStream.pipe(req);
+      if (bodyStream) { bodyStream.once('error', (e) => req.destroy(e)); bodyStream.pipe(req); } // a source that cannot be read ends the request: pipe() alone leaves it waiting (the upload window hung at 0 %)
       else req.end(body != null ? body : undefined);
     });
     // Digest login: the server sent a challenge, repeat the request once with the answer (a stream body cannot be repeated: then the caller retries)

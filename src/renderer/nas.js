@@ -73,14 +73,34 @@ const KIND_TITLE = {
   gdrive: 'Google Drive',
 };
 
+// NAS makes that are reached through WebDAV: a window of its own with a hint. The records are ordinary WebDAV connections with a "vendor" mark.
+const DAV_VENDORS = {
+  qnap: {
+    title: 'QNAP NAS (WebDAV)',
+    address: 'https://192.168.1.10:port',
+    hint: 'First turn on WebDAV on the QNAP: Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV. Enter the address with the WebDAV port set there. The certificate that the NAS made itself needs "Allow an untrusted certificate": tick it only in your own network.',
+  },
+  ugreen: {
+    title: 'UGREEN NAS (WebDAV)',
+    address: 'https://192.168.1.10:5006',
+    hint: 'First turn on WebDAV on the UGREEN: Control Panel > File Service > WebDAV. The usual ports are 5006 (HTTPS) and 5005 (HTTP, the password is not encrypted). The certificate that the NAS made itself needs "Allow an untrusted certificate": tick it only in your own network.',
+  },
+};
+
 /**
- * kind: 'nas' | 'ssh' | 'dropbox' | 'gdrive'. selectId (optional): a saved connection to select; its kind wins.
+ * kind: 'nas' | 'ssh' | 'ftp' | 'webdav' | 'dropbox' | 'gdrive'. selectId (optional): a saved connection to select; its kind wins.
+ * vendor (optional, WebDAV only): 'qnap' | 'ugreen'.
  */
-async function openConnections(selectId, kind) {
+async function openConnections(selectId, kind, vendor) {
   if (modalCount > 0) return;
   const all = nasLoad(); // every saved record of all kinds
   const sel = selectId && all.find((c) => c.id === selectId);
   kind = sel ? connType(sel) : kind || 'nas';
+  vendor = kind !== 'webdav' ? '' : sel ? sel.vendor || '' : vendor || '';
+  const make = DAV_VENDORS[vendor] || null;
+  const title = make ? make.title : KIND_TITLE[kind];
+  /** the saved records this window shows: its kind, and for WebDAV its make */
+  const mine = (c) => connType(c) === kind && (kind !== 'webdav' || (DAV_VENDORS[c.vendor] ? c.vendor : '') === vendor);
   const ssh = kind === 'ssh';
   const ftp = kind === 'ftp';
   const plain = ftp || kind === 'webdav'; // FTP / FTPS and WebDAV: a host or address, a login, a folder to start in
@@ -89,9 +109,9 @@ async function openConnections(selectId, kind) {
   const shipped = cloud ? ((await api.cloudDefaults()) || {})[kind === 'gdrive' ? 'google' : 'dropbox'] || {} : {};
   const appWide = () => (store.get('cloudApp', {}) || {})[kind] || {};
   if (modalCount > 0) return;
-  let list = all.filter((c) => connType(c) === kind); // what this window shows
-  let cur = (sel && connType(sel) === kind ? sel : null) || list[0] || null;
-  const saveAll = () => nasSave([...all.filter((c) => connType(c) !== kind), ...list]);
+  let list = all.filter(mine); // what this window shows
+  let cur = (sel && mine(sel) ? sel : null) || list[0] || null;
+  const saveAll = () => nasSave([...all.filter((c) => !mine(c)), ...list]);
 
   const box = document.createElement('div');
   box.className = 'dlg nas';
@@ -109,9 +129,10 @@ async function openConnections(selectId, kind) {
       '<div class="n-hero-sub">Your files open in a panel like an ordinary disk: copy, view, rename and delete.</div></div></div>'
     : '';
   box.innerHTML =
-    `<div class="dlg-title">${esc(KIND_TITLE[kind])}</div>` +
+    `<div class="dlg-title">${esc(title)}</div>` +
     '<div class="dlg-body"><div class="nas-wrap"><div class="nas-list"></div>' +
     '<div class="nas-form">' + hero +
+    (make ? row('webdav', `<span></span><div class="n-note">${esc(make.hint)}</div>`) : '') +
     row('nas ssh ftp webdav dropbox gdrive', '<label>Name:</label><input class="n-name" spellcheck="false">') +
     row('nas ssh ftp webdav', `<label>${ssh || ftp ? 'Host:' : 'Address:'}</label><input class="n-url" spellcheck="false" placeholder="${ftp ? 'ftp.example.com  or  ftp.example.com:2121' : ssh ? 'server name or IP address' : plain ? 'https://cloud.example.com/remote.php/dav/files/me/' : 'https://id.region.quickconnect.to  or  nas.local:5001'}">`) +
     row('ftp', '<label>Security:</label><select class="n-sec"><option value="explicit">FTP over TLS (explicit, recommended)</option><option value="implicit">FTP over TLS (implicit, port 990)</option><option value="none">Plain FTP (not encrypted)</option></select>') +
@@ -143,6 +164,7 @@ async function openConnections(selectId, kind) {
   const $list = q('.nas-list'), $status = q('.nas-status');
   const $name = q('.n-name'), $url = q('.n-url'), $port = q('.n-port'), $user = q('.n-user');
   const $openas = q('.n-openas');
+  if (make) $url.placeholder = make.address;
   const $key = q('.n-key'), $pass = q('.n-pass'), $otp = q('.n-otp'), $insecure = q('.n-insecure'), $remember = q('.n-remember');
   const $sec = q('.n-sec'), $rdir = q('.n-rdir'), $ldir = q('.n-ldir'), $keep = q('.n-keep'), $cmds = q('.n-cmds');
   const $appkey = q('.n-appkey'), $clientid = q('.n-clientid'), $secret = q('.n-secret');
@@ -199,7 +221,7 @@ async function openConnections(selectId, kind) {
   const connName = (c) => c.name || nasDefaultName(c.url || '');
   function renderList() {
     if (!list.length) {
-      $list.innerHTML = `<div class="nas-empty">No saved ${esc(KIND_TITLE[kind].split(' (')[0])} connections yet.<br>Fill in the form and press Connect or Save.</div>`;
+      $list.innerHTML = `<div class="nas-empty">No saved ${esc(title.split(' (')[0])} connections yet.<br>Fill in the form and press Connect or Save.</div>`;
       return;
     }
     const closed = closedSet();
@@ -262,7 +284,8 @@ async function openConnections(selectId, kind) {
     return {
       id: cur ? cur.id : nasNewId(),
       type: kind,
-      name: $name.value.trim() || (url ? nasDefaultName(url) : KIND_TITLE[kind].split(' (')[0]),
+      ...(vendor ? { vendor } : {}),
+      name: $name.value.trim() || (url ? nasDefaultName(url) : title.split(' (')[0]),
       url,
       port: $port ? $port.value.trim() : '',
       user: $user ? $user.value.trim() : '',

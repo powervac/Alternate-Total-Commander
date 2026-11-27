@@ -77,7 +77,7 @@ function open(urlStr, opts = {}) {
     req.on('timeout', () => req.destroy(new Error('Connection timed out')));
     req.on('error', reject);
     if (opts.onReq) opts.onReq(req);
-    if (opts.body && typeof opts.body.pipe === 'function') opts.body.pipe(req);
+    if (opts.body && typeof opts.body.pipe === 'function') { opts.body.once('error', (e) => req.destroy(e)); opts.body.pipe(req); }
     else req.end(opts.body || undefined);
   });
 }

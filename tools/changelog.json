@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.940",
+    "date": "2026-11-27",
+    "items": [
+      "QNAP NAS and UGREEN NAS in the Net menu (through WebDAV, not tried with real devices yet)",
+      "Fixed: an upload hung at 0 % when the local file could not be read, such as a cloud-only Dropbox file"
+    ]
+  },
+  {
     "version": "0.1.939",
     "date": "2026-11-27",
     "items": [

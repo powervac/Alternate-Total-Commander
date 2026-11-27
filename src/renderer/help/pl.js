@@ -154,6 +154,13 @@ HELP_TEXT.pl = {
 <p>„Zezwól na niezaufany certyfikat” jest dla serwera z samopodpisanym certyfikatem TLS. Program używa trybu pasywnego (takiego, który działa przez routery i zapory).</p>
 <h3>WebDAV</h3>
 <p><b>Sieć > Serwer WebDAV...</b> przyjmuje pełny adres folderu WebDAV: Nextcloud / ownCloud <code>https://cloud.example.com/remote.php/dav/files/NAZWA/</code>, Synology, Apache, nginx, IIS, Box i inne. Logowanie może być Basic lub Digest; pusty użytkownik oznacza połączenie bez logowania. Przekierowanie na inny serwer nie zabiera ze sobą Twojego hasła.</p>
+<h3>QNAP, UGREEN</h3>
+<p><b>Sieć > QNAP NAS...</b>, <b>Sieć > UGREEN NAS...</b> łączą się z tymi serwerami NAS przez WebDAV. Okno podpowiada, gdzie go włączyć, i ma własną listę połączeń.</p>
+<ul>
+<li><b>QNAP:</b> włącz WebDAV: <b>Control Panel > Network & File Services > Win/MAC/NFS/WebDAV > WebDAV</b>.</li>
+<li><b>UGREEN:</b> włącz WebDAV: <b>Control Panel > File Service > WebDAV</b>; 5006 (HTTPS), 5005 (HTTP).</li>
+</ul>
+<p>Używaj HTTPS. Zezwolenie na niezaufany certyfikat służy do certyfikatu utworzonego przez sam NAS: zaznaczaj je tylko we własnej sieci.</p>
 <p>Oba rodzaje działają jak panele NAS i SSH: przeglądanie, kopiowanie w obie strony z postępem, tworzenie, zmiana nazw, usuwanie, wyświetlanie, edycja oraz odtwarzanie strumieniowe wideo i muzyki z przewijaniem. Uwagi: serwer, który nie podaje dat modyfikacji, pokazuje puste daty; nazwy są oczekiwane w UTF-8; blokad plików WebDAV nie ma.</p>`,
     },
     {

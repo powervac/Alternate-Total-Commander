@@ -35,7 +35,7 @@ function request(urlStr, { method = 'GET', headers = {}, body = null, timeout = 
     req.on('timeout', () => req.destroy(new Error('Connection timed out')));
     req.on('error', reject);
     if (onReq) onReq(req);
-    if (body && typeof body.pipe === 'function') body.pipe(req);
+    if (body && typeof body.pipe === 'function') { body.once('error', (e) => req.destroy(e)); body.pipe(req); } // a source that cannot be read ends the request: pipe() alone leaves it waiting (the upload window hung at 0 %)
     else req.end(body || undefined);
   });
 }

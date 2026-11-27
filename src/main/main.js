@@ -2086,7 +2086,14 @@ app.on('before-quit', (e) => {
   indexEnded = true;
   Promise.race([fileindex.shutdown(), new Promise((r) => setTimeout(r, 2000))]).then(() => app.quit());
 });
-app.on('quit', () => { setTimeout(() => process.exit(0), 5000).unref(); });
+// macOS: a thread that waits in a system call (a folder of iCloud, for example) can block the very end of the process, where no timer of ours runs
+// any more. A small watchdog outside the program ends it after 8 s - only if that process number still belongs to this program.
+app.on('quit', () => {
+  setTimeout(() => process.exit(0), 5000).unref();
+  if (process.platform === 'darwin') {
+    require('child_process').spawn('/bin/sh', ['-c', 'sleep 8; [ "$(ps -o comm= -p "$1")" = "$0" ] && kill -9 "$1"', process.execPath, String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
+  }
+});
 
 ipcMain.handle('search:run', async (e, { id, params }) => {
   const ctx = { cancel: false };

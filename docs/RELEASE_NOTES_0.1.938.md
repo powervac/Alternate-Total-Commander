@@ -1,11 +1,13 @@
-# Alternate Commander 0.1.937
+# Alternate Commander 0.1.938
 
-Changes since 0.1.935: fixes from a test report. (0.1.936 was withdrawn before it was complete: its packages were far too big.)
+Changes since 0.1.935: fixes from a test report. (0.1.936 and 0.1.937 were withdrawn: the first had packages far too big, both could start with empty panels.)
 
 ## Quit and start
 - The program no longer stays in memory after Quit while the file name index is working (seen on macOS).
 - One running copy per settings folder: starting the program again shows the window that is already open, so two copies cannot overwrite each other's settings. A copy started with another `--user-data-dir` runs on its own as before.
 - If the folder of the last session does not exist any more, the nearest folder above it is opened, without an error box.
+
+- macOS: a second safeguard ends the process if the system still keeps it after Quit.
 
 ## Archives with a password
 - The password is checked as soon as the archive is opened. A wrong one is asked for again at once, not only when you copy a file.

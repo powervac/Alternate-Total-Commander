@@ -1,8 +1,9 @@
 [
   {
-    "version": "0.1.937",
+    "version": "0.1.938",
     "date": "2026-11-27",
     "items": [
+      "Fixed: the panels could stay empty after start",
       "The program no longer stays in memory after Quit",
       "One running copy per settings folder",
       "Archive passwords are checked when the archive is opened, also in the viewer",

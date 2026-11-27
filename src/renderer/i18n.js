@@ -453,6 +453,7 @@ if (LANG !== 'en') {
   const col = I18N_COLS.indexOf(LANG);
   if (col >= 0) for (const r of I18N_ROWS) I18N_DICT.set(r[0], r[col + 1]);
 }
+if (I18N_DICT.has('Alt+F4 Exit')) I18N_DICT.set('Cmd+Q Exit', I18N_DICT.get('Alt+F4 Exit').replace('Alt+F4', 'Cmd+Q')); // the same button on a Mac
 const I18N_WORDS = { // for the status line "n k / m k in a / b file(s), c / d dir(s)"
   ru: ['файл(ов)', 'каталог(ов)', 'в'], uk: ['файл(ів)', 'каталог(ів)', 'у'], be: ['файл(аў)', 'каталог(аў)', 'у'], pl: ['plik(ów)', 'katalog(ów)', 'w'],
   pt: ['arquivo(s)', 'diretório(s)', 'em'], es: ['archivo(s)', 'directorio(s)', 'en'], de: ['Datei(en)', 'Verz.', 'in'], it: ['file', 'cartella/e', 'in'],

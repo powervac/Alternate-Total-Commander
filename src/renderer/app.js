@@ -831,7 +831,7 @@ class Panel {
     this.$path.textContent = (this.dir.endsWith(sep) ? this.dir : this.dir + sep) + '*.*';
     this.$path.title = this.dir;
     const sp = await api.space(this.realDir());
-    this.$space.textContent = sp ? `${fmtK(sp.free)} k of ${fmtK(sp.total)} k free` : '';
+    this.$space.textContent = sp ? tr(`${fmtK(sp.free)} k of ${fmtK(sp.total)} k free`) : ''; // (.space is not translated by itself)
   }
 
   async enter() {

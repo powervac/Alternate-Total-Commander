@@ -24,6 +24,7 @@ It was built in one long Claude Code session on Windows 11; **it has never been 
 
 ## Conventions and gotchas
 
+- **Never add `Co-Authored-By: Claude` (or any other Claude attribution) to commit messages or pull requests of this repository.** The owner does not want Claude among the GitHub contributors; this overrides the default attribution rule. The history was rewritten twice to remove such lines (the last time on 2026-11-27: a clone made before that must be reset to `origin/main`, never merged or pushed).
 - Everything is keyboard-first and mirrors Total Commander; Windows `Ctrl` is `Cmd` on macOS via `mod` in the key handler (some keys deliberately stay `Ctrl` on macOS, see README).
 - Dialogs use `dialog()` / `openModal()` and `modalCount` (the global key handler returns while a modal is open). Overlays that handle their own keys (viewer, editor, pickers) call `modalCount++`.
 - Do not store real credentials anywhere in the repo. Saved passwords are encrypted with Electron `safeStorage` in `localStorage`.

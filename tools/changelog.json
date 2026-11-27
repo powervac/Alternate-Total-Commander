@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.1.935",
+    "date": "2026-11-27",
+    "items": [
+      "Icons for favorites: built-in ones or your own picture, such as one from the Linux icon theme",
+      "A favorite can be an icon only",
+      "Import and export favorites as an .ini file such as drivefavorites.ini",
+      "Icons are shown in the drive list too"
+    ]
+  },
+  {
     "version": "0.1.934",
     "date": "2026-11-27",
     "items": [

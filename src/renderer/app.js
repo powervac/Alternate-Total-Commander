@@ -1015,7 +1015,10 @@ function openDrivePicker(p) {
     const favs = typeof favLoad === 'function' ? favLoad() : [];
     if (favs.length) {
       sep();
-      for (const f of favs) add('place', '\u2605  ' + f.label + (f.name ? '   ' + f.name : '') + '   ' + f.path, { fav: f });
+      for (const f of favs) {
+        add('place', '', { fav: f });
+        rows[rows.length - 1].el.innerHTML = (favIconHtml(f.icon) || '<span class="dl">\u2605</span>') + `<span class="dn">${esc([f.label, f.name, f.path].filter(Boolean).join('   '))}</span>`;
+      }
     }
     // connections that are open right now: back to them without logging in again
     const live = typeof liveConns !== 'undefined' ? [...liveConns.values()] : [];

@@ -1769,8 +1769,12 @@ ipcMain.handle('ssh:resize', (_e, { id, cols, rows }) => {
   const c = nasSessions.get(id);
   if (c && c.resizeShell) c.resizeShell(cols, rows);
 });
+ipcMain.handle('dialog:saveFile', async (_e, { title, defaultPath, filters }) => {
+  const r = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow() || win, { title, defaultPath, filters, properties: ['createDirectory', 'showOverwriteConfirmation'] });
+  return r.canceled ? null : r.filePath;
+});
 ipcMain.handle('dialog:openFile', async (_e, { title, defaultPath, folder }) => {
-  const r = await dialog.showOpenDialog(win, { title, defaultPath, properties: folder ? ['openDirectory', 'createDirectory'] : ['openFile', 'showHiddenFiles'] });
+  const r = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow() || win, { title, defaultPath, properties: folder ? ['openDirectory', 'createDirectory'] : ['openFile', 'showHiddenFiles'] });
   return r.canceled ? null : r.filePaths[0];
 });
 

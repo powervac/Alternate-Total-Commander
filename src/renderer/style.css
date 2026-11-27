@@ -648,3 +648,11 @@ body.dlg-window .dlg.help-win { width: 960px; height: 640px; }
 .favbar .fb-fav { font-weight: 600; }
 .favbar .fb-add { color: #6a7482; }
 .favbar .fb-sep { flex: none; width: 1px; height: 16px; margin: 0 4px; background: #b9b9b9; }
+/* icons of the favorites */
+.favbar .fv-ic { flex: none; }
+.drivemenu .fv-ic { vertical-align: middle; margin-right: 6px; }
+.fv-icons { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; max-width: 420px; }
+.fv-icons button { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 24px; padding: 0 4px; }
+.fv-icons .fv-pick { background: transparent; border: 1px solid #c4c4c4; border-radius: 3px; }
+.fv-icons .fv-pick.on { background: #cfe3fb; border-color: #3584e4; box-shadow: inset 0 0 0 1px #3584e4; }
+.fv-icons .fv-file { margin-left: 6px; padding: 0 8px; }

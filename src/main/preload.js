@@ -141,6 +141,7 @@ contextBridge.exposeInMainWorld('api', {
   sshWrite: inv('ssh:write'),
   sshResize: inv('ssh:resize'),
   openFileDialog: inv('dialog:openFile'),
+  saveFileDialog: inv('dialog:saveFile'),
   pathForFile: (f) => webUtils.getPathForFile(f),
   onSshData: (cb) => {
     const h = (_e, p) => cb(p);

@@ -2,6 +2,16 @@
 // Italian texts of the interface, by the English text. i18n.js adds them to its table as one more column
 // (a text without an entry here stays English). New English texts of the program need a line here too.
 const I18N_IT = {
+  'Import from .ini...': 'Importa da .ini...',
+  'Export to .ini...': 'Esporta in .ini...',
+  'Icon:': 'Icona:',
+  'No icon': 'Nessuna icona',
+  'Image file...': 'File immagine...',
+  'Own picture': 'Immagine propria',
+  'With an icon the label may stay empty.': 'Con un\'icona l\'etichetta può restare vuota.',
+  'Add to the list': 'Aggiungi all\'elenco',
+  'Replace the list': 'Sostituisci l\'elenco',
+  'Import favorites': 'Importa preferiti',
   'Drive / Favorites Bar': 'Barra unità e preferiti',
   'Add favorite...': 'Aggiungi ai preferiti...',
   'Edit favorite...': 'Modifica preferito...',

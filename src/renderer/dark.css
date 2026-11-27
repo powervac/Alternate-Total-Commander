@@ -319,6 +319,8 @@ body.dlg-window .ab-dev, .dlg.about .ab-dev { color: #b8b8b8; }
 .favbar button.on { border-color: #4a5a6f; background: #214065; color: #dedede; }
 .favbar .fb-add { color: #acb0b4; }
 .favbar .fb-sep { background: #434343; }
+.fv-icons .fv-pick { background: transparent; border: 1px solid #505050; }
+.fv-icons .fv-pick.on { background: #214065; border-color: #3f628d; }
 #toolbar svg, .toolbar svg { filter: brightness(1.55) saturate(.9); }
 .list img.ic, .th-img img { filter: none; }
 }

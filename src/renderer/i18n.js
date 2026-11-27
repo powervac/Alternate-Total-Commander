@@ -6,6 +6,17 @@
 const LANGS = [['en', 'English'], ['ru', 'Русский'], ['pl', 'Polski'], ['pt', 'Português'], ['es', 'Español'], ['de', 'Deutsch'], ['it', 'Italiano'], ['be', 'Беларуская'], ['uk', 'Українська']];
 const I18N_COLS = ['ru', 'uk', 'be', 'pl', 'pt', 'es', 'de', 'it'];
 const I18N_ROWS = [
+  // ---- favorites: icons and .ini
+  ['Import from .ini...', 'Импорт из .ini...', 'Імпорт з .ini...', 'Імпарт з .ini...', 'Importuj z .ini...', 'Importar de .ini...', 'Importar de .ini...', 'Aus .ini importieren...'],
+  ['Export to .ini...', 'Экспорт в .ini...', 'Експорт в .ini...', 'Экспарт у .ini...', 'Eksportuj do .ini...', 'Exportar para .ini...', 'Exportar a .ini...', 'Als .ini exportieren...'],
+  ['Icon:', 'Значок:', 'Значок:', 'Значок:', 'Ikona:', 'Ícone:', 'Icono:', 'Symbol:'],
+  ['No icon', 'Без значка', 'Без значка', 'Без значка', 'Bez ikony', 'Sem ícone', 'Sin icono', 'Kein Symbol'],
+  ['Image file...', 'Файл картинки...', 'Файл зображення...', 'Файл выявы...', 'Plik obrazu...', 'Arquivo de imagem...', 'Archivo de imagen...', 'Bilddatei...'],
+  ['Own picture', 'Своя картинка', 'Власне зображення', 'Свая выява', 'Własny obraz', 'Imagem própria', 'Imagen propia', 'Eigenes Bild'],
+  ['With an icon the label may stay empty.', 'Если выбран значок, метку можно оставить пустой.', 'Якщо вибрано значок, мітку можна залишити порожньою.', 'Калі выбраны значок, пазнаку можна пакінуць пустой.', 'Przy ikonie etykieta może pozostać pusta.', 'Com um ícone, o rótulo pode ficar vazio.', 'Con un icono, la etiqueta puede quedar vacía.', 'Mit einem Symbol darf die Beschriftung leer bleiben.'],
+  ['Add to the list', 'Добавить к списку', 'Додати до списку', 'Дадаць да спіса', 'Dodaj do listy', 'Adicionar à lista', 'Añadir a la lista', 'Zur Liste hinzufügen'],
+  ['Replace the list', 'Заменить список', 'Замінити список', 'Замяніць спіс', 'Zastąp listę', 'Substituir a lista', 'Sustituir la lista', 'Liste ersetzen'],
+  ['Import favorites', 'Импорт избранного', 'Імпорт обраного', 'Імпарт абранага', 'Import ulubionych', 'Importar favoritos', 'Importar favoritos', 'Favoriten importieren'],
   // ---- dark mode
   ['Dark mode', 'Тёмная тема', 'Темна тема', 'Цёмная тэма', 'Tryb ciemny', 'Modo escuro', 'Modo oscuro', 'Dunkelmodus'],
   ['Dark mode: On', 'Тёмная тема: вкл.', 'Темна тема: увімк.', 'Цёмная тэма: укл.', 'Tryb ciemny: włączony', 'Modo escuro: ligado', 'Modo oscuro: activado', 'Dunkelmodus: ein'],

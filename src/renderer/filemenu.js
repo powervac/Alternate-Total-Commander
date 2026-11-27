@@ -49,6 +49,12 @@ function showFileMenu(p, x, y) {
   sep();
   add(isMac ? 'Get Info' : 'Properties', 'Alt+Enter', () => ftProperties());
 
+  fmPopup(rows, x, y);
+}
+
+/** a popup menu at a point: rows = [{ label, hint, run, on } | { sep: true }] */
+function fmPopup(rows, x, y) {
+  fmClose();
   const el = document.createElement('div');
   el.className = 'fmenu';
   for (const r of rows) {

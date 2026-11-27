@@ -35,7 +35,9 @@ HELP_TEXT.de = {
 <h3>Sortierung und Ansichten</h3>
 <p>Klicken Sie auf eine Spaltenüberschrift oder drücken Sie <kbd>Ctrl+F3</kbd> (Name), <kbd>Ctrl+F4</kbd> (Endung), <kbd>Ctrl+F5</kbd> (Datum), <kbd>Ctrl+F6</kbd> (Größe). Dieselbe Taste noch einmal kehrt die Reihenfolge um. <kbd>Ctrl+Shift+F4</kbd> schaltet das Panel auf <b>Vorschaubilder</b> (Bilder, Videobilder, PDF und Dokumente); <kbd>Ctrl+Q</kbd> macht das andere Panel zur <b>Schnellansicht</b> der Datei unter dem Cursor. <kbd>Ctrl+R</kbd> liest den Ordner neu ein.</p>
 <h3>Verzeichnis-Favoriten</h3>
-<p><kbd>Ctrl+D</kbd> öffnet Ihre Lieblingsordner. Der aktuelle Ordner lässt sich zur Liste hinzufügen, auch der aktuelle Ordner eines Cloud-Laufwerks, eines NAS oder eines SSH-, FTP- oder WebDAV-Servers: Beim Wählen eines solchen Favoriten verbindet das Programm bei Bedarf neu und geht direkt dorthin. Die Favoriten von Total Commander werden einmalig aus <code>wincmd.ini</code> importiert, wenn das Programm die Datei findet.</p>`,
+<p><kbd>Ctrl+D</kbd> öffnet Ihre Lieblingsordner. Der aktuelle Ordner lässt sich zur Liste hinzufügen, auch der aktuelle Ordner eines Cloud-Laufwerks, eines NAS oder eines SSH-, FTP- oder WebDAV-Servers: Beim Wählen eines solchen Favoriten verbindet das Programm bei Bedarf neu und geht direkt dorthin. Die Favoriten von Total Commander werden einmalig aus <code>wincmd.ini</code> importiert, wenn das Programm die Datei findet.</p>
+<h3>Laufwerks- und Favoritenleiste</h3>
+<p>Einschalten mit <b>Ansicht &gt; Laufwerks- und Favoritenleiste</b>: Über jedem Panel erscheint eine Reihe von Knöpfen mit den Laufwerken, <b>..</b> (nach oben), dem Benutzerordner und eigenen Favoriten. <b>+</b> fügt den geöffneten Ordner hinzu; vergeben Sie eine kurze Beschriftung (2-3 Buchstaben, zum Beispiel UD), eine Beschreibung und einen Pfad. Im Pfad sind <code>~</code>, <code>$HOME</code>, <code>$NAME</code> und <code>%NAME%</code> erlaubt; unter Windows funktionieren auch Netzwerkordner wie <code>\\\\server\\share</code>. Beim Zeigen auf einen Knopf erscheinen Beschreibung und Pfad. Mit der rechten Maustaste werden Favoriten hinzugefügt, bearbeitet, entfernt und verschoben. Dieselben Einträge stehen in der Laufwerksliste. Jedes System hat seine eigene Liste; sie gehört zur Einstellungs-Synchronisation.</p>`,
     },
     {
       id: 'select', t: 'Dateien markieren',
@@ -196,7 +198,7 @@ HELP_TEXT.de = {
 <li><b>Ziehen und Ablegen:</b> Ziehen Sie Dateien aus einem Panel in eine andere Anwendung (von entfernten Laufwerken werden sie zuvor geladen). Auf die SSH-Konsole gezogene Dateien werden in deren aktuellen Ordner hochgeladen.</li>
 <li><b>Symbolleiste:</b> Die Schaltflächenreihe unter dem Menü lässt sich unter Konfiguration > Symbolleiste anzeigen ein- oder ausblenden.</li>
 <li><b>Dialoge in eigenen Fenstern:</b> Wie bei Total Commander kann ein Dialog aus dem Hauptfenster herausgelöst werden. Das lässt sich unter Konfiguration > Konfiguration..., Abschnitt „Anzeige“ ausschalten.</li>
-<li><b>Sprachen der Oberfläche:</b> Englisch, Russisch, Ukrainisch, Weißrussisch, Polnisch, Portugiesisch, Spanisch und Deutsch (Konfiguration > Sprache...). Menüs, Dialoge, Schaltflächen und diese Hilfe folgen der Sprache; Dateinamen werden nie übersetzt.</li>
+<li><b>Sprachen der Oberfläche:</b> Englisch, Russisch, Ukrainisch, Weißrussisch, Polnisch, Portugiesisch, Spanisch, Deutsch und Italienisch (Konfiguration > Sprache...). Menüs, Dialoge, Schaltflächen und diese Hilfe folgen der Sprache; Dateinamen werden nie übersetzt.</li>
 </ul>`,
     },
     {
@@ -206,7 +208,7 @@ HELP_TEXT.de = {
     {
       id: 'config', t: 'Konfiguration und Updates',
       h: `<ul>
-<li><b>Konfiguration...</b> enthält die Optionsgruppen (Anzeige, Vorgänge, Editor, Sprache, Werkzeuge). <b>Tastenkürzel...</b> lassen jedem Befehl andere Tasten zuweisen, <b>Editor...</b> stellt den Editor ein, <b>Sprache...</b> ändert die Sprache (das Fenster des Programms startet neu).</li>
+<li><b>Konfiguration...</b> enthält die Optionsgruppen (Anzeige, Vorgänge, Editor, Sprache, Werkzeuge). <b>Tastenkürzel...</b> lassen jedem Befehl andere Tasten zuweisen, <b>Editor...</b> stellt den Editor ein, <b>Sprache...</b> ändert die Sprache (das Fenster des Programms startet neu). Der <b>Dunkelmodus</b> (Menü Konfiguration oder Konfiguration > Ansicht) ist ein, aus oder folgt der Einstellung des Systems.</li>
 <li><b>Nach Updates suchen...</b> (Menü Konfiguration): Das Programm sucht auch einige Sekunden nach dem Start nach einer neuen Version und bietet die Installation an. Unter Windows ersetzt das neue portable Programm die alte Datei, nachdem sein SHA-256 geprüft wurde; unter Linux tut das neue AppImage dasselbe; auf einem Mac läuft der Einzeiler-Installer im Programm. Eine Version lässt sich überspringen.</li>
 <li><b>Dateiindex...</b> und <b>Einstellungen synchronisieren...</b> (Menü Konfiguration) sind in eigenen Kapiteln beschrieben.</li>
 <li><b>Info</b> > <b>Info zu Alternate Commander...</b> zeigt Ihre Version und die Neuigkeiten der letzten Version. Dort gibt es einen Schalter <b>Entwicklermodus</b>: Er öffnet ein Fenster mit einem ausführlichen Protokoll von Synchronisierung, Updates und Archivarbeit, was beim Melden eines Problems hilft.</li>

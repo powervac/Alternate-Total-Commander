@@ -35,6 +35,7 @@ function openConfig(page) {
     display: fs('File display',
       chk('cf-showHidden', 'Show hidden files (names that start with a dot)', cfgGet('showHidden')) +
       chk('cf-dirBrackets', 'Show square brackets [ ] around directories', cfgGet('dirBrackets'))) +
+      fs('Dark mode', '<div class="ft-line">' + [['on', 'On'], ['off', 'Off'], ['system', 'System']].map(([v, l]) => `<label class="ft-chk"><input type="radio" name="cf-dark" value="${v}"${themeMode() === v ? ' checked' : ''}> ${l}</label>`).join('') + '</div>') +
       fs('Windows', chk('cf-dlgWindows', 'Open dialogs (copy, delete, settings ...) in their own windows that can be moved out of the program window', store.get('dlgWindows', true) !== false)) +
       fs('Sorting directories',
         `<div class="ft-line"><label class="ft-chk"><input type="radio" name="cf-dirSort" value="name"${cfgGet('dirSort') === 'name' ? ' checked' : ''}> Always by name</label>` +
@@ -101,6 +102,7 @@ function openConfig(page) {
     store.set('showHidden', q('.cf-showHidden').checked);
     store.set('dirBrackets', q('.cf-dirBrackets').checked);
     store.set('dlgWindows', q('.cf-dlgWindows').checked);
+    setThemeMode((box.querySelector('input[name="cf-dark"]:checked') || {}).value || 'off');
     store.set('dirSort', (box.querySelector('input[name="cf-dirSort"]:checked') || {}).value || 'like');
     store.set('confirmDelete', q('.cf-confirmDelete').checked);
     store.set('useTrash', q('.cf-useTrash').checked);

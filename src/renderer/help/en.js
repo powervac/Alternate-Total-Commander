@@ -35,7 +35,9 @@ HELP_TEXT.en = {
 <h3>Sorting and views</h3>
 <p>Click a column header, or press <kbd>Ctrl+F3</kbd> (name), <kbd>Ctrl+F4</kbd> (extension), <kbd>Ctrl+F5</kbd> (date), <kbd>Ctrl+F6</kbd> (size). The same key again reverses the order. <kbd>Ctrl+Shift+F4</kbd> switches the panel to <b>thumbnails</b> (pictures, video frames, PDF and documents); <kbd>Ctrl+Q</kbd> turns the other panel into a <b>quick view</b> of the file under the cursor. <kbd>Ctrl+R</kbd> reads the folder again.</p>
 <h3>Directory hotlist</h3>
-<p><kbd>Ctrl+D</kbd> opens your favourite folders. The current folder can be added to the list, including the current folder of a cloud drive, NAS, SSH, FTP or WebDAV server: choosing such a favourite reconnects if needed and goes straight there. Favourites of Total Commander are imported once from <code>wincmd.ini</code> if the program finds it.</p>`,
+<p><kbd>Ctrl+D</kbd> opens your favourite folders. The current folder can be added to the list, including the current folder of a cloud drive, NAS, SSH, FTP or WebDAV server: choosing such a favourite reconnects if needed and goes straight there. Favourites of Total Commander are imported once from <code>wincmd.ini</code> if the program finds it.</p>
+<h3>Drive and favorites bar</h3>
+<p>Switch it on with <b>Show &gt; Drive / Favorites Bar</b>: a row of buttons appears above each panel with the disks, <b>..</b> (up), your home folder and your own favorites. <b>+</b> adds the folder that is open; give it a short button label (2-3 letters, for example UD), a description and a path. The path may use <code>~</code>, <code>$HOME</code>, <code>$NAME</code> or <code>%NAME%</code>; on Windows a network folder such as <code>\\\\server\\share</code> works too. Hold the mouse over a button to see the description and the path. The right mouse button adds, edits, removes and moves favorites. The same favorites are listed in the drive list. Every system keeps its own list, and the lists are part of Settings sync.</p>`,
     },
     {
       id: 'select', t: 'Selecting files',
@@ -196,7 +198,7 @@ HELP_TEXT.en = {
 <li><b>Drag and drop:</b> drag files out of a panel into another application (from remote disks they are downloaded first). Files dropped onto the SSH console are uploaded to its current folder.</li>
 <li><b>Toolbar:</b> the row of buttons below the menu can be shown or hidden in Configuration > Show toolbar.</li>
 <li><b>Dialogs in their own windows:</b> like in Total Commander a dialog can be moved out of the main window. This can be switched off in Configuration > Display.</li>
-<li><b>Interface languages:</b> English, Russian, Ukrainian, Belarusian, Polish, Portuguese, Spanish and German (Configuration > Language...). Menus, dialogs, buttons and this help follow the language; file names are never translated.</li>
+<li><b>Interface languages:</b> English, Russian, Ukrainian, Belarusian, Polish, Portuguese, Spanish, German and Italian (Configuration > Language...). Menus, dialogs, buttons and this help follow the language; file names are never translated.</li>
 </ul>`,
     },
     {
@@ -206,7 +208,7 @@ HELP_TEXT.en = {
     {
       id: 'config', t: 'Configuration and updates',
       h: `<ul>
-<li><b>Configuration...</b> has the groups of options (display, panels, file operations and others). <b>Hotkeys...</b> lets you give every command other keys, <b>Editor...</b> sets the editor, <b>Language...</b> changes the language (the program restarts its window).</li>
+<li><b>Configuration...</b> has the groups of options (display, panels, file operations and others). <b>Hotkeys...</b> lets you give every command other keys, <b>Editor...</b> sets the editor, <b>Language...</b> changes the language (the program restarts its window). <b>Dark Mode</b> (Configuration menu, or Configuration > Display) is On, Off or System, which follows the setting of the operating system.</li>
 <li><b>Check for Updates...</b>: the program also looks for a new version a few seconds after it starts and offers to install it. On Windows the new portable program replaces the old file after its SHA-256 is checked; on Linux the new AppImage does the same; on a Mac the one-line installer runs inside the program. You can skip a version.</li>
 <li><b>File index...</b> and <b>Settings sync...</b> are described in their own chapters.</li>
 <li><b>About</b> > <b>About Alternate Commander...</b> shows your version and the news of the last release. There is a <b>Developer mode</b> switch: it opens a window with a detailed log of syncing, updates and archive work, which helps when you report a problem.</li>

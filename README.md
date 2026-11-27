@@ -35,8 +35,9 @@ Everything is also on the website: **https://altcom.cc**
 - **Viewer and editor:** text with encoding detection, hex, images, PDF, video, audio, Office documents; editor with find/replace.
 - **Everyday tools:** compare and synchronize folders, multi-rename, split and combine large files (with .crc like Total Commander), checksums, thumbnails, music player, queue for copy/move jobs.
 - **Settings sync** through Dropbox, Google Drive or a folder (connections, favourites, language and view settings).
-- **Built-in help** (About > Help or F1) with a table of contents and search, written in all eight languages: every feature, the keyboard shortcuts (generated from the current key settings), the connection types and troubleshooting.
-- **Eight interface languages:** English, Russian, Polish, Portuguese, Spanish, German, Belarusian, Ukrainian.
+- **Built-in help** (About > Help or F1) with a table of contents and search, written in all nine languages: every feature, the keyboard shortcuts (generated from the current key settings), the connection types and troubleshooting.
+- **Drive and favorites bar** (Show menu): buttons for the disks and your own folders with short labels such as UD or NM; **Dark mode:** On, Off or System.
+- **Nine interface languages:** English, Russian, Polish, Portuguese, Spanish, German, Italian, Belarusian, Ukrainian.
 
 ## Screenshots
 
@@ -70,7 +71,7 @@ Everything is also on the website: **https://altcom.cc**
 - **Space and Insert**: Space selects the file or folder under the cursor and stays on it (a folder also gets the total size of its contents in the Size column); Insert selects and moves one line down.
 
 - **ZX Spectrum emulator**: Enter on a .trd, .scl, .tap, .tzx, .z80, .sna, .szx, .fdi, .td0, .udi, .csw or .hob file starts it in the built-in emulator (Unreal Speccy Portable compiled to WebAssembly). Also Files > Run in ZX Spectrum Emulator.
-- **Interface languages**: English, Russian, Polish, Portuguese, Spanish, German, Belarusian, Ukrainian (Configuration > Language...). Menus, dialogs, buttons and tooltips are translated; file names and some error messages with variable text stay as they are.
+- **Interface languages**: English, Russian, Polish, Portuguese, Spanish, German, Italian, Belarusian, Ukrainian (Configuration > Language...). Menus, dialogs, buttons and tooltips are translated; file names and some error messages with variable text stay as they are.
 - **WSL as a disk**: the installed Linux distributions and their home folders appear in the drive list (Alt+F1 / Alt+F2) as WSL: <name>; any \wsl$<name>... path works like a normal folder.
 - **Favourites on remote disks**: Ctrl+D also adds the current folder of Dropbox, Google Drive, NAS and SSH; choosing it reconnects (if needed) and goes straight there.
 - **One font everywhere**: the interface uses the bundled Inter font, so text looks the same on Windows and macOS.

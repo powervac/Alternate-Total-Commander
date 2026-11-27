@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.1.934",
+    "date": "2026-11-27",
+    "items": [
+      "Drive and favorites bar with short labels (Show menu)",
+      "Dark mode: On, Off or System",
+      "Italian interface and help",
+      "Password prompt for encrypted zip, 7z and rar archives",
+      "Synology NAS is reached through the local network first, the QuickConnect relay is the last choice",
+      "Dialog windows are translated again"
+    ]
+  },
+  {
     "version": "0.1.933",
     "date": "2026-11-08",
     "items": [

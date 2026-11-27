@@ -258,6 +258,7 @@ class Panel {
     this.hi = -1;
     this.lastDirOnDrive = new Map();
     el.innerHTML =
+      '<div class="favbar" hidden></div>' +
       '<div class="top"><button class="drive" tabindex="-1"></button><select class="sshmode" tabindex="-1" hidden><option value="console">Console</option><option value="files">File manager</option></select><span class="space"></span></div>' +
       '<div class="tabs"></div>' +
       '<div class="pathbar"></div>' +
@@ -801,6 +802,7 @@ class Panel {
 
   async updateHeader() {
     if (this.qv) return;
+    if (typeof favRender === 'function') favRender(this); // the drive / favorites bar marks what is open
     if (this.list) {
       this.$drive.textContent = 'Search result \u25be';
       this.$path.textContent = `${this.list.label}: ${this.items.length} item(s)`;
@@ -814,7 +816,7 @@ class Panel {
       this.$drive.textContent = `${REM_ICON[t] || '☁'} ${remTitle(t)} ▾`;
       this.$path.textContent = this.dir + (this.dir.endsWith('/') ? '' : '/') + '*';
       this.$path.title = this.dir;
-      this.$space.textContent = t === 'sftp' ? '' : t === 'nas' ? 'Synology NAS (File Station)' : remTitle(t);
+      this.$space.textContent = t === 'sftp' ? '' : t === 'nas' ? 'Synology NAS (File Station)' + (nasRoutes.has(this.rem.id) ? ' \u00b7 ' + NAS_ROUTE_TEXT[nasRoutes.get(this.rem.id)] : '') : remTitle(t);
       this.$mode.hidden = t !== 'sftp'; // the console is available for SSH connections: a picklist Console / File manager
       this.$mode.value = this.consoleOn ? 'console' : 'files';
       return;
@@ -923,6 +925,10 @@ const REM_ICON = { nas: '☁', sftp: '⌨', ftp: '⇅', webdav: '◎', dropbox: 
 const RECORD_REM = { nas: 'nas', ssh: 'sftp', ftp: 'ftp', webdav: 'webdav', dropbox: 'dropbox', gdrive: 'gdrive' }; // saved record kind -> panel type
 const REC_ICON = { nas: '☁', ssh: '⌨', ftp: '⇅', webdav: '◎', dropbox: '❖', gdrive: '▲' };
 
+/** how a Synology connection goes (shown above its panel) */
+const nasRoutes = new Map();
+const NAS_ROUTE_TEXT = { lan: 'local network', direct: 'direct over the internet', relay: 'QuickConnect relay (slow)' };
+
 /** NAS paths always use '/' */
 const remJoin = (base, name) => (base === '/' ? '' : base.replace(/\/+$/, '')) + '/' + name;
 
@@ -1006,6 +1012,11 @@ function openDrivePicker(p) {
       sep();
       for (const pl of places) add('place', '\u2605  ' + pl.label + '   ' + pl.path, { place: pl });
     }
+    const favs = typeof favLoad === 'function' ? favLoad() : [];
+    if (favs.length) {
+      sep();
+      for (const f of favs) add('place', '\u2605  ' + f.label + (f.name ? '   ' + f.name : '') + '   ' + f.path, { fav: f });
+    }
     // connections that are open right now: back to them without logging in again
     const live = typeof liveConns !== 'undefined' ? [...liveConns.values()] : [];
     if (live.length) {
@@ -1037,6 +1048,7 @@ function openDrivePicker(p) {
     if (x.drive) switchDrive(p, x.drive);
     else if (x.place) p.load(x.place.path);
     else if (x.live) openLive(p, x.live);
+    else if (x.fav) favOpen(p, x.fav);
     else openConnections(x.conn.id);
   };
   const onOutside = (e) => { if (!box.contains(e.target)) close(); };
@@ -1839,6 +1851,7 @@ const MENUS = [
   ['Show', [
     { l: 'Quick View Panel', k: 'Ctrl+Q', f: () => qvToggle() },
     { l: 'Thumbnails', k: M + '+Shift+F4', f: () => A().setThumbs(!A().thumbs) },
+    { l: 'Drive / Favorites Bar', f: () => favToggle() },
     '-',
     { l: 'New Folder Tab', k: M + '+T', f: () => A().newTab() },
     { l: 'Close Tab', k: M + '+W', f: () => A().closeTab() },
@@ -1858,6 +1871,11 @@ const MENUS = [
     { l: 'Check for Updates...', f: () => checkForUpdates(false) },
     { l: 'File index (fast search)...', f: () => openIndexDialog() },
     { l: 'Language...', f: () => openLanguageDialog() },
+    '-',
+    { l: () => (themeMode() === 'on' ? '✓  ' : '    ') + 'Dark mode: On', f: () => setThemeMode('on') },
+    { l: () => (themeMode() === 'off' ? '✓  ' : '    ') + 'Dark mode: Off', f: () => setThemeMode('off') },
+    { l: () => (themeMode() === 'system' ? '✓  ' : '    ') + 'Dark mode: System', f: () => setThemeMode('system') },
+    '-',
     { l: 'Settings sync (Dropbox, Google Drive, folder)...', f: () => openSyncDialog() },
     { l: 'Configuration...', f: () => openConfig() },
     { l: 'Hotkeys...', f: () => openConfig('hotkeys') },
@@ -2107,3 +2125,11 @@ function setColWidth(p, k, px) {
   store.set('colw' + p.idx, w);
   applyColWidths(p);
 }
+
+// ---------------------------------------------------------------- dark mode: on, off, or as the system has it
+const themeMode = () => { const m = store.get('darkMode', 'off'); return m === 'on' || m === 'system' ? m : 'off'; };
+function setThemeMode(mode) {
+  store.set('darkMode', mode);
+  api.themeSet(mode);
+}
+setTimeout(() => api.themeSet(themeMode()), 0); // (the settings of the page win over the file of the main process, for example after a settings sync)

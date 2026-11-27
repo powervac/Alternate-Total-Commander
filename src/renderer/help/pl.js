@@ -35,7 +35,9 @@ HELP_TEXT.pl = {
 <h3>Sortowanie i widoki</h3>
 <p>Kliknij nagłówek kolumny albo naciśnij <kbd>Ctrl+F3</kbd> (nazwa), <kbd>Ctrl+F4</kbd> (rozszerzenie), <kbd>Ctrl+F5</kbd> (data), <kbd>Ctrl+F6</kbd> (rozmiar). Ponowne naciśnięcie odwraca kolejność. <kbd>Ctrl+Shift+F4</kbd> przełącza panel na <b>miniatury</b> (obrazy, klatki wideo, PDF i dokumenty); <kbd>Ctrl+Q</kbd> zamienia drugi panel w <b>szybki podgląd</b> pliku pod kursorem. <kbd>Ctrl+R</kbd> ponownie wczytuje folder.</p>
 <h3>Ulubione katalogi</h3>
-<p><kbd>Ctrl+D</kbd> otwiera ulubione foldery. Bieżący folder można dodać do listy, także bieżący folder dysku w chmurze, serwera NAS, SSH, FTP lub WebDAV: wybór takiej pozycji w razie potrzeby ponownie łączy i od razu przechodzi na miejsce. Ulubione z Total Commandera są jednorazowo importowane z <code>wincmd.ini</code>, jeśli program go znajdzie.</p>`,
+<p><kbd>Ctrl+D</kbd> otwiera ulubione foldery. Bieżący folder można dodać do listy, także bieżący folder dysku w chmurze, serwera NAS, SSH, FTP lub WebDAV: wybór takiej pozycji w razie potrzeby ponownie łączy i od razu przechodzi na miejsce. Ulubione z Total Commandera są jednorazowo importowane z <code>wincmd.ini</code>, jeśli program go znajdzie.</p>
+<h3>Pasek dysków i ulubionych</h3>
+<p>Włącza się go przez <b>Widok &gt; Pasek dysków i ulubionych</b>: nad każdym panelem pojawia się rząd przycisków z dyskami, <b>..</b> (w górę), folderem domowym i własnymi ulubionymi. <b>+</b> dodaje otwarty folder; nadaj mu krótką etykietę (2-3 litery, na przykład UD), opis i ścieżkę. W ścieżce można użyć <code>~</code>, <code>$HOME</code>, <code>$NAME</code> lub <code>%NAME%</code>; w Windows działają też foldery sieciowe, np. <code>\\\\server\\share</code>. Po najechaniu myszą na przycisk widać opis i ścieżkę. Prawym przyciskiem myszy dodaje się, edytuje, usuwa i przestawia ulubione. Te same pozycje są na liście dysków. Każdy system ma własną listę, objętą synchronizacją ustawień.</p>`,
     },
     {
       id: 'select', t: 'Zaznaczanie plików',
@@ -196,7 +198,7 @@ HELP_TEXT.pl = {
 <li><b>Przeciąganie:</b> przeciągaj pliki z panelu do innej aplikacji (z dysków zdalnych są najpierw pobierane). Pliki upuszczone na konsolę SSH są wysyłane do jej bieżącego folderu.</li>
 <li><b>Pasek narzędzi:</b> rząd przycisków pod menu można pokazać lub ukryć w Konfiguracja > Pokaż pasek narzędzi.</li>
 <li><b>Okna dialogowe w osobnych oknach:</b> jak w Total Commanderze okno dialogowe można wynieść poza główne okno. Można to wyłączyć w Konfiguracja > Konfiguracja..., dział „Wyświetlanie”.</li>
-<li><b>Języki interfejsu:</b> angielski, rosyjski, ukraiński, białoruski, polski, portugalski, hiszpański i niemiecki (Konfiguracja > Język...). Menu, okna dialogowe, przyciski i ta pomoc podążają za językiem; nazwy plików nigdy nie są tłumaczone.</li>
+<li><b>Języki interfejsu:</b> angielski, rosyjski, ukraiński, białoruski, polski, portugalski, hiszpański, niemiecki i włoski (Konfiguracja > Język...). Menu, okna dialogowe, przyciski i ta pomoc podążają za językiem; nazwy plików nigdy nie są tłumaczone.</li>
 </ul>`,
     },
     {
@@ -206,7 +208,7 @@ HELP_TEXT.pl = {
     {
       id: 'config', t: 'Konfiguracja i aktualizacje',
       h: `<ul>
-<li><b>Konfiguracja...</b> zawiera grupy opcji (wyświetlanie, operacje, edytor, język, narzędzia). <b>Skróty klawiszowe...</b> pozwalają przypisać każdemu poleceniu inne klawisze, <b>Edytor...</b> ustawia edytor, <b>Język...</b> zmienia język (okno programu uruchamia się ponownie).</li>
+<li><b>Konfiguracja...</b> zawiera grupy opcji (wyświetlanie, operacje, edytor, język, narzędzia). <b>Skróty klawiszowe...</b> pozwalają przypisać każdemu poleceniu inne klawisze, <b>Edytor...</b> ustawia edytor, <b>Język...</b> zmienia język (okno programu uruchamia się ponownie). <b>Tryb ciemny</b> (menu konfiguracji albo Konfiguracja > Widok) może być włączony, wyłączony lub zgodny z ustawieniem systemu.</li>
 <li><b>Sprawdź aktualizacje...</b> (menu „Konfiguracja”): program szuka też nowej wersji kilka sekund po uruchomieniu i proponuje jej instalację. W Windows nowy program przenośny zastępuje stary plik po sprawdzeniu SHA-256; w Linuksie robi tak nowy AppImage; na Macu wewnątrz programu uruchamia się jednowierszowy instalator. Wersję można pominąć.</li>
 <li><b>Indeks plików...</b> i <b>Synchronizacja ustawień...</b> (menu „Konfiguracja”) opisano w osobnych rozdziałach.</li>
 <li><b>O programie</b> > <b>O programie Alternate Commander...</b> pokazuje Twoją wersję i nowości ostatniego wydania. Jest tam przełącznik <b>Tryb programisty</b>: otwiera okno ze szczegółowym dziennikiem synchronizacji, aktualizacji i pracy z archiwami, co pomaga przy zgłaszaniu problemu.</li>

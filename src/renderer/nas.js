@@ -380,6 +380,7 @@ async function openConnections(selectId, kind) {
           : ssh
           ? await api.sshConnect({ id: conn.id, host: conn.url.replace(/^ssh:\/\//i, ''), port: conn.port, user: conn.user, pass: conn.keyPath ? '' : pass, keyPath: conn.keyPath, passphrase: conn.keyPath ? pass : '' })
           : await api.nasConnect({ id: conn.id, url: conn.url, user: conn.user, pass, otp: $otp.value.trim(), insecure: conn.insecure });
+        if (res && res.route) nasRoutes.set(conn.id, res.route);
       }
     } finally {
       if (!closed) setBusy(false);

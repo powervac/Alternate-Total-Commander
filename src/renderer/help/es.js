@@ -35,7 +35,9 @@ HELP_TEXT.es = {
 <h3>Orden y vistas</h3>
 <p>Pulse el encabezado de una columna o <kbd>Ctrl+F3</kbd> (nombre), <kbd>Ctrl+F4</kbd> (extensión), <kbd>Ctrl+F5</kbd> (fecha), <kbd>Ctrl+F6</kbd> (tamaño). La misma tecla otra vez invierte el orden. <kbd>Ctrl+Shift+F4</kbd> cambia el panel a <b>miniaturas</b> (imágenes, fotogramas de vídeo, PDF y documentos); <kbd>Ctrl+Q</kbd> convierte el otro panel en una <b>vista rápida</b> del archivo bajo el cursor. <kbd>Ctrl+R</kbd> vuelve a leer la carpeta.</p>
 <h3>Directorios favoritos</h3>
-<p><kbd>Ctrl+D</kbd> abre sus carpetas favoritas. La carpeta actual se puede añadir a la lista, incluida la carpeta actual de un disco en la nube, un NAS o un servidor SSH, FTP o WebDAV: al elegir un favorito así, el programa vuelve a conectar si hace falta y va directamente allí. Los favoritos de Total Commander se importan una vez desde <code>wincmd.ini</code>, si el programa lo encuentra.</p>`,
+<p><kbd>Ctrl+D</kbd> abre sus carpetas favoritas. La carpeta actual se puede añadir a la lista, incluida la carpeta actual de un disco en la nube, un NAS o un servidor SSH, FTP o WebDAV: al elegir un favorito así, el programa vuelve a conectar si hace falta y va directamente allí. Los favoritos de Total Commander se importan una vez desde <code>wincmd.ini</code>, si el programa lo encuentra.</p>
+<h3>Barra de unidades y favoritos</h3>
+<p>Actívela en <b>Ver &gt; Barra de unidades y favoritos</b>: sobre cada panel aparece una fila de botones con las unidades, <b>..</b> (subir), su carpeta personal y sus favoritos. <b>+</b> añade la carpeta abierta; asígnele una etiqueta corta (2-3 letras, por ejemplo UD), una descripción y una ruta. La ruta admite <code>~</code>, <code>$HOME</code>, <code>$NAME</code> o <code>%NAME%</code>; en Windows también funcionan carpetas de red como <code>\\\\server\\share</code>. Al pasar el ratón por un botón se ven la descripción y la ruta. Con el botón derecho se añaden, editan, quitan y mueven los favoritos. Los mismos elementos están en la lista de unidades. Cada sistema tiene su propia lista, incluida en la sincronización de ajustes.</p>`,
     },
     {
       id: 'select', t: 'Seleccionar archivos',
@@ -196,7 +198,7 @@ HELP_TEXT.es = {
 <li><b>Arrastrar y soltar:</b> arrastre archivos de un panel a otra aplicación (desde discos remotos se descargan antes). Los archivos soltados en la consola SSH se suben a su carpeta actual.</li>
 <li><b>Barra de herramientas:</b> la fila de botones bajo el menú se puede mostrar u ocultar en Configuración > Mostrar barra de herramientas.</li>
 <li><b>Diálogos en ventanas propias:</b> como en Total Commander, un diálogo puede sacarse de la ventana principal. Se puede desactivar en Configuración > Configuración..., sección “Visualización”.</li>
-<li><b>Idiomas de la interfaz:</b> inglés, ruso, ucraniano, bielorruso, polaco, portugués, español y alemán (Configuración > Idioma...). Los menús, los diálogos, los botones y esta ayuda siguen el idioma; los nombres de archivo nunca se traducen.</li>
+<li><b>Idiomas de la interfaz:</b> inglés, ruso, ucraniano, bielorruso, polaco, portugués, español, alemán e italiano (Configuración > Idioma...). Los menús, los diálogos, los botones y esta ayuda siguen el idioma; los nombres de archivo nunca se traducen.</li>
 </ul>`,
     },
     {
@@ -206,7 +208,7 @@ HELP_TEXT.es = {
     {
       id: 'config', t: 'Configuración y actualizaciones',
       h: `<ul>
-<li><b>Configuración...</b> tiene los grupos de opciones (visualización, operaciones, editor, idioma, herramientas). <b>Atajos de teclado...</b> permite dar otras teclas a cada comando, <b>Editor...</b> ajusta el editor, <b>Idioma...</b> cambia el idioma (la ventana del programa se reinicia).</li>
+<li><b>Configuración...</b> tiene los grupos de opciones (visualización, operaciones, editor, idioma, herramientas). <b>Atajos de teclado...</b> permite dar otras teclas a cada comando, <b>Editor...</b> ajusta el editor, <b>Idioma...</b> cambia el idioma (la ventana del programa se reinicia). El <b>Modo oscuro</b> (menú Configuración, o Configuración > Ver) puede estar activado, desactivado o seguir al sistema.</li>
 <li><b>Buscar actualizaciones...</b> (menú Configuración): el programa también busca una versión nueva unos segundos después de iniciarse y ofrece instalarla. En Windows el nuevo programa portátil sustituye al archivo antiguo tras comprobar su SHA-256; en Linux lo hace el nuevo AppImage; en un Mac el instalador de una línea se ejecuta dentro del programa. Puede omitir una versión.</li>
 <li><b>Índice de archivos...</b> y <b>Sincronización de ajustes...</b> (menú Configuración) se describen en sus propios capítulos.</li>
 <li><b>Acerca de</b> > <b>Acerca de Alternate Commander...</b> muestra su versión y las novedades de la última versión. Hay un interruptor de <b>Modo de desarrollador</b>: abre una ventana con un registro detallado de la sincronización, las actualizaciones y el trabajo con archivos comprimidos, lo que ayuda al informar de un problema.</li>

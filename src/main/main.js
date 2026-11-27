@@ -1481,7 +1481,7 @@ ipcMain.handle('nas:connect', nasWrap(async (_e, { id, url, user, pass, otp, ins
   const old = nasSessions.get(id);
   if (old) old.logout();
   nasSessions.set(id, c);
-  return { ok: true, base: c.base };
+  return { ok: true, base: c.base, route: c.route };
 }));
 
 ipcMain.handle('nas:disconnect', nasWrap(async (_e, { id }) => {
@@ -2483,6 +2483,24 @@ ipcMain.handle('clip:write', (_e, text) => { clipboard.writeText(String(text)); 
 
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('shell:reveal', (_e, p) => shell.showItemInFolder(p));
+// Dark mode: 'on' | 'off' | 'system' (Configuration > Dark Mode). nativeTheme makes "prefers-color-scheme: dark" true in every window (dark.css).
+const themeFile = () => path.join(app.getPath('userData'), 'theme.json');
+const applyTheme = (mode) => { require('electron').nativeTheme.themeSource = mode === 'on' ? 'dark' : mode === 'system' ? 'system' : 'light'; };
+app.whenReady().then(() => { let m = 'off'; try { m = JSON.parse(fs.readFileSync(themeFile(), 'utf8')).mode; } catch { /* never chosen */ } applyTheme(m); });
+ipcMain.handle('theme:set', (_e, mode) => {
+  const m = ['on', 'off', 'system'].includes(mode) ? mode : 'off';
+  applyTheme(m);
+  try { fs.writeFileSync(themeFile(), JSON.stringify({ mode: m })); } catch { /* the choice is in the settings of the page too */ }
+  return require('electron').nativeTheme.shouldUseDarkColors;
+});
+// a path typed by the user (favorites bar): "~", "$HOME", "${NAME}" and "%NAME%" stand for the folders of this computer; an unknown name stays as it is
+ipcMain.handle('path:expand', (_e, p) => {
+  const value = (name, whole) => (/^home$/i.test(name) ? os.homedir() : process.env[name] !== undefined ? process.env[name] : whole);
+  return String(p || '')
+    .replace(/^~(?=$|[\\/])/, () => os.homedir())
+    .replace(/%([A-Za-z_][A-Za-z0-9_()]*)%/g, (m, n) => value(n, m))
+    .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g, (m, a, b) => value(a || b, m));
+});
 // the context menu of Explorer for the files of a panel (Windows only; see shellmenu.js)
 ipcMain.handle('shell:menu', async (_e, { files, x, y }) => {
   if (!isWin) return { error: 'not Windows' };

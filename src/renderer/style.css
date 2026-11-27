@@ -636,3 +636,15 @@ body.dlg-window .dlg.help-win { width: 960px; height: 640px; }
 .pk-opts { flex: 1; }
 .pk-packer { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; border: 1px solid #9a9a9a; padding: 2px 8px 4px; margin: 0; align-self: flex-start; }
 .pk-pwbox[hidden] { display: none !important; }
+
+/* the drive / favorites bar above a panel: one row, so that both panels keep the same height */
+.favbar { display: flex; flex: none; align-items: center; gap: 1px; padding: 2px 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+.favbar[hidden] { display: none; }
+.favbar::-webkit-scrollbar { display: none; }
+.favbar button { flex: none; display: inline-flex; align-items: center; gap: 3px; min-width: 24px; justify-content: center; padding: 1px 7px; height: 22px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: inherit; font: inherit; cursor: default; }
+.favbar button:hover { border-color: #9bb8dd; background: #e4effc; color: #111; }
+.favbar button.on { border-color: #7f9fc9; background: #cfe3fb; color: #111; }
+.favbar button.off { opacity: .45; }
+.favbar .fb-fav { font-weight: 600; }
+.favbar .fb-add { color: #6a7482; }
+.favbar .fb-sep { flex: none; width: 1px; height: 16px; margin: 0 4px; background: #b9b9b9; }

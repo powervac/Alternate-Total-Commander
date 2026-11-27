@@ -11,6 +11,25 @@ const hotlistLoad = () => {
 const hotlistSave = (l) => store.set(hotlistKey(), l);
 const hotSame = (a, b) => (isMac || api.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b);
 
+/** a panel goes to a saved folder ({ path, conn? }): of the Ctrl+D hotlist or of the favorites bar */
+async function favGo(panel, h, title) {
+  panel.focus();
+  if (h.conn) {
+    // remote favourite: straight into the open connection, or open the saved connection and land in this folder after it is connected
+    const live = liveConns.get(h.conn.id);
+    if (live && (await panel.loadRem({ id: live.id, name: live.name, type: live.type }, h.path))) return;
+    nasPendingPath = { id: h.conn.id, path: h.path };
+    await openConnections(h.conn.id, h.conn.type);
+    return;
+  }
+  const st = await api.stat(h.path);
+  if (!st.exists || !st.isDir) {
+    await msg(title, `Folder not found:\n${h.path}`);
+    return;
+  }
+  await panel.load(h.path);
+}
+
 function openHotlist(sel = 0) {
   if (modalCount > 0) return;
   const panel = A();
@@ -88,21 +107,7 @@ function openHotlist(sel = 0) {
     const h = list[i];
     if (!h) return;
     close();
-    panel.focus();
-    if (h.conn) {
-      // remote favourite: straight into the open connection, or open the saved connection and land in this folder after it is connected
-      const live = liveConns.get(h.conn.id);
-      if (live && (await panel.loadRem({ id: live.id, name: live.name, type: live.type }, h.path))) return;
-      nasPendingPath = { id: h.conn.id, path: h.path };
-      await openConnections(h.conn.id, h.conn.type);
-      return;
-    }
-    const st = await api.stat(h.path);
-    if (!st.exists || !st.isDir) {
-      await msg('Directory Hotlist', `Folder not found:\n${h.path}`);
-      return;
-    }
-    await panel.load(h.path);
+    await favGo(panel, h, 'Directory Hotlist');
   }
 
   async function rename() {

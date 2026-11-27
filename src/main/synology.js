@@ -126,12 +126,18 @@ class Syno {
     this.creds = null; // kept in memory only, for transparent re-login
   }
 
-  /** candidate base URLs for what the user typed */
-  static async candidates(input, insecure) {
+  /**
+   * candidate base URLs for what the user typed, each with the way it goes: 'lan' (the NAS in the same network: full speed),
+   * 'direct' (over the internet straight to the NAS) or 'relay' (through the QuickConnect servers: slow, the last choice).
+   * The list is in the order of preference.
+   */
+  static async candidates(input) {
     let s = String(input || '').trim();
     if (!s) throw new Error('Enter the address of the NAS');
-    const out = [];
-    const add = (b) => { if (b && !out.includes(b)) out.push(b); };
+    const lists = { lan: [], direct: [], relay: [] };
+    const seen = new Set();
+    let ezid = ''; // md5 of the NAS's server id: the NAS answers it on /webman/pingpong.cgi
+    const add = (route, url, extra) => { if (url && !seen.has(url)) { seen.add(url); lists[route].push({ url, route, ...extra }); } };
     const hasScheme = /^https?:\/\//i.test(s);
     let u;
     try {
@@ -140,11 +146,9 @@ class Syno {
       throw new Error('The address is not valid');
     }
     const host = u.hostname.toLowerCase();
-    const qcId = /^[a-z0-9_-]+$/i.test(s.replace(/\/.*$/, '')) && !s.includes('.') ? s.replace(/\/.*$/, '') : host.endsWith('.quickconnect.to') ? host.split('.')[0] : '';
+    const qcId = /^[a-z0-9_-]+$/i.test(s.replace(/\/.*$/, '')) && !s.includes('.') ? s.replace(/\/.*$/, '') : host.endsWith('.quickconnect.to') && !host.endsWith('.direct.quickconnect.to') ? host.split('.')[0] : '';
     if (qcId) {
-      // 1. the QuickConnect address itself (relay / redirect)
-      add(host.endsWith('.quickconnect.to') ? `https://${host}` : `https://${qcId}.quickconnect.to`);
-      // 2. ask the QuickConnect servers where the NAS really is
+      // ask the QuickConnect servers where the NAS really is
       try {
         const region = host.endsWith('.quickconnect.to') && host.split('.').length >= 4 ? host.split('.')[1] : '';
         const servers = ['https://global.quickconnect.to/Serv.php', region ? `https://${region}.quickconnect.to/Serv.php` : ''].filter(Boolean);
@@ -152,57 +156,96 @@ class Syno {
           const body = JSON.stringify({ version: 1, command: 'get_server_info', stop_when_error: false, stop_when_success: false, id: 'dsm_portal_https', serverID: qcId, is_gofile: false });
           let r;
           try {
-            r = await jsonRequest(srv, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }, body, timeout: 8000 });
+            r = await Syno.fetchJson(srv, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }, body, timeout: 8000 });
           } catch { continue; }
           const d = r.data || {};
           const server = d.server || {};
           const service = d.service || {};
-          const hosts = [];
-          if (server.ddns && server.ddns !== 'NULL') hosts.push(server.ddns);
-          if (server.fqdn && server.fqdn !== 'NULL') hosts.push(server.fqdn);
-          if (server.external && server.external.ip) hosts.push(server.external.ip);
-          for (const itf of server.interface || []) if (itf.ip) hosts.push(itf.ip);
-          const ports = [service.ext_port, service.port, 5001].filter((p, i, a) => p && a.indexOf(p) === i);
-          for (const h of hosts) for (const p of ports) add(`https://${h}:${p}`);
-          if (hosts.length) break;
+          const smart = d.smartdns || {};
+          const list = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => typeof x === 'string' && x && x !== 'NULL');
+          if (server.serverID) ezid = require('crypto').createHash('md5').update(String(server.serverID)).digest('hex');
+          const ips = (server.interface || []).map((x) => x && x.ip).filter(Boolean);
+          const inner = [service.port, 5001].filter((p, k, a) => p && a.indexOf(p) === k); // the ports inside the home network
+          const outer = [service.ext_port, service.port, 5001].filter((p, k, a) => p && a.indexOf(p) === k);
+          // local network: first the *.direct.quickconnect.to names (their certificate is valid), then the bare addresses
+          for (const h of [...list(smart.lan), ...list(smart.lanv4)]) for (const p of inner) add('lan', `https://${h}:${p}`);
+          for (const ip of ips) for (const p of inner) add(Syno.isLocal(ip) ? 'lan' : 'direct', `https://${Syno.urlHost(ip)}:${p}`, Syno.isLocal(ip) ? { ip: true } : {});
+          // over the internet, straight to the NAS
+          const outside = [...list(smart.external), ...list(smart.host), ...list(server.ddns), ...list(server.fqdn), ...list(server.external && server.external.ip)];
+          for (const h of outside) for (const p of outer) add('direct', `https://${Syno.urlHost(h)}:${p}`);
+          if (ips.length || outside.length) break;
         }
-      } catch { /* the first candidate may still work */ }
+      } catch { /* the relay may still work */ }
+      // the QuickConnect address itself (relay / redirect)
+      add('relay', host.endsWith('.quickconnect.to') ? `https://${host}` : `https://${qcId}.quickconnect.to`);
     } else if (hasScheme || u.port) {
-      add(u.origin);
+      add(Syno.isLocal(host) ? 'lan' : 'direct', u.origin);
     } else {
-      add(`https://${host}:5001`);
-      add(`http://${host}:5000`);
-      add(`https://${host}`);
+      const route = Syno.isLocal(host) ? 'lan' : 'direct';
+      add(route, `https://${host}:5001`);
+      add(route, `http://${host}:5000`);
+      add(route, `https://${host}`);
     }
+    const out = [...lists.lan, ...lists.direct, ...lists.relay];
+    out.ezid = ezid;
     return out;
   }
 
-  async probe(base) {
+  /** an address of a home or office network */
+  static isLocal(h) {
+    const x = String(h || '').replace(/^\[|\]$/g, '').toLowerCase();
+    if (/^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(x) && /^[\d.]+$/.test(x)) return true;
+    if (/^(f[cd][0-9a-f]{2}:|fe80:|::1$)/.test(x)) return true;
+    return /\.(local|lan|home\.arpa)$/.test(x) || /^(\d+-){3}\d+\.[a-z0-9-]+\.direct\.quickconnect\.to$/.test(x) && Syno.isLocal(x.split('.')[0].replace(/-/g, '.'));
+  }
+
+  static urlHost(h) { return String(h).includes(':') && !String(h).startsWith('[') ? `[${h}]` : String(h); }
+
+  async probe(base, timeout = 9000) {
     const q = 'api=SYNO.API.Info&version=1&method=query&query=all';
-    const { data, url } = await jsonRequest(`${base}/webapi/query.cgi?${q}`, { insecure: this.insecure, timeout: 9000 });
+    const { data, url } = await Syno.fetchJson(`${base}/webapi/query.cgi?${q}`, { insecure: this.insecure, timeout });
     if (!data.success) throw new Error('DSM did not answer the API info request');
     // after a redirect the real address of the NAS is the final one
     return { apis: data.data, base: new URL(url).origin };
   }
 
-  async connect({ url, user, pass, otp, insecure }) {
-    this.insecure = !!insecure;
-    const cands = await Syno.candidates(url, insecure);
+  /**
+   * the first candidate that answers, in the order of preference. The candidates of one route are asked at the same time (addresses that do not
+   * exist here must not add up their waiting times). Only this harmless question is asked: the password goes to the chosen address alone.
+   */
+  async findBase(cands) {
+    const wait = { lan: 3000, direct: 6000, relay: 12000 };
     let lastErr = null;
-    for (const base of cands) {
-      try {
-        const info = await this.probe(base);
-        this.apis = info.apis;
-        this.base = base;
-        break;
-      } catch (e) {
-        lastErr = e;
+    for (const route of ['lan', 'direct', 'relay']) {
+      const group = cands.filter((c) => c.route === route);
+      const tries = group.map(async (c) => {
+        // a bare local address with an unchecked certificate: only when the box there says that it is this NAS (the same address may be another device elsewhere)
+        if (c.ip && this.insecure && cands.ezid) {
+          const p = await Syno.fetchJson(`${c.url}/webman/pingpong.cgi?action=cors&quickconnect=true`, { insecure: true, timeout: wait[route] });
+          if (!p.data || p.data.ezid !== cands.ezid) throw new Error('Another device answers at ' + c.url);
+        }
+        return { ...(await this.probe(c.url, wait[route])), route };
+      });
+      tries.forEach((p) => p.catch(() => {}));
+      for (const t of tries) {
+        try { return await t; } catch (e) { lastErr = e; }
       }
     }
-    if (!this.base) throw new Error('Cannot reach the NAS' + (lastErr ? ': ' + lastErr.message : '') + (cands.length ? `\nTried: ${cands.slice(0, 4).join(', ')}` : ''));
+    throw new Error('Cannot reach the NAS' + (lastErr ? ': ' + lastErr.message : '') + (cands.length ? `\nTried: ${cands.slice(0, 5).map((c) => c.url).join(', ')}` : ''));
+  }
+
+  async connect({ url, user, pass, otp, insecure }) {
+    this.insecure = !!insecure;
+    const cands = await Syno.candidates(url);
+    if (global.devlog) global.devlog('synology', 'addresses to try: ' + cands.map((c) => `${c.route} ${c.url}`).join(' , '));
+    const info = await this.findBase(cands);
+    this.apis = info.apis;
+    this.base = info.base;
+    this.route = info.route;
+    if (global.devlog) global.devlog('synology', `connected through ${info.route}: ${info.base}`);
     this.creds = { user, pass };
     await this.login(otp);
-    return { base: this.base };
+    return { base: this.base, route: this.route };
   }
 
   async login(otp) {
@@ -419,5 +462,7 @@ class Syno {
     this.creds = null;
   }
 }
+
+Syno.fetchJson = jsonRequest; // (the tests put their own here)
 
 module.exports = { Syno, SynoError };

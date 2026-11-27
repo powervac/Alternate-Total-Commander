@@ -3,9 +3,32 @@
 // (menus, dialogs, buttons, labels, tooltips). File names and other data are never translated. Columns of R:
 //   en | ru | uk | be | pl | pt | es | de
 // Messages with numbers or file names (some errors, progress texts) stay in English.
-const LANGS = [['en', 'English'], ['ru', 'Русский'], ['pl', 'Polski'], ['pt', 'Português'], ['es', 'Español'], ['de', 'Deutsch'], ['be', 'Беларуская'], ['uk', 'Українська']];
-const I18N_COLS = ['ru', 'uk', 'be', 'pl', 'pt', 'es', 'de'];
+const LANGS = [['en', 'English'], ['ru', 'Русский'], ['pl', 'Polski'], ['pt', 'Português'], ['es', 'Español'], ['de', 'Deutsch'], ['it', 'Italiano'], ['be', 'Беларуская'], ['uk', 'Українська']];
+const I18N_COLS = ['ru', 'uk', 'be', 'pl', 'pt', 'es', 'de', 'it'];
 const I18N_ROWS = [
+  // ---- dark mode
+  ['Dark mode', 'Тёмная тема', 'Темна тема', 'Цёмная тэма', 'Tryb ciemny', 'Modo escuro', 'Modo oscuro', 'Dunkelmodus'],
+  ['Dark mode: On', 'Тёмная тема: вкл.', 'Темна тема: увімк.', 'Цёмная тэма: укл.', 'Tryb ciemny: włączony', 'Modo escuro: ligado', 'Modo oscuro: activado', 'Dunkelmodus: ein'],
+  ['Dark mode: Off', 'Тёмная тема: выкл.', 'Темна тема: вимк.', 'Цёмная тэма: выкл.', 'Tryb ciemny: wyłączony', 'Modo escuro: desligado', 'Modo oscuro: desactivado', 'Dunkelmodus: aus'],
+  ['Dark mode: System', 'Тёмная тема: как в системе', 'Темна тема: як у системі', 'Цёмная тэма: як у сістэме', 'Tryb ciemny: jak w systemie', 'Modo escuro: do sistema', 'Modo oscuro: del sistema', 'Dunkelmodus: wie das System'],
+  ['On', 'Вкл.', 'Увімк.', 'Укл.', 'Włączony', 'Ligado', 'Activado', 'Ein'],
+  ['Off', 'Выкл.', 'Вимк.', 'Выкл.', 'Wyłączony', 'Desligado', 'Desactivado', 'Aus'],
+  // ---- drive / favorites bar
+  ['Drive / Favorites Bar', 'Панель дисков и избранного', 'Панель дисків і обраного', 'Панэль дыскаў і абранага', 'Pasek dysków i ulubionych', 'Barra de discos e favoritos', 'Barra de unidades y favoritos', 'Laufwerks- und Favoritenleiste'],
+  ['Add favorite...', 'Добавить в избранное...', 'Додати в обране...', 'Дадаць у абранае...', 'Dodaj do ulubionych...', 'Adicionar favorito...', 'Añadir favorito...', 'Favorit hinzufügen...'],
+  ['Edit favorite...', 'Изменить избранное...', 'Змінити обране...', 'Змяніць абранае...', 'Edytuj ulubiony...', 'Editar favorito...', 'Editar favorito...', 'Favorit bearbeiten...'],
+  ['Remove favorite', 'Удалить из избранного', 'Видалити з обраного', 'Выдаліць з абранага', 'Usuń z ulubionych', 'Remover favorito', 'Quitar favorito', 'Favorit entfernen'],
+  ['Move left', 'Переместить влево', 'Перемістити вліво', 'Перамясціць улева', 'Przesuń w lewo', 'Mover para a esquerda', 'Mover a la izquierda', 'Nach links'],
+  ['Move right', 'Переместить вправо', 'Перемістити вправо', 'Перамясціць управа', 'Przesuń w prawo', 'Mover para a direita', 'Mover a la derecha', 'Nach rechts'],
+  ['Hide this bar', 'Скрыть эту панель', 'Сховати цю панель', 'Схаваць гэтую панэль', 'Ukryj ten pasek', 'Ocultar esta barra', 'Ocultar esta barra', 'Diese Leiste ausblenden'],
+  ['Add favorite', 'Новое избранное', 'Нове обране', 'Новае абранае', 'Nowy ulubiony', 'Adicionar favorito', 'Añadir favorito', 'Favorit hinzufügen'],
+  ['Edit favorite', 'Изменить избранное', 'Змінити обране', 'Змяніць абранае', 'Edytuj ulubiony', 'Editar favorito', 'Editar favorito', 'Favorit bearbeiten'],
+  ['Button label:', 'Метка кнопки:', 'Мітка кнопки:', 'Пазнака кнопкі:', 'Etykieta przycisku:', 'Rótulo do botão:', 'Etiqueta del botón:', 'Beschriftung:'],
+  ['Description:', 'Описание:', 'Опис:', 'Апісанне:', 'Opis:', 'Descrição:', 'Descripción:', 'Beschreibung:'],
+  ['Folder:', 'Папка:', 'Тека:', 'Папка:', 'Folder:', 'Pasta:', 'Carpeta:', 'Ordner:'],
+  ['Favorites', 'Избранное', 'Обране', 'Абранае', 'Ulubione', 'Favoritos', 'Favoritos', 'Favoriten'],
+  ['Up one level', 'На уровень выше', 'На рівень вище', 'На ўзровень вышэй', 'Poziom wyżej', 'Subir um nível', 'Subir un nivel', 'Eine Ebene höher'],
+  ['Add the current folder to the favorites', 'Добавить текущую папку в избранное', 'Додати поточну теку в обране', 'Дадаць бягучую папку ў абранае', 'Dodaj bieżący folder do ulubionych', 'Adicionar a pasta atual aos favoritos', 'Añadir la carpeta actual a favoritos', 'Aktuellen Ordner zu den Favoriten hinzufügen'],
   // ---- top menu
   ['Files', 'Файлы', 'Файли', 'Файлы', 'Pliki', 'Arquivos', 'Archivos', 'Dateien'],
   ['Mark', 'Выделение', 'Виділення', 'Вылучэнне', 'Zaznacz', 'Marcar', 'Marcar', 'Markieren'],
@@ -413,6 +436,7 @@ function i18nInitialLang() {
   return 'en';
 }
 let LANG = i18nInitialLang();
+I18N_ROWS.forEach((r) => r.push((typeof I18N_IT !== 'undefined' && I18N_IT[r[0]]) || r[0])); // the Italian column (i18n-it.js)
 const I18N_DICT = new Map();
 if (LANG !== 'en') {
   const col = I18N_COLS.indexOf(LANG);
@@ -420,7 +444,7 @@ if (LANG !== 'en') {
 }
 const I18N_WORDS = { // for the status line "n k / m k in a / b file(s), c / d dir(s)"
   ru: ['файл(ов)', 'каталог(ов)', 'в'], uk: ['файл(ів)', 'каталог(ів)', 'у'], be: ['файл(аў)', 'каталог(аў)', 'у'], pl: ['plik(ów)', 'katalog(ów)', 'w'],
-  pt: ['arquivo(s)', 'diretório(s)', 'em'], es: ['archivo(s)', 'directorio(s)', 'en'], de: ['Datei(en)', 'Verz.', 'in'],
+  pt: ['arquivo(s)', 'diretório(s)', 'em'], es: ['archivo(s)', 'directorio(s)', 'en'], de: ['Datei(en)', 'Verz.', 'in'], it: ['file', 'cartella/e', 'in'],
 };
 
 /** translate one visible string; strings that are not in the dictionary stay as they are */
@@ -456,10 +480,13 @@ function i18nNode(n) {
   for (const c of n.childNodes) i18nNode(c);
 }
 
-if (LANG !== 'en') {
-  document.documentElement.lang = LANG;
+/** translates an element now and whatever is added to it later: the page, and every dialog that has a window of its own (dlgwin.js) */
+function i18nWatch(root) {
+  if (LANG === 'en' || !root) return;
+  root.ownerDocument.documentElement.lang = LANG;
   let busy = false;
-  const mo = new MutationObserver((muts) => {
+  const Observer = (root.ownerDocument.defaultView || window).MutationObserver;
+  const mo = new Observer((muts) => {
     if (busy) return;
     busy = true;
     try {
@@ -469,16 +496,17 @@ if (LANG !== 'en') {
       }
     } finally { busy = false; }
   });
-  i18nNode(document.body);
-  mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  i18nNode(root);
+  mo.observe(root, { childList: true, subtree: true, characterData: true });
 }
+i18nWatch(document.body);
 
 /** Configuration > Language... */
 function openLanguageDialog() {
   if (modalCount > 0) return;
   const box = document.createElement('div');
   box.className = 'dlg';
-  box.innerHTML = `<div class="dlg-title">${esc(LANG === 'ru' ? 'Язык' : LANG === 'uk' ? 'Мова' : LANG === 'be' ? 'Мова' : LANG === 'pl' ? 'Język' : LANG === 'pt' || LANG === 'es' ? 'Idioma' : LANG === 'de' ? 'Sprache' : 'Language')}</div>` +
+  box.innerHTML = `<div class="dlg-title">${esc(LANG === 'ru' ? 'Язык' : LANG === 'uk' ? 'Мова' : LANG === 'be' ? 'Мова' : LANG === 'pl' ? 'Język' : LANG === 'pt' || LANG === 'es' ? 'Idioma' : LANG === 'de' ? 'Sprache' : LANG === 'it' ? 'Lingua' : 'Language')}</div>` +
     '<div class="dlg-body"><div class="lang-list">' + LANGS.map(([c, n]) => `<label class="lang-it"><input type="radio" name="lang" value="${c}"${c === LANG ? ' checked' : ''}> ${esc(n)}</label>`).join('') + '</div></div>' +
     '<div class="dlg-btns"><button class="primary lang-ok">OK</button><button class="lang-cancel">Cancel</button></div>';
   let close;

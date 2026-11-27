@@ -33,6 +33,7 @@ function dlgPopup(box) {
   }
   const node = doc.adoptNode(box);
   doc.body.appendChild(node);
+  if (typeof i18nWatch === 'function') { i18nWatch(doc.body); doc.title = tr(title); }
   modalCount++;
 
   const entry = { win: pw };

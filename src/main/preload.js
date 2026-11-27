@@ -112,6 +112,8 @@ contextBridge.exposeInMainWorld('api', {
   open: inv('shell:open'),
   run: inv('shell:run'),
   reveal: inv('shell:reveal'),
+  expandPath: inv('path:expand'),
+  themeSet: inv('theme:set'),
   shellMenu: inv('shell:menu'),
   quit: inv('app:quit'),
   nasConnect: inv('nas:connect'),

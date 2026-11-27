@@ -11,3 +11,6 @@ oauth-defaults.json
 dist-release/
 *.nupkg
 PROJECT_NOTES.md
+# private server settings and notes
+tools/release.local.json
+CLAUDE.local.md

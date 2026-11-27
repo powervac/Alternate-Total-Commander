@@ -1,0 +1,8 @@
+{
+  "host": "user@server.example",
+  "port": "22",
+  "key": "~/.ssh/deploy_key",
+  "dir": "/var/www/site",
+  "legacyHost": "",
+  "legacyKey": ""
+}

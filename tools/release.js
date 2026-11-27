@@ -17,12 +17,13 @@
 // Everything is uploaded straight to the web root of https://altcom.cc (the only download site, a small VPS) over ssh: .part files first, a checksum
 // check on the server, then the rename; latest.json goes last.
 //
-// The same latest.json is also put on the old site (RELEASE_LEGACY_HOST [oleg@gieldowa.keenetic.link], RELEASE_LEGACY_KEY; RELEASE_NO_LEGACY=1 skips it):
-// the oldest versions of the program ask only that address; its links already point to altcom.cc, so they download the update from the new domain.
+// The same latest.json can also be put on an old site (legacyHost / legacyKey; RELEASE_NO_LEGACY=1 skips it): the oldest versions of the program
+// ask only that address; its links already point to altcom.cc, so they download the update from the new domain.
 //
 // Needs: git with push rights, the GitHub CLI `gh` (signed in), OpenSSH (ssh / scp) and the deploy key of the server.
-// Settings (environment variables, defaults in brackets): RELEASE_HOST [oleg@31.3.218.19], RELEASE_PORT [2022], RELEASE_KEY [~/.ssh/id_nem68 or
-// H:/boosty/web/.deploy/id_nem68], RELEASE_DIR on the server [/var/www/certbot-webroot/total-mirror], RELEASE_URL [https://altcom.cc].
+// The server settings are not kept in the repository. Put them in tools/release.local.json (ignored by git, see tools/release.local.example.json)
+// or give them as environment variables, which win over the file: RELEASE_HOST, RELEASE_PORT, RELEASE_KEY, RELEASE_DIR (the web root on the
+// server), RELEASE_URL [https://altcom.cc], RELEASE_LEGACY_HOST, RELEASE_LEGACY_KEY.
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -31,12 +32,18 @@ const crypto = require('crypto');
 const readline = require('readline');
 
 const ROOT = path.resolve(__dirname, '..');
-const HOST = process.env.RELEASE_HOST || 'oleg@31.3.218.19'; // the server of altcom.cc
-const PORT = process.env.RELEASE_PORT || '2022';
-// the copy of the key in ~/.ssh when there is one (Windows OpenSSH refuses a key file that other users may read), else the deploy folder
-const KEY = process.env.RELEASE_KEY || (fs.existsSync(path.join(os.homedir(), '.ssh', 'id_nem68')) ? path.join(os.homedir(), '.ssh', 'id_nem68') : 'H:/boosty/web/.deploy/id_nem68');
-const SITE = process.env.RELEASE_DIR || '/var/www/certbot-webroot/total-mirror'; // the web root of altcom.cc
-const URL_BASE = (process.env.RELEASE_URL || 'https://altcom.cc').replace(/\/+$/, '');
+const LOCAL_FILE = path.join(__dirname, 'release.local.json');
+let local = {};
+if (fs.existsSync(LOCAL_FILE)) {
+  try { local = JSON.parse(fs.readFileSync(LOCAL_FILE, 'utf8')); } catch (e) { console.error(`[release] Cannot read ${LOCAL_FILE}: ${e.message}`); process.exit(1); }
+}
+const setting = (env, name) => String(process.env[env] || local[name] || '');
+const home = (p) => p.replace(/^~(?=[\/])/, () => os.homedir());
+const HOST = setting('RELEASE_HOST', 'host');
+const PORT = setting('RELEASE_PORT', 'port');
+const KEY = home(setting('RELEASE_KEY', 'key'));
+const SITE = setting('RELEASE_DIR', 'dir');
+const URL_BASE = (setting('RELEASE_URL', 'url') || 'https://altcom.cc').replace(/\/+$/, '');
 const OUT = path.join(ROOT, 'dist-release');
 const WIN = process.platform === 'win32';
 
@@ -63,6 +70,8 @@ const ask = (q) => new Promise((res) => { if (flags.has('--yes')) return res(tru
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 (async () => {
+  const missing = Object.entries({ host: HOST, port: PORT, key: KEY, dir: SITE }).filter(([, v]) => !v).map(([k]) => k);
+  if (missing.length) die(`Server settings are missing: ${missing.join(', ')}. Copy tools/release.local.example.json to tools/release.local.json and fill it in, or set RELEASE_HOST / RELEASE_PORT / RELEASE_KEY / RELEASE_DIR.`);
   // ------------------------------------------------------------ arguments
   const pkgFile = path.join(ROOT, 'package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
@@ -258,13 +267,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // the old address: programs of older versions ask only the old site for latest.json; it gets the same file (its links point to altcom.cc),
     // so that they update from the new address. Best effort: a failure here is only a warning.
     if (!process.env.RELEASE_NO_LEGACY) {
-      const LH = process.env.RELEASE_LEGACY_HOST || 'oleg@gieldowa.keenetic.link';
-      const LK = process.env.RELEASE_LEGACY_KEY || 'H:/boosty/web/.deploy/id_gieldowa';
-      if (fs.existsSync(LK)) {
+      const LH = setting('RELEASE_LEGACY_HOST', 'legacyHost');
+      const LK = home(setting('RELEASE_LEGACY_KEY', 'legacyKey'));
+      if (LH && LK && fs.existsSync(LK)) {
         const o = ['-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15'];
         const c1 = run('scp', ['-i', LK, '-P', PORT, ...o, tmp, `${LH}:total-site/latest.json.part`], { soft: true, capture: true, always: false });
         const c2 = c1.code === 0 ? run('ssh', ['-i', LK, '-p', PORT, ...o, LH, 'cd total-site && mv -f latest.json.part latest.json'], { soft: true, capture: true, always: false }) : c1;
-        if (!DRY) log(c2.code === 0 ? 'The old address also has the new latest.json.' : 'Warning: the old address (total.gieldowa.keenetic.link) could not be updated: programs of the oldest versions will not see this release.');
+        if (!DRY) log(c2.code === 0 ? 'The old address also has the new latest.json.' : 'Warning: the old address could not be updated: programs of the oldest versions will not see this release.');
       }
     }
     fs.rmSync(tmp, { force: true });

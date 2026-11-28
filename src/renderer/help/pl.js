@@ -106,7 +106,7 @@ HELP_TEXT.pl = {
 <p>Drugi panel pokazuje podgląd pliku pod kursorem i podąża za kursorem. Ponowne <kbd>Ctrl+Q</kbd> przywraca listę plików.</p>
 <p>Inne sposoby otwarcia pliku: <kbd>Enter</kbd> uruchamia go w programie przypisanym w systemie; Pliki > <b>Otwórz w domyślnej aplikacji</b> robi to samo dla dowolnego pliku.</p>
 <h3>Obrazy HEIC</h3>
-<p>Zdjęcia HEIC / HEIF pokazuje przeglądarka, szybki podgląd i widok miniatur. <b>Pliki > Konwertuj HEIC / JPG...</b> zamienia wybrane HEIC na JPG, a JPG i PNG na HEIC; można wybrać jakość. Oryginały zostają, istniejące pliki nie są nadpisywane.</p>
+<p>Zdjęcia HEIC / HEIF pokazuje przeglądarka, szybki podgląd i widok miniatur. <b>Pliki > Konwertuj HEIC / JPG...</b> zamienia wybrane HEIC na JPG, a JPG i PNG na HEIC; można wybrać jakość. Oryginały zostają, istniejące pliki nie są nadpisywane. Działa to także ze zdjęciami na serwerze (panel serwera lub lista znalezionych na nim plików): wyniki można zapisać na tym komputerze lub na serwerze. Zdjęcia są wtedy pobierane, konwertowane na tym komputerze i wysyłane.</p>
 <p>Enter i dwukrotne kliknięcie pokazują obrazy (także HEIC), wideo, PDF, tekst i dokumenty biurowe we wbudowanej przeglądarce. Program systemowy otwiera pozycja menu plików „Open With Default Application”; można to wyłączyć w ustawieniach.</p>`,
     },
     {

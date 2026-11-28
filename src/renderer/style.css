@@ -676,3 +676,4 @@ body.dlg-window .dlg.help-win { width: 960px; height: 640px; }
 .s-srv-state { font-size: 12px; margin-bottom: 5px; overflow-wrap: anywhere; }
 .s-srv .s-line input { flex: 1; min-width: 0; }
 .search .s-fs.off { opacity: .5; }
+.s-tabs button.filters::after { content: ' \2022'; color: #d9480f; }

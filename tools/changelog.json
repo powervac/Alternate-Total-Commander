@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.945",
+    "date": "2026-11-28",
+    "items": [
+      "HEIC / JPG conversion works with pictures on servers",
+      "Fixed: a search could come back empty because of a hidden filter from an earlier search - a new search window starts without the Advanced filters and says which are on"
+    ]
+  },
+  {
     "version": "0.1.944",
     "date": "2026-11-28",
     "items": [

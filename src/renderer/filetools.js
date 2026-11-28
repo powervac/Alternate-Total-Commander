@@ -404,27 +404,126 @@ async function openWinscpImport(iniPath) {
 }
 
 // ------------------------------------------------------------ pictures: HEIC -> JPG and JPG / PNG -> HEIC
+// The pictures may lie on this computer or on a server (a server panel, or a list of files found on a server), and the results may go
+// to either. For a server the pictures are downloaded to a temporary folder, converted there and the results are uploaded.
+const HEIC_PICTURES = /\.(heic|heif|jpe?g|png)$/i;
+const heicOutName = (name) => name.replace(/\.[^.]+$/, '') + (/\.(heic|heif)$/i.test(name) ? '.jpg' : '.heic');
+
 async function ftConvertHeic() {
+  if (modalCount > 0) return;
   const src = A(), dst = O();
-  if (needLocal('Convert pictures', src)) return;
-  const files = src.targets().filter((i) => !i.isDir && /\.(heic|heif|jpe?g|png)$/i.test(i.name));
+  if (src.arc) return msg('Convert pictures', 'Copy the pictures out of the archive first.');
+  const files = src.targets().filter((i) => !i.isDir && !i.arc && HEIC_PICTURES.test(i.name));
   if (!files.length) return msg('Convert pictures', 'Select (or put the cursor on) HEIC, JPG or PNG files.');
-  const heics = files.filter((i) => /\.(heic|heif)$/i.test(i.name)).length;
-  const kinds = [heics ? `HEIC \u2192 JPG: ${heics}` : '', files.length > heics ? `JPG / PNG \u2192 HEIC: ${files.length - heics}` : ''].filter(Boolean).join(',   ');
-  const target = dst && !dst.arc && !dst.rem && !dst.list ? dst.dir : src.dir;
+  // where each picture is: { conn (null = this computer), dir, name, size, mtime }
+  const pictures = files.map((i) => {
+    const of = { size: i.size, mtime: i.mtime };
+    if (src.rem) return { conn: src.rem, dir: src.rem.path, name: i.name, ...of };
+    if (i.srv) { const at = i.srv.path.lastIndexOf('/'); return { conn: i.srv.conn, dir: i.srv.path.slice(0, at) || '/', name: i.srv.path.slice(at + 1), ...of }; }
+    const full = src.list ? i.name : P.join(src.dir, i.name);
+    return { conn: null, dir: P.dirname(full), name: P.basename(full), ...of };
+  });
+  const heics = pictures.filter((x) => /\.(heic|heif)$/i.test(x.name)).length;
+  const kinds = [heics ? `HEIC \u2192 JPG: ${heics}` : '', pictures.length > heics ? `JPG / PNG \u2192 HEIC: ${pictures.length - heics}` : ''].filter(Boolean).join(',   ');
+  // the places the results can go to; the first one is offered
+  const places = [];
+  const otherLocal = dst && !dst.arc && !dst.rem && !dst.list ? dst.dir : '';
+  if (otherLocal) places.push({ conn: null, dir: otherLocal });
+  if (dst && dst.rem) places.push({ conn: dst.rem, dir: dst.rem.path });
+  const onServer = pictures.find((x) => x.conn);
+  if (onServer) places.push({ conn: onServer.conn, dir: '', same: true }); // each result next to its original
+  else if (!otherLocal) places.push({ conn: null, dir: pictures[0].dir });
+  const placeName = (p) => (p.same ? 'Next to the originals on the server' : p.conn ? `Server ${p.conn.name}` : 'This computer');
+  const choose = places.length > 1 || !!places[0].conn;
   const box = await ftForm('Convert pictures',
     `<div>${esc(kinds)}</div>` +
-    `<label>Target folder:</label><input class="hc-dir" spellcheck="false" value="${esc(target)}">` +
+    (choose ? '<label>Save to:</label><select class="hc-where">' + places.map((p, i) => `<option value="${i}">${esc(placeName(p))}</option>`).join('') + '</select>' : '') +
+    '<label>Target folder:</label><input class="hc-dir" spellcheck="false">' +
     `<label>Quality (1-100):</label><input class="hc-q" type="number" min="1" max="100" value="${esc(String(store.get('heicQuality', 90)))}">` +
-    '<div class="s-hint">The originals stay. Existing files are not overwritten.</div>', 'Convert');
+    '<div class="s-hint">The originals stay. Existing files are not overwritten. Pictures on a server are downloaded, converted on this computer and the results are uploaded.</div>', 'Convert',
+    (b) => {
+      const where = b.querySelector('.hc-where'), dir = b.querySelector('.hc-dir');
+      const show = () => { const p = places[where ? +where.value : 0]; dir.value = p.same ? '(the folder of each picture)' : p.dir; dir.disabled = !!p.same; };
+      if (where) where.onchange = show;
+      show();
+    });
   if (!box) return;
-  const destDir = box.querySelector('.hc-dir').value.trim();
+  const where = box.querySelector('.hc-where');
+  const place = places[where ? +where.value : 0];
+  const typed = box.querySelector('.hc-dir').value.trim();
   const quality = Math.min(100, Math.max(1, Math.round(+box.querySelector('.hc-q').value) || 90));
-  if (!destDir) return;
+  if (!place.same && !typed) return;
   store.set('heicQuality', quality);
-  const paths = files.map((i) => P.join(src.dir, i.name));
-  const res = await withProgress('Converting', (id) => api.heicConvert({ id, files: paths, destDir, quality }));
+  // pictures of one folder (of this computer or of one server) with one place for the results go together
+  const groups = new Map();
+  for (const x of pictures) {
+    const to = place.same ? { conn: x.conn, dir: x.dir } : { conn: place.conn, dir: typed };
+    const key = JSON.stringify([x.conn ? x.conn.id : '', x.dir, to.conn ? to.conn.id : '', to.dir]);
+    if (!groups.has(key)) groups.set(key, { conn: x.conn, dir: x.dir, to, items: [] });
+    groups.get(key).items.push(x);
+  }
+  const res = await runJob('Converting', async (id) => {
+    const errors = [];
+    let cancelled = false;
+    for (const g of groups.values()) {
+      const r = await ftConvertGroup(id, g, quality);
+      errors.push(...r.errors);
+      if (r.cancelled) { cancelled = true; break; }
+    }
+    return { errors, cancelled, skipped: 0 };
+  });
   await Promise.all(panels.map((p) => p.refresh()));
   if (res && res.errors && res.errors.length) await showErrors(res.errors);
+}
+
+/** one folder of pictures -> one folder of results; the temporary copies are always removed */
+async function ftConvertGroup(id, g, quality) {
+  const errors = [];
+  const done = (cancelled = false) => ({ errors, cancelled });
+  let items = g.items;
+  if (g.to.conn) {
+    // what is on the server already is left out before anything is downloaded
+    const list = await api.nasList({ id: g.to.conn.id, path: g.to.dir });
+    if (list.error) { errors.push(`${g.to.conn.name}:${g.to.dir}: ${list.error}`); return done(); }
+    const have = new Set(list.items.map((i) => i.name.toLowerCase()));
+    items = items.filter((x) => {
+      if (!have.has(heicOutName(x.name).toLowerCase())) return true;
+      errors.push(`${x.name}: ${heicOutName(x.name)} exists already in the target folder (it was not overwritten)`);
+      return false;
+    });
+  }
+  if (!items.length) return done();
+  const temps = [];
+  const temp = async () => { const d = await api.mkTemp(); temps.push(d); return d; };
+  try {
+    let sources;
+    if (g.conn) {
+      const from = await temp();
+      const d = await api.nasDownload({ id: g.conn.id, jobId: id, base: g.dir, destDir: from, overwrite: 'all', items: items.map((x) => ({ name: x.name, isDir: false, size: x.size, mtime: x.mtime })) });
+      if (d.error) { errors.push(d.error); return done(); }
+      errors.push(...(d.errors || []));
+      if (d.cancelled) return done(true);
+      sources = [];
+      for (const x of items) if ((await api.stat(P.join(from, x.name))).exists) sources.push(P.join(from, x.name));
+    } else sources = items.map((x) => P.join(x.dir, x.name));
+    if (!sources.length) return done();
+    const destDir = g.to.conn ? await temp() : g.to.dir;
+    const c = await api.heicConvert({ id, files: sources, destDir, quality });
+    errors.push(...((c && c.errors) || []));
+    if (c && c.cancelled) return done(true);
+    if (g.to.conn) {
+      const made = [];
+      for (const x of items) { const f = P.join(destDir, heicOutName(x.name)); if ((await api.stat(f)).exists) made.push(f); }
+      if (made.length) {
+        const u = await api.nasUpload({ id: g.to.conn.id, jobId: id, sources: made, destPath: g.to.dir, overwrite: 'skip' });
+        if (u.error) errors.push(u.error);
+        errors.push(...(u.errors || []));
+        if (u.cancelled) return done(true);
+      }
+    }
+    return done();
+  } finally {
+    if (temps.length) await api.del({ sources: temps, permanent: true });
+  }
 }
 

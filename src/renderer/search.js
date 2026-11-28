@@ -12,6 +12,15 @@ const SEARCH_DEFAULTS = {
   dupName: false, dupSize: false, dupContent: false,
 };
 
+// The filters of the Advanced tab are not seen on the first tab: a new search window always starts without them (a size filter left
+// over from an earlier search once made every search come back empty). Saved searches (Load/Save) do keep them.
+const SEARCH_NO_FILTERS = { useDate: false, useNotOlder: false, useOlder: false, useSize: false, attrRo: null, attrHidden: null, attrDir: null, dupName: false, dupSize: false, dupContent: false };
+
+/** the names of the Advanced filters that are on in the form */
+function activeFilters(s) {
+  return [s.useDate && 'date', (s.useNotOlder || s.useOlder) && 'age', s.useSize && 'file size', (s.attrRo !== null || s.attrHidden !== null || s.attrDir !== null) && 'attributes', (s.dupName || s.dupSize || s.dupContent) && 'duplicates'].filter(Boolean);
+}
+
 function openSearch() {
   if (modalCount > 0) return;
   const panel = A();
@@ -122,6 +131,13 @@ function openSearch() {
     q('.s-d-name').checked = s.dupName; q('.s-d-size').checked = s.dupSize; q('.s-d-cont').checked = s.dupContent;
     syncEnabled();
   }
+  /** a dot on the Advanced tab while one of its filters is on */
+  function markFilters() {
+    const tab = q('.s-tabs button[data-t="a"]');
+    if (tab) tab.classList.toggle('filters', activeFilters(readForm()).length > 0);
+  }
+  /** said under the results: why a search may find less than expected */
+  const filterNote = (s) => { const f = activeFilters(s); return f.length ? `  -  filters on (Advanced tab): ${f.join(', ')}` : ''; };
   /** grey out what the checked boxes do not use */
   function syncEnabled() {
     const t = q('.s-usetext').checked;
@@ -132,6 +148,7 @@ function openSearch() {
     q('.s-on').disabled = q('.s-ou').disabled = !q('.s-useold').checked;
     q('.s-sop').disabled = q('.s-sv').disabled = q('.s-su').disabled = !q('.s-usesize').checked;
     q('.s-dir').disabled = q('.s-cur').disabled = q('.s-selonly').checked;
+    markFilters();
     if (srv) {
       for (const c of NOT_ON_SERVER) {
         const el = q(c);
@@ -144,9 +161,10 @@ function openSearch() {
       q('.s-dir').disabled = q('.s-cur').disabled = false;
     }
   }
-  writeForm({ ...saved, dirs: '' }); // "Search in" always starts at the current folder of the active panel
+  writeForm({ ...saved, ...SEARCH_NO_FILTERS, dirs: '' }); // "Search in" always starts at the current folder of the active panel
   if (srv) { q('.s-fs').classList.add('off'); q('.s-cur').textContent = 'Panel'; q('.s-cur').title = 'The folder of the server panel'; }
   box.addEventListener('change', syncEnabled);
+  box.addEventListener('click', () => markFilters()); // the three-state attribute boxes send no change event
 
   // ---------------- tabs
   const showTab = (t) => { qa('.s-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t)); qa('.s-pane').forEach((p) => (p.hidden = p.dataset.p !== t)); };
@@ -302,7 +320,7 @@ function openSearch() {
     if (r.error) { $status.textContent = 'Error: ' + r.error; return; }
     append(r.items.map(onServer));
     const shown = r.total > r.items.length ? `, the first ${fmtNum(r.items.length)} are shown` : '';
-    $status.textContent = `Done: ${fmtNum(r.total)} found${r.groups ? ` in ${r.groups} group(s) of duplicates` : ''}${shown} in ${((Date.now() - began) / 1000).toFixed(2)} s (from the database)`;
+    $status.textContent = `Done: ${fmtNum(r.total)} found${r.groups ? ` in ${r.groups} group(s) of duplicates` : ''}${shown} in ${((Date.now() - began) / 1000).toFixed(2)} s (from the database)` + filterNote(s);
     if (results.length) $list.focus();
   }
 
@@ -343,7 +361,7 @@ function openSearch() {
     $start.textContent = 'Start search';
     $status.textContent = res.error
       ? 'Error: ' + res.error
-      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.filter((r) => !r.isDir).length} files and ${results.filter((r) => r.isDir).length} directories found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(res.fromIndex ? 2 : 1)} s${res.fromIndex ? ' (from the index)' : ''}` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '');
+      : `${res.cancelled ? 'Stopped' : 'Done'}: ${results.filter((r) => !r.isDir).length} files and ${results.filter((r) => r.isDir).length} directories found${res.groups ? ` in ${res.groups} group(s) of duplicates` : ''} in ${(res.ms / 1000).toFixed(res.fromIndex ? 2 : 1)} s${res.fromIndex ? ' (from the index)' : ''}` + (res.stats ? ' (' + res.stats.files + ' files in ' + res.stats.dirs + ' folders checked' + (res.stats.binary ? ', ' + res.stats.binary + ' binary skipped' : '') + ')' : '') + filterNote(s);
     if (results.length && !res.cancelled) $list.focus();
   }
 

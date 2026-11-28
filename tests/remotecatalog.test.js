@@ -56,13 +56,13 @@ test('saved, loaded, searched and deleted', async (t) => {
   const info = await cat.save(dir, 'nas-1', await cat.crawl(server(), '/'), 'My NAS');
   assert.ok(info.count > 5 && info.root === '/' && info.built > 0);
   const data = await cat.load(dir, 'nas-1');
-  const names = (q) => cat.search(data, q).items.map((x) => x.dir + ' ' + x.name).sort();
+  const names = (q) => cat.search(data, { masks: q.mask, roots: q.under ? [q.under] : undefined }).items.map((x) => x.dir + ' ' + x.name).sort();
   assert.deepStrictEqual(names({ mask: 'summer' }), ['/photo Summer.HEIC', '/photo summer.jpg']);
   assert.deepStrictEqual(names({ mask: '*.jpg' }), ['/photo summer.jpg', '/photo/2025 winter.jpg']);
   assert.deepStrictEqual(names({ mask: '*.jpg', under: '/photo/2025' }), ['/photo/2025 winter.jpg']);
   assert.deepStrictEqual(names({ mask: '*.jpg | 2025/' }), ['/photo summer.jpg']);
   assert.deepStrictEqual(names({ mask: 'отч' }), ['/docs отчёт.docx']);
-  const limited = cat.search(data, { mask: '', limit: 2 });
+  const limited = cat.search(data, { masks: '' }, { limit: 2 });
   assert.ok(limited.items.length === 2 && limited.total === data.entries.length);
   // another connection has its own file; a damaged one counts as none
   assert.strictEqual(await cat.load(dir, 'nas-2'), null);
@@ -70,4 +70,41 @@ test('saved, loaded, searched and deleted', async (t) => {
   assert.strictEqual(await cat.load(dir, 'nas-2'), null);
   await cat.remove(dir, 'nas-1');
   assert.strictEqual(await cat.load(dir, 'nas-1'), null);
+});
+
+test('a name with an extension is a whole file name, a word means "contains"', () => {
+  const { parseMasks } = require('../src/main/searchengine');
+  const ok = (mask, name) => parseMasks(mask).inc.some((r) => r.test(name));
+  assert.ok(ok('103.jpg', '103.JPG'));
+  assert.ok(!ok('103.jpg', 'DSC06103.JPG'));
+  assert.ok(!ok('103.jpg', '103.jpg.bak'));
+  assert.ok(ok('*103.jpg', 'DSC06103.JPG'));
+  assert.ok(ok('103', 'DSC06103.JPG'));
+  assert.ok(ok('0.1.943', 'Setup 0.1.943.exe'));
+  assert.ok(ok('Dr. Smith', 'letter to Dr. Smith.txt'));
+});
+
+test('the filters of Find Files work on the database', () => {
+  const day = 864e5;
+  const now = Date.now();
+  const data = {
+    root: '/', dirs: ['/', '/photo', '/photo/2025', '/node_modules'],
+    entries: [
+      [0, 'photo', -1, now, 1], [1, '2025', -1, now, 1], [0, '.hidden.txt', 5, now, 0],
+      [1, '103.jpg', 100, now - 400 * day, 0], [1, 'DSC06103.JPG', 5000000, now, 0],
+      [2, '103.jpg', 100, now, 0], [3, 'x.js', 1, now, 0],
+    ],
+  };
+  const got = (p) => cat.search(data, p).items.map((x) => x.dir + ' ' + x.name).sort();
+  assert.deepStrictEqual(got({ masks: '103.jpg' }), ['/photo 103.jpg', '/photo/2025 103.jpg']);
+  assert.deepStrictEqual(got({ masks: '*103.jpg', size: { op: '>', value: 1, unit: 'mb' } }), ['/photo DSC06103.JPG']);
+  assert.deepStrictEqual(got({ masks: '*.jpg', notOlder: { n: 1, unit: 'year' } }), ['/photo DSC06103.JPG', '/photo/2025 103.jpg']);
+  assert.deepStrictEqual(got({ masks: '*.jpg', older: { n: 1, unit: 'year' } }), ['/photo 103.jpg']);
+  assert.deepStrictEqual(got({ masks: '*.jpg', dateFrom: now - day, dateTo: now + day, roots: ['/photo/2025/'] }), ['/photo/2025 103.jpg']);
+  assert.deepStrictEqual(got({ masks: '*', roots: ['/photo'], depth: 0 }), ['/photo 103.jpg', '/photo 2025', '/photo DSC06103.JPG']);
+  assert.deepStrictEqual(got({ masks: '*|node_modules/', attrs: { dir: false } }).filter((x) => x.includes('x.js')), []);
+  assert.deepStrictEqual(got({ attrs: { dir: true } }), ['/ photo', '/photo 2025']);
+  assert.deepStrictEqual(got({ attrs: { hidden: true } }), ['/ .hidden.txt']);
+  const dup = cat.search(data, { dups: { name: true, size: true } });
+  assert.deepStrictEqual([dup.groups, dup.total, dup.items.map((x) => x.group)], [1, 2, [1, 1]]);
 });

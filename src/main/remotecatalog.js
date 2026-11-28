@@ -7,7 +7,7 @@ const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const { promisify } = require('util');
-const { parseMasks } = require('./searchengine');
+const { makeFilters } = require('./searchengine');
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -112,22 +112,55 @@ async function remove(folder, key) {
   await fs.promises.rm(file, { force: true });
 }
 
-/** names like in Find Files: "*.jpg;*.heic", a word without wildcards = the name contains it, "| *.tmp" excludes. under = only below this folder */
-function search(data, { mask, under = '', limit = 2000 } = {}) {
-  const m = parseMasks(mask);
-  const below = under && under !== '/' ? under.replace(/\/+$/, '') : '';
-  const dirOk = data.dirs.map((d) => !below || d === below || d.startsWith(below + '/'));
-  if (m.exDir.length) for (let i = 0; i < data.dirs.length; i++) if (dirOk[i] && data.dirs[i].slice(data.root.length).split('/').some((part) => part && m.exDir.some((r) => r.test(part)))) dirOk[i] = false;
-  const items = [];
+const clean = (dir) => (dir && dir !== '/' ? dir.replace(/\/+$/, '') : '/');
+
+/**
+ * Searches the database with the parameters of Find Files (searchengine.js): masks, regexName, roots (folders of the server),
+ * depth (-1 = all), dateFrom / dateTo / notOlder / older, size, attrs.dir / attrs.hidden, dups.name / dups.size.
+ * Text inside files and the read-only attribute are not in the database.
+ */
+function search(data, p = {}, { limit = 100000 } = {}) {
+  const f = makeFilters(p);
+  const attrs = p.attrs || {};
+  const depth = p.depth === undefined || p.depth === null ? -1 : p.depth;
+  const roots = (p.roots && p.roots.length ? p.roots : ['/']).map(clean);
+  // every folder of the database once: is it inside a search folder (and not too deep, not excluded)?
+  const dirOk = data.dirs.map((d) => roots.some((r) => {
+    if (d !== r && !d.startsWith(r === '/' ? '/' : r + '/')) return false;
+    const parts = d.slice(r === '/' ? 0 : r.length).split('/').filter(Boolean);
+    return (depth < 0 || parts.length <= depth) && !parts.some((x) => f.dirExcluded(x));
+  }));
+  const dups = p.dups && (p.dups.name || p.dups.size) ? p.dups : null;
+  let found = [];
   let total = 0;
-  for (const [di, name, size, mtime, isDir] of data.entries) {
+  for (const [di, name, size, mtime, isDirFlag] of data.entries) {
     if (!dirOk[di]) continue;
-    if (m.inc.length && !m.inc.some((r) => r.test(name))) continue;
-    if (m.exFile.some((r) => r.test(name))) continue;
+    const isDir = !!isDirFlag;
+    if (isDir) { if (f.hasSize || dups || attrs.dir === false || f.dirExcluded(name)) continue; }
+    else if (attrs.dir === true) continue;
+    if (attrs.hidden !== undefined && attrs.hidden !== null && attrs.hidden !== name.startsWith('.')) continue;
+    if (!f.nameOk(name) || !f.dateOk(mtime) || (!isDir && !f.sizeOk(size))) continue;
     total++;
-    if (items.length < limit) items.push({ dir: data.dirs[di], name, size, mtime, isDir: !!isDir });
+    if (dups || found.length < limit) found.push({ dir: data.dirs[di], name, size, mtime, isDir });
   }
-  return { items, total };
+  let groups = 0;
+  if (dups) {
+    const byKey = new Map();
+    for (const it of found) {
+      const k = (dups.name ? it.name.toLowerCase() : '') + '|' + (dups.size ? it.size : '');
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(it);
+    }
+    found = [];
+    total = 0;
+    for (const g of byKey.values()) {
+      if (g.length < 2) continue;
+      groups++;
+      total += g.length;
+      for (const it of g) if (found.length < limit) { it.group = groups; found.push(it); }
+    }
+  }
+  return { items: found, total, groups };
 }
 
 module.exports = { crawl, save, load, remove, search, summary, fileOf };

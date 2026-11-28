@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.1.944",
+    "date": "2026-11-28",
+    "items": [
+      "Servers are searched in the Find Files window with all name, date and size filters",
+      "A name with an extension such as 103.jpg now finds only exactly that name (use *103.jpg for names ending so)"
+    ]
+  },
+  {
     "version": "0.1.943",
     "date": "2026-11-27",
     "items": [

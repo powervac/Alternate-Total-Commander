@@ -26,6 +26,7 @@ const store = {
 
 let FIND_CTX = { dir: '', dirs: [], selected: [], panelIdx: 0, indexUsable: false };
 const modalCount = 0;
+window.FIND_BUSY = false; // a scan of a server is running: the window must not be rebuilt
 const needLocal = () => false;
 const indexUsable = () => !!FIND_CTX.indexUsable;
 /** the search dialog fills the whole window */

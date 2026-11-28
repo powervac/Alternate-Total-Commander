@@ -672,17 +672,7 @@ body.dlg-window .dlg.help-win { width: 960px; height: 640px; }
 .panel.thumbview .thumbzoom { display: block; }
 .panel.qv .thumbzoom { display: none; }
 /* the file database of a server */
-.dlg.cat { width: 760px; max-width: 96vw; }
-.cat .cat-name { font-weight: 600; }
-.cat .cat-state { margin: 4px 0 8px; min-height: 30px; font-size: 12px; overflow-wrap: anywhere; }
-.cat .cat-line { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.cat .cat-line label { flex: none; width: 108px; }
-.cat .cat-line input { flex: 1; min-width: 0; height: 24px; font: inherit; border: 1px solid #7a7a7a; padding: 0 4px; }
-.cat .cat-list { height: 260px; overflow: auto; border: 1px solid #7a7a7a; background: #fff; }
-.cat .cat-row { display: flex; gap: 8px; padding: 1px 6px; cursor: default; white-space: nowrap; }
-.cat .cat-row.on { background: #cde4fb; }
-.cat .cat-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.cat .cat-size { flex: none; width: 96px; text-align: right; }
-.cat .cat-date { flex: none; width: 116px; }
-.cat .cat-count { font-size: 12px; margin-top: 4px; }
-
+.s-srv { border: 1px solid #b5b5b5; padding: 5px 8px; margin-bottom: 8px; }
+.s-srv-state { font-size: 12px; margin-bottom: 5px; overflow-wrap: anywhere; }
+.s-srv .s-line input { flex: 1; min-width: 0; }
+.search .s-fs.off { opacity: .5; }

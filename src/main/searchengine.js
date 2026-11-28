@@ -1,6 +1,7 @@
 'use strict';
 // Find Files engine (Alt+F7). Pure Node, no OS tools, same behaviour on Windows and macOS.
-//   names     : several masks (a;b), exclusion after "|" (name or "dir/"), regular expression, "contains" without wildcards
+//   names     : several masks (a;b), exclusion after "|" (name or "dir/"), regular expression; without wildcards a word means
+//               "contains", a name with an extension means exactly this name
 //   scope     : several folders, only the selected items, depth limit, zip archives (names inside)
 //   content   : plain / whole word / case / regular expression / hex, ANSI / DOS / UTF-8 / UTF-16, "not containing",
 //               text inside docx / xlsx / pptx / odf; the first hit gives the line number and a snippet
@@ -22,13 +23,16 @@ const ZIP_MAX = 64 * 1024 * 1024; // largest zip entry read for a text search
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ------------------------------------------------------------------ names
+const FULL_NAME = /\.(?=[^.\s]{0,9}[a-z])[^.\s]{1,10}$/i;
 function maskToRegex(mask) {
   let m = mask.trim();
   if (!m) return null;
   if (m === '*.*') m = '*'; // like Total Commander: all files, also those without an extension
   const wild = /[*?]/.test(m);
   const body = escRe(m).replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
-  return new RegExp(wild ? '^' + body + '$' : body, 'i'); // no wildcard = "name contains"
+  // without wildcards: a name with an extension ("103.jpg") is a whole file name; a word ("report") means "name contains"
+  const whole = wild || FULL_NAME.test(m);
+  return new RegExp(whole ? '^' + body + '$' : body, 'i');
 }
 /** "*.js;*.ts|node_modules/;*.min.js" -> { inc: [re], exFile: [re], exDir: [re] } */
 function parseMasks(masks, asRegex) {
@@ -258,6 +262,25 @@ function hashFile(file, ctx) {
   });
 }
 
+// ------------------------------------------------------------------ filters (also used for the database of a server)
+/** name, size and date conditions of the search parameters */
+function makeFilters(p, now = Date.now()) {
+  const names = parseMasks(p.masks, p.regexName);
+  const lo = [p.dateFrom, p.notOlder ? now - p.notOlder.n * UNIT_MS[p.notOlder.unit] : null].filter((x) => x != null);
+  const hi = [p.dateTo, p.older ? now - p.older.n * UNIT_MS[p.older.unit] : null].filter((x) => x != null);
+  const minM = lo.length ? Math.max(...lo) : null;
+  const maxM = hi.length ? Math.min(...hi) : null;
+  const sz = p.size && Number.isFinite(+p.size.value) ? { op: p.size.op, v: +p.size.value * (SIZE_UNIT[p.size.unit] || 1) } : null;
+  return {
+    names,
+    hasSize: !!sz,
+    nameOk: (n) => (!names.inc.length || names.inc.some((r) => r.test(n))) && !names.exFile.some((r) => r.test(n)),
+    dirExcluded: (n) => names.exDir.some((r) => r.test(n)),
+    sizeOk: (n) => !sz || (sz.op === '=' ? n === sz.v : sz.op === '>' ? n > sz.v : sz.op === '<' ? n < sz.v : sz.op === '>=' ? n >= sz.v : n <= sz.v),
+    dateOk: (m) => (minM == null || m >= minM) && (maxM == null || m <= maxM),
+  };
+}
+
 // ------------------------------------------------------------------ main
 /**
  * p: { roots[], selected[]|null, masks, regexName, depth(-1 = unlimited), archives, text, t:{whole,caseSens,regex,hex,not,utf8,ansi,dos,utf16,office},
@@ -268,9 +291,7 @@ async function run(p, hooks) {
   const started = Date.now();
   const stats = { dirs: 0, files: 0, binary: 0 };
   const ctx = { cancelled: hooks.cancelled, stats };
-  const names = parseMasks(p.masks, p.regexName);
-  const nameOk = (n) => (!names.inc.length || names.inc.some((r) => r.test(n))) && !names.exFile.some((r) => r.test(n));
-  const dirExcluded = (n) => names.exDir.some((r) => r.test(n));
+  const { hasSize, nameOk, dirExcluded, sizeOk, dateOk } = makeFilters(p);
   const text = p.text || '';
   const t = p.t || {};
   const dups = p.dups && (p.dups.name || p.dups.size || p.dups.content) ? p.dups : null;
@@ -282,15 +303,7 @@ async function run(p, hooks) {
       hexNeedle = Buffer.from(hx, 'hex');
     } else matcher = lineMatcher(text, t);
   }
-  const now = Date.now();
-  const lo = [p.dateFrom, p.notOlder ? now - p.notOlder.n * UNIT_MS[p.notOlder.unit] : null].filter((x) => x != null);
-  const hi = [p.dateTo, p.older ? now - p.older.n * UNIT_MS[p.older.unit] : null].filter((x) => x != null);
-  const minM = lo.length ? Math.max(...lo) : null;
-  const maxM = hi.length ? Math.min(...hi) : null;
-  const sz = p.size && Number.isFinite(+p.size.value) ? { op: p.size.op, v: +p.size.value * (SIZE_UNIT[p.size.unit] || 1) } : null;
   const attrs = p.attrs || {};
-  const sizeOk = (n) => !sz || (sz.op === '=' ? n === sz.v : sz.op === '>' ? n > sz.v : sz.op === '<' ? n < sz.v : sz.op === '>=' ? n >= sz.v : n <= sz.v);
-  const dateOk = (m) => (minM == null || m >= minM) && (maxM == null || m <= maxM);
   const attrOk = (name, st, isDir) => {
     const ro = !(st.mode & 0o200), hidden = name.startsWith('.');
     return (attrs.ro == null || attrs.ro === ro) && (attrs.hidden == null || attrs.hidden === hidden) && (attrs.dir == null || attrs.dir === isDir);
@@ -347,7 +360,7 @@ async function run(p, hooks) {
           if (de.isSymbolicLink()) { const t2 = await fsp.stat(full); isDir = t2.isDirectory(); isFile = t2.isFile(); } // link or junction: what does it point to?
           if (isDir) {
             if (dirExcluded(de.name)) continue;
-            if (!needContent && !dups && !(sz) && nameOk(de.name)) {
+            if (!needContent && !dups && !hasSize && nameOk(de.name)) {
               const st = await fsp.stat(full);
               if (dateOk(st.mtimeMs) && attrOk(de.name, st, true) && (attrs.dir !== false)) push({ dir, name: de.name, isDir: true, size: -1, mtime: st.mtimeMs });
             }
@@ -423,4 +436,4 @@ async function run(p, hooks) {
   return { count, groups, stats, cancelled: ctx.cancelled(), ms: Date.now() - started };
 }
 
-module.exports = { run, parseMasks, lineMatcher, searchString };
+module.exports = { run, parseMasks, makeFilters, lineMatcher, searchString };

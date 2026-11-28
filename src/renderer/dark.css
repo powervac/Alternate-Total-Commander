@@ -324,9 +324,7 @@ body.dlg-window .ab-dev, .dlg.about .ab-dev { color: #b8b8b8; }
 #splitter:hover, #splitter.drag { background: #404f60; }
 #panels.one .panel .otherpanel { border: 1px solid #595959; background: #1c1c1c; }
 .panel .foot { background: var(--face); }
-.cat .cat-line input { border: 1px solid #7a7a7a; }
-.cat .cat-list { border: 1px solid #7a7a7a; background: #1c1c1c; }
-.cat .cat-row.on { background: #214466; }
 #toolbar svg, .toolbar svg { filter: brightness(1.55) saturate(.9); }
 .list img.ic, .th-img img { filter: none; }
+.s-srv { border-color: #555; }
 }

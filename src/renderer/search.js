@@ -1,6 +1,7 @@
 'use strict';
 // Alt+F7 "Find Files": tabs General / Advanced / Load-Save, results list with sorting, the first matching line of a text hit,
-// duplicate groups. The engine is main/searchengine.js. Uses helpers from app.js (A, P, esc, fmtNum, fmtDate, store, openModal, modalCount, needLocal).
+// duplicate groups. The engine is main/searchengine.js. For a server (FIND_CTX.server) the same window searches the database of the
+// server's files (main/remotecatalog.js) and has the buttons that build it. Uses helpers from app.js (A, P, esc, fmtNum, fmtDate, store, openModal, modalCount, needLocal).
 
 const SEARCH_DEFAULTS = {
   masks: '*', regexName: false, dirs: '', depth: -1, archives: false, selectedOnly: false,
@@ -14,10 +15,11 @@ const SEARCH_DEFAULTS = {
 function openSearch() {
   if (modalCount > 0) return;
   const panel = A();
-  if (needLocal('Find Files', panel)) return;
+  const srv = window.FIND_WINDOW && FIND_CTX.server ? FIND_CTX.server : null; // { id, name, type }
+  if (!srv && needLocal('Find Files', panel)) return;
   const saved = { ...SEARCH_DEFAULTS, ...(store.get('search2', {}) || {}) };
   const history = (store.get('searchHistory', []) || []).slice(0, 30);
-  const hasSel = panel.sel && panel.sel.size > 0 && !panel.arc && !panel.rem;
+  const hasSel = !srv && panel.sel && panel.sel.size > 0 && !panel.arc && !panel.rem;
 
   const box = document.createElement('div');
   box.className = 'dlg search';
@@ -28,8 +30,11 @@ function openSearch() {
     '<div class="s-tabs"><button data-t="g" class="on">General</button><button data-t="a">Advanced</button><button data-t="l">Load/Save</button></div>' +
     // ---------------- General
     '<div class="s-pane" data-p="g">' +
+    (srv
+      ? '<div class="s-srv"><div class="s-srv-state">&nbsp;</div><div class="s-line"><span>Folder to scan:</span><input class="s-srv-root" spellcheck="false"><button class="s-srv-build" type="button">Scan now</button><button class="s-srv-stop" type="button" disabled>Stop</button><button class="s-srv-del" type="button" disabled>Delete the database</button></div></div>'
+      : '') +
     '<div class="s-grid">' +
-    '<label>Search for:</label><span class="s-line"><input class="s-mask" list="s-hist" spellcheck="false" placeholder="*.txt;*.md   exclude: *.txt|*.bak|node_modules/   (no wildcard = name contains)"><label class="s-chk"><input type="checkbox" class="s-rxn"> RegEx</label></span>' +
+    '<label>Search for:</label><span class="s-line"><input class="s-mask" list="s-hist" spellcheck="false" placeholder="*.txt;*.md   exclude: *.txt|*.bak|node_modules/   (word = name contains, name.ext = exact name)"><label class="s-chk"><input type="checkbox" class="s-rxn"> RegEx</label></span>' +
     '<label>Search in:</label><span class="s-line"><input class="s-dir" spellcheck="false" placeholder="folders separated by ;"><button class="s-cur" type="button" title="Folders of both panels">Panels</button></span>' +
     '<span></span><span class="s-line"><label class="s-chk"><input type="checkbox" class="s-selonly"> Only in selected items</label><label class="s-chk"><input type="checkbox" class="s-arc"> Search in zip archives (names and text)</label><label class="s-chk">Depth <select class="s-depth"></select></label></span>' +
     '</div>' +
@@ -68,7 +73,7 @@ function openSearch() {
   $depth.innerHTML = '<option value="-1">all (unlimited)</option><option value="0">current dir only</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}">${n} level${n > 1 ? 's' : ''}</option>`).join('');
   q('.s-selonly').disabled = !hasSel;
   // the file index (Configuration > File index...): names, sizes and dates answered without reading the disks
-  const idxOn = typeof indexUsable === 'function' && indexUsable();
+  const idxOn = !srv && typeof indexUsable === 'function' && indexUsable();
   if (idxOn) {
     const row = document.createElement('label');
     row.className = 's-chk s-idxrow';
@@ -85,9 +90,13 @@ function openSearch() {
   const paintTri = () => { for (const k of Object.keys(tri)) { triBox[k].indeterminate = tri[k] == null; triBox[k].checked = tri[k] === true; } };
   for (const k of Object.keys(tri)) triBox[k].addEventListener('click', (e) => { e.preventDefault(); tri[k] = tri[k] == null ? true : tri[k] === true ? false : null; paintTri(); });
 
+  // what the database of a server does not have: text inside files, zip contents, the read-only attribute
+  const NOT_ON_SERVER = ['.s-usetext', '.s-arc', '.s-selonly', '.s-a-ro', '.s-d-cont'];
+  let kept = {}; // the saved values of those fields: a search on a server must not change them
+
   /** form <-> settings object */
   function readForm() {
-    return {
+    const form = {
       masks: $mask.value, regexName: q('.s-rxn').checked, dirs: $dir.value, depth: +$depth.value, archives: q('.s-arc').checked, selectedOnly: q('.s-selonly').checked && hasSel,
       useText: q('.s-usetext').checked, text: $text.value, whole: q('.s-whole').checked, caseSens: q('.s-case').checked, regex: q('.s-rx').checked, hex: q('.s-hex').checked, not: q('.s-not').checked,
       utf8: q('.s-e-u8').checked, ansi: q('.s-e-ansi').checked, dos: q('.s-e-dos').checked, utf16: q('.s-e-u16').checked, office: q('.s-office').checked, skipBinary: q('.s-skipbin').checked,
@@ -98,9 +107,11 @@ function openSearch() {
       attrRo: tri.ro, attrHidden: tri.hid, attrDir: tri.dir,
       dupName: q('.s-d-name').checked, dupSize: q('.s-d-size').checked, dupContent: q('.s-d-cont').checked,
     };
+    return srv ? { ...form, ...kept } : form;
   }
   function writeForm(s) {
-    $mask.value = s.masks; q('.s-rxn').checked = s.regexName; $dir.value = s.dirs || panel.realDir(); $depth.value = String(s.depth); q('.s-arc').checked = s.archives; q('.s-selonly').checked = s.selectedOnly && hasSel;
+    if (srv) kept = { useText: s.useText, archives: s.archives, selectedOnly: s.selectedOnly, attrRo: s.attrRo, dupContent: s.dupContent };
+    $mask.value = s.masks; q('.s-rxn').checked = s.regexName; $dir.value = s.dirs || (srv ? FIND_CTX.dir || '/' : panel.realDir()); $depth.value = String(s.depth); q('.s-arc').checked = s.archives; q('.s-selonly').checked = s.selectedOnly && hasSel;
     q('.s-usetext').checked = s.useText; $text.value = s.text; q('.s-whole').checked = s.whole; q('.s-case').checked = s.caseSens; q('.s-rx').checked = s.regex; q('.s-hex').checked = s.hex; q('.s-not').checked = s.not;
     q('.s-e-u8').checked = s.utf8; q('.s-e-ansi').checked = s.ansi; q('.s-e-dos').checked = s.dos; q('.s-e-u16').checked = s.utf16; q('.s-office').checked = s.office; q('.s-skipbin').checked = s.skipBinary;
     q('.s-usedate').checked = s.useDate; q('.s-df').value = s.dateFrom; q('.s-dt').value = s.dateTo;
@@ -121,8 +132,20 @@ function openSearch() {
     q('.s-on').disabled = q('.s-ou').disabled = !q('.s-useold').checked;
     q('.s-sop').disabled = q('.s-sv').disabled = q('.s-su').disabled = !q('.s-usesize').checked;
     q('.s-dir').disabled = q('.s-cur').disabled = q('.s-selonly').checked;
+    if (srv) {
+      for (const c of NOT_ON_SERVER) {
+        const el = q(c);
+        el.disabled = true;
+        el.checked = false;
+        el.indeterminate = false;
+        el.closest('label').title = 'Not available for a server: its database has names, sizes and dates only.';
+      }
+      for (const c of ['.s-text', '.s-whole', '.s-case', '.s-rx', '.s-hex', '.s-not', '.s-e-ansi', '.s-e-dos', '.s-e-u16', '.s-e-u8', '.s-office', '.s-skipbin']) q(c).disabled = true;
+      q('.s-dir').disabled = q('.s-cur').disabled = false;
+    }
   }
   writeForm({ ...saved, dirs: '' }); // "Search in" always starts at the current folder of the active panel
+  if (srv) { q('.s-fs').classList.add('off'); q('.s-cur').textContent = 'Panel'; q('.s-cur').title = 'The folder of the server panel'; }
   box.addEventListener('change', syncEnabled);
 
   // ---------------- tabs
@@ -177,7 +200,7 @@ function openSearch() {
   /** form -> engine parameters (throws a readable message on bad input) */
   function buildParams(s) {
     const t = { whole: s.whole, caseSens: s.caseSens, regex: s.regex, hex: s.hex, not: s.not, utf8: s.utf8, ansi: s.ansi, dos: s.dos, utf16: s.utf16, office: s.office, skipBinary: s.skipBinary };
-    if (s.useText && !s.hex && !(s.utf8 || s.ansi || s.dos || s.utf16 || s.office)) throw new Error('Choose at least one text encoding.');
+    if (!srv && s.useText && !s.hex && !(s.utf8 || s.ansi || s.dos || s.utf16 || s.office)) throw new Error('Choose at least one text encoding.');
     const day = (v, end) => (v ? new Date(v + (end ? 'T23:59:59.999' : 'T00:00:00')).getTime() : null);
     const p = {
       masks: s.masks || '*', regexName: s.regexName, depth: s.depth, archives: s.archives,
@@ -190,13 +213,102 @@ function openSearch() {
       dups: s.dupName || s.dupSize || s.dupContent ? { name: s.dupName, size: s.dupSize, content: s.dupContent } : null,
     };
     p.useIndex = !!(box.querySelector('.s-useidx') && box.querySelector('.s-useidx').checked);
-    if (s.selectedOnly) p.selected = panel.targets().map((i) => P.join(panel.dir, i.name));
+    if (srv) {
+      p.text = '';
+      p.archives = false;
+      p.attrs = { ro: null, hidden: s.attrHidden, dir: s.attrDir };
+      p.dups = s.dupName || s.dupSize ? { name: s.dupName, size: s.dupSize, content: false } : null;
+    }
+    if (s.selectedOnly && !srv) p.selected = panel.targets().map((i) => P.join(panel.dir, i.name));
     else p.roots = s.dirs.split(';').map((x) => x.trim()).filter(Boolean);
     return p;
   }
 
+  // ---------------- the database of a server
+  let dbInfo = null;
+  let building = null; // the id of the running scan
+  let offScan = null;
+  function paintDb() {
+    if (!srv) return;
+    q('.s-srv-build').disabled = !!building;
+    q('.s-srv-stop').disabled = !building;
+    q('.s-srv-del').disabled = !!building || !dbInfo;
+    q('.s-srv-build').textContent = dbInfo ? 'Update' : 'Scan now';
+    $start.disabled = !dbInfo;
+    if (building) return;
+    q('.s-srv-state').textContent = dbInfo
+      ? `In the database: ${fmtNum(dbInfo.count)} files and folders from ${dbInfo.root}, ${fmtDate(dbInfo.built)}${dbInfo.partial ? ' (not complete)' : ''}${dbInfo.failed ? `, folders that could not be read: ${dbInfo.failed}` : ''}`
+      : 'There is no database of this server yet: press Scan now. A big server takes a while; it is needed only once.';
+  }
+  const stopScan = () => { if (building) api.cancelOp(building); };
+  async function buildDb() {
+    if (building) return;
+    building = 'cat-' + Date.now();
+    paintDb();
+    q('.s-srv-state').textContent = 'Scanning ...';
+    const r = await api.catalogBuild({ jobId: building, id: srv.id, key: srv.id, name: srv.name, root: q('.s-srv-root').value.trim() || '/' });
+    building = null;
+    window.FIND_BUSY = false;
+    if (r.info !== undefined) dbInfo = r.info;
+    paintDb();
+    if (r.error) q('.s-srv-state').textContent = r.error;
+    else if (r.cancelled) q('.s-srv-state').textContent = 'Stopped. ' + (dbInfo ? 'The database was not changed.' : '');
+  }
+  async function setUpServer() {
+    offScan = api.onCatalogProgress((p) => { if (p.key === srv.id && building) q('.s-srv-state').textContent = `Scanning: ${fmtNum(p.files)} files and folders   ${p.current}`; });
+    window.addEventListener('beforeunload', stopScan); // the window is closed with its cross: the scan ends too
+    q('.s-srv-build').onclick = () => { window.FIND_BUSY = true; buildDb(); };
+    q('.s-srv-stop').onclick = stopScan;
+    q('.s-srv-del').onclick = async () => {
+      await api.catalogDelete({ key: srv.id });
+      dbInfo = null;
+      q('.s-new').click();
+      paintDb();
+    };
+    $start.disabled = true;
+    const r = await api.catalogInfo({ key: srv.id });
+    dbInfo = r && r.info ? r.info : null;
+    q('.s-srv-root').value = dbInfo ? dbInfo.root : FIND_CTX.dir || '/';
+    paintDb();
+  }
+  /** a found file of the server, in the form the panels and the viewer understand */
+  const onServer = (x) => {
+    const full = (x.dir === '/' ? '' : x.dir.replace(/\/+$/, '')) + '/' + x.name;
+    return { ...x, label: `${srv.name}:${full}`, srv: { conn: srv, path: full } };
+  };
+  async function searchDb(s) {
+    if (!dbInfo) return;
+    let params;
+    try { params = buildParams(s); } catch (e) { $status.textContent = e.message; return; }
+    if (!params.roots.length) params.roots = ['/'];
+    const inside = (a, b) => b === '/' || a === b || a.startsWith(b + '/');
+    const norm = (d) => d.replace(/\/+$/, '') || '/';
+    if (!params.roots.some((r) => inside(norm(r), dbInfo.root) || inside(dbInfo.root, norm(r)))) {
+      $status.textContent = `This folder is not in the database: it was scanned from ${dbInfo.root}.`;
+      return;
+    }
+    store.set('search2', s);
+    if (s.masks && s.masks !== '*') store.set('searchHistory', [s.masks, ...history.filter((x) => x !== s.masks)].slice(0, 30));
+    dupMode = !!params.dups;
+    sortKey = null;
+    qa('.s-head > div').forEach((h) => h.classList.remove('sorted'));
+    results = [];
+    cursor = -1;
+    $list.innerHTML = '';
+    $match.textContent = '';
+    $status.textContent = 'Searching ...';
+    const began = Date.now();
+    const r = await api.catalogSearch({ key: srv.id, params });
+    if (r.error) { $status.textContent = 'Error: ' + r.error; return; }
+    append(r.items.map(onServer));
+    const shown = r.total > r.items.length ? `, the first ${fmtNum(r.items.length)} are shown` : '';
+    $status.textContent = `Done: ${fmtNum(r.total)} found${r.groups ? ` in ${r.groups} group(s) of duplicates` : ''}${shown} in ${((Date.now() - began) / 1000).toFixed(2)} s (from the database)`;
+    if (results.length) $list.focus();
+  }
+
   async function start() {
     if (runningId) return stop();
+    if (srv) return searchDb(readForm());
     const s = readForm();
     let params;
     try { params = buildParams(s); } catch (e) { $status.textContent = e.message; return; }
@@ -238,7 +350,9 @@ function openSearch() {
   function saveState() { store.set('search2', readForm()); }
   function close() {
     stop();
+    stopScan();
     if (off) off();
+    if (offScan) offScan();
     saveState();
     closeModal();
   }
@@ -292,6 +406,7 @@ function openSearch() {
   tplRender();
 
   q('.s-cur').onclick = () => {
+    if (srv) { $dir.value = FIND_CTX.dir || '/'; return; }
     const dirs = [...new Set(panels.map((p) => (p.arc || p.rem ? null : p.realDir())).filter(Boolean))];
     if (dirs.length) $dir.value = dirs.join(';');
   };
@@ -331,7 +446,7 @@ function openSearch() {
     // all results go into the panel as one list (files inside zip archives too: they are opened through a temporary copy); the dialog closes
     const list = results.slice();
     if (!list.length) { $status.textContent = 'There is nothing to put into the list: start a search first.'; return; }
-    if (window.FIND_WINDOW) { api.findAction({ type: 'feed', list, panelIdx: FIND_CTX.panelIdx || 0 }); close(); return; }
+    if (window.FIND_WINDOW) { api.findAction({ type: 'feed', list, label: srv ? `Found on ${srv.name}` : '', panelIdx: FIND_CTX.panelIdx || 0 }); close(); return; }
     close();
     panel.loadList(list, 'Search result');
   };
@@ -361,6 +476,7 @@ function openSearch() {
   });
 
   closeModal = openModal(box);
+  if (srv) setUpServer();
   showTab('g');
   $mask.focus();
   $mask.select();

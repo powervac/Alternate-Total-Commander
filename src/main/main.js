@@ -1632,10 +1632,10 @@ ipcMain.handle('nas:upload', nasWrap(async (e, { id, jobId, sources, destPath, o
 const remoteCatalog = require('./remotecatalog');
 const catalogDir = () => path.join(app.getPath('userData'), 'server-catalogs');
 ipcMain.handle('catalog:info', nasWrap(async (_e, { key }) => ({ info: remoteCatalog.summary(await remoteCatalog.load(catalogDir(), key)) })));
-ipcMain.handle('catalog:search', nasWrap(async (_e, { key, mask, under }) => {
+ipcMain.handle('catalog:search', nasWrap(async (_e, { key, params }) => {
   const data = await remoteCatalog.load(catalogDir(), key);
   if (!data) throw new Error('There is no database of this server yet.');
-  return remoteCatalog.search(data, { mask, under });
+  return remoteCatalog.search(data, params);
 }));
 ipcMain.handle('catalog:delete', nasWrap(async (_e, { key }) => { await remoteCatalog.remove(catalogDir(), key); return { ok: true }; }));
 ipcMain.handle('catalog:build', nasWrap(async (e, { jobId, id, key, name, root }) => {
